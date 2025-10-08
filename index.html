@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OnTime Dental | Modern Dental Care</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              ink: '#050316',
+              midnight: '#0B1221',
+              neon: '#22d3ee',
+              blossom: '#f472b6',
+            },
+            fontFamily: {
+              display: ['Poppins', 'ui-sans-serif', 'system-ui'],
+              body: ['Inter', 'ui-sans-serif', 'system-ui'],
+            },
+          },
+        },
+      };
+    </script>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-ink text-slate-100 font-body min-h-full">
+    <div class="relative overflow-hidden">
+      <div class="pointer-events-none absolute inset-0 -z-10">
+        <div class="absolute -top-24 -left-32 h-72 w-72 rounded-full bg-neon/20 blur-3xl"></div>
+        <div class="absolute top-1/2 right-0 h-96 w-96 -translate-y-1/2 rounded-full bg-blossom/10 blur-3xl"></div>
+      </div>
+
+      <header class="sticky top-0 z-20 bg-ink/90 backdrop-blur border-b border-white/5">
+        <div class="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-4">
+          <div class="flex items-center gap-3">
+            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-neon to-blossom text-ink font-display text-lg font-bold">
+              OD
+            </div>
+            <div>
+              <p class="font-display text-xl font-semibold tracking-wide">
+                OnTime Dental
+              </p>
+              <p class="text-xs text-slate-400">
+                Advanced dentistry crafted for busy lives
+              </p>
+            </div>
+          </div>
+          <nav class="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
+            <a class="transition hover:text-white" href="#services">Services</a>
+            <a class="transition hover:text-white" href="#technology">Technology</a>
+            <a class="transition hover:text-white" href="#testimonials">Stories</a>
+            <a class="transition hover:text-white" href="#membership">Membership</a>
+            <a class="transition hover:text-white" href="#contact">Contact</a>
+          </nav>
+          <div class="hidden items-center gap-3 md:flex">
+            <a
+              class="rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/30 hover:text-white"
+              href="#services"
+              >Explore care</a
+            >
+            <a
+              class="rounded-full bg-gradient-to-r from-neon via-cyan-400 to-blossom px-5 py-2 text-sm font-semibold text-ink shadow-lg shadow-neon/20 transition hover:shadow-xl hover:shadow-blossom/20"
+              href="#contact"
+              >Book now</a
+            >
+          </div>
+          <button
+            class="inline-flex items-center justify-center rounded-full border border-white/10 p-2 text-slate-200 transition hover:border-white/40 hover:text-white md:hidden"
+            type="button"
+            id="mobile-menu-button"
+            aria-label="Open navigation"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3.75 5.25h16.5M3.75 12h16.5M3.75 18.75h16.5"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          class="hidden border-t border-white/5 bg-ink/95 md:hidden"
+          id="mobile-menu"
+        >
+          <nav class="space-y-1 px-6 py-4 text-sm text-slate-300">
+            <a class="block rounded-lg px-3 py-2 hover:bg-white/5" href="#services"
+              >Services</a
+            >
+            <a class="block rounded-lg px-3 py-2 hover:bg-white/5" href="#technology"
+              >Technology</a
+            >
+            <a class="block rounded-lg px-3 py-2 hover:bg-white/5" href="#testimonials"
+              >Stories</a
+            >
+            <a class="block rounded-lg px-3 py-2 hover:bg-white/5" href="#membership"
+              >Membership</a
+            >
+            <a class="block rounded-lg px-3 py-2 hover:bg-white/5" href="#contact"
+              >Contact</a
+            >
+          </nav>
+          <div class="space-y-2 px-6 pb-6">
+            <a
+              class="flex items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/30 hover:text-white"
+              href="#services"
+              >Explore care</a
+            >
+            <a
+              class="flex items-center justify-center rounded-full bg-gradient-to-r from-neon via-cyan-400 to-blossom px-5 py-2 text-sm font-semibold text-ink shadow-lg shadow-neon/20 transition hover:shadow-xl hover:shadow-blossom/20"
+              href="#contact"
+              >Book now</a
+            >
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="relative">
+          <div class="mx-auto flex max-w-6xl flex-col gap-14 px-6 pb-24 pt-28 md:flex-row md:items-center">
+            <div class="md:w-1/2">
+              <span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-neon">
+                Modern Dentistry
+              </span>
+              <h1 class="mt-6 font-display text-4xl font-bold leading-tight text-white md:text-5xl">
+                Precision dental care designed around your schedule.
+              </h1>
+              <p class="mt-5 text-lg text-slate-300">
+                OnTime Dental blends concierge-level service with advanced technology
+                so you can get back to what matters most. Same-day crowns, digital
+                smile design, and flexible membership options keep every visit effortless.
+              </p>
+              <div class="mt-8 flex flex-wrap items-center gap-4">
+                <a
+                  class="rounded-full bg-gradient-to-r from-neon via-cyan-400 to-blossom px-6 py-3 text-sm font-semibold uppercase tracking-wide text-ink shadow-lg shadow-neon/20 transition hover:shadow-xl hover:shadow-blossom/20"
+                  href="#contact"
+                  >Reserve Appointment</a
+                >
+                <a
+                  class="group inline-flex items-center gap-2 text-sm font-medium text-slate-200 transition hover:text-white"
+                  href="#technology"
+                >
+                  Explore technology
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4 transition group-hover:translate-x-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M13.5 4.5L21 12l-7.5 7.5M21 12H3"
+                    />
+                  </svg>
+                </a>
+              </div>
+              <dl class="mt-12 grid grid-cols-2 gap-6 text-sm text-slate-300 sm:grid-cols-3">
+                <div class="rounded-2xl border border-white/5 bg-white/5 px-4 py-5">
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Patient Rating</dt>
+                  <dd class="mt-2 text-3xl font-semibold text-white">4.9/5</dd>
+                </div>
+                <div class="rounded-2xl border border-white/5 bg-white/5 px-4 py-5">
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Same-day crowns</dt>
+                  <dd class="mt-2 text-3xl font-semibold text-white">96%</dd>
+                </div>
+                <div class="rounded-2xl border border-white/5 bg-white/5 px-4 py-5">
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Memberships</dt>
+                  <dd class="mt-2 text-3xl font-semibold text-white">1,200+</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="relative md:w-1/2">
+              <div class="absolute -inset-4 rounded-3xl bg-gradient-to-br from-neon/20 to-blossom/10 blur-3xl"></div>
+              <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-midnight/90 p-8 shadow-2xl shadow-black/50">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-neon">
+                      Smile preview
+                    </p>
+                    <h2 class="mt-3 font-display text-2xl font-semibold text-white">
+                      Digital smile design in real time.
+                    </h2>
+                  </div>
+                  <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-neon">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M12 6v6h4.5m3-3A7.5 7.5 0 1112 4.5a7.5 7.5 0 017.5 7.5z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <p class="mt-6 text-sm leading-relaxed text-slate-300">
+                  Experience your new smile before treatment begins with our guided AR consultations.
+                  Collaborate with our design team and preview tooth alignment, shade, and shape in seconds.
+                </p>
+                <ul class="mt-6 space-y-4 text-sm text-slate-200">
+                  <li class="flex items-start gap-3">
+                    <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-neon/20 text-neon">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    Guided aligner planning with AI analysis.
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-blossom/20 text-blossom">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    3D-printed mockups ready within 48 hours.
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    Concierge follow-up from your smile concierge.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="services" class="border-t border-white/5 bg-midnight/60 py-24">
+          <div class="mx-auto max-w-6xl px-6">
+            <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-[0.3em] text-neon"
+                  >Services</span
+                >
+                <h2 class="mt-3 font-display text-3xl font-semibold text-white">
+                  Elevated care backed by technology.
+                </h2>
+              </div>
+              <p class="max-w-xl text-sm text-slate-300">
+                We pair minimally invasive dentistry with precise digital workflows.
+                Every appointment is optimized with AI diagnostics, in-office milling,
+                and sedation options tailored for comfort and calm.
+              </p>
+            </div>
+            <div class="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              <article class="group rounded-3xl border border-white/5 bg-white/5 p-8 transition hover:-translate-y-1 hover:border-neon/40 hover:bg-neon/10">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-neon/20 text-neon">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m3-3A7.5 7.5 0 1112 4.5a7.5 7.5 0 017.5 7.5z" />
+                  </svg>
+                </div>
+                <h3 class="mt-6 text-lg font-semibold text-white">Same-Day Restorations</h3>
+                <p class="mt-3 text-sm text-slate-300">
+                  Chairside scanners and milling deliver crowns and veneers in a single visit, crafted with micron precision.
+                </p>
+              </article>
+              <article class="group rounded-3xl border border-white/5 bg-white/5 p-8 transition hover:-translate-y-1 hover:border-blossom/40 hover:bg-blossom/10">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blossom/20 text-blossom">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m3-3A7.5 7.5 0 1112 4.5a7.5 7.5 0 017.5 7.5z" />
+                  </svg>
+                </div>
+                <h3 class="mt-6 text-lg font-semibold text-white">Anxiety-Free Visits</h3>
+                <p class="mt-3 text-sm text-slate-300">
+                  Calming suites, streaming entertainment, and personalized sedation protocols ensure every visit feels effortless.
+                </p>
+              </article>
+              <article class="group rounded-3xl border border-white/5 bg-white/5 p-8 transition hover:-translate-y-1 hover:border-white/40 hover:bg-white/10">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m3-3A7.5 7.5 0 1112 4.5a7.5 7.5 0 017.5 7.5z" />
+                  </svg>
+                </div>
+                <h3 class="mt-6 text-lg font-semibold text-white">Aligner Innovation</h3>
+                <p class="mt-3 text-sm text-slate-300">
+                  AI-guided aligner treatment tracks progress weekly, alerting our orthodontists the moment adjustments are needed.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="technology" class="py-24">
+          <div class="mx-auto max-w-6xl px-6">
+            <div class="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+              <div class="space-y-6">
+                <span class="text-xs font-semibold uppercase tracking-[0.3em] text-neon"
+                  >Technology</span
+                >
+                <h2 class="font-display text-3xl font-semibold text-white">
+                  Clean, calm, and connected experiences.
+                </h2>
+                <p class="text-sm text-slate-300">
+                  Our studio-style operatories sync with the OnTime mobile app, giving you
+                  instant access to treatment plans, secure messaging, and real-time progress.
+                </p>
+                <ul class="space-y-4 text-sm text-slate-200">
+                  <li class="flex gap-4">
+                    <span class="mt-1 h-2 w-2 rounded-full bg-neon"></span>
+                    Touch-free check-in with Apple Wallet passes and AI insurance verification.
+                  </li>
+                  <li class="flex gap-4">
+                    <span class="mt-1 h-2 w-2 rounded-full bg-blossom"></span>
+                    Intraoral scanners that render in 4K detail for precise treatment planning.
+                  </li>
+                  <li class="flex gap-4">
+                    <span class="mt-1 h-2 w-2 rounded-full bg-white"></span>
+                    Smart recovery lounge with guided breathwork and hydration infusions.
+                  </li>
+                </ul>
+                <div class="flex flex-wrap gap-4">
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm text-slate-200">
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Wait time</p>
+                    <p class="mt-2 text-2xl font-semibold text-white">Under 5 min</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm text-slate-200">
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Remote check-ins</p>
+                    <p class="mt-2 text-2xl font-semibold text-white">24/7</p>
+                  </div>
+                </div>
+              </div>
+              <div class="relative">
+                <div class="absolute -inset-6 rounded-3xl bg-gradient-to-br from-neon/20 via-transparent to-blossom/20 blur-3xl"></div>
+                <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-midnight/90 shadow-2xl shadow-black/50">
+                  <img
+                    src="https://images.unsplash.com/photo-1588776814546-1ffcf47267d1?auto=format&fit=crop&w=1000&q=80"
+                    alt="Dental technology"
+                    class="h-full w-full object-cover opacity-80"
+                  />
+                  <div class="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent"></div>
+                  <div class="absolute bottom-0 p-8">
+                    <p class="text-xs font-semibold uppercase tracking-[0.4em] text-neon">
+                      Studio Tour
+                    </p>
+                    <p class="mt-3 text-lg font-semibold text-white">
+                      Designed for calm and clarity.
+                    </p>
+                    <p class="mt-2 text-sm text-slate-300">
+                      Calming light, aromatherapy, and acoustic design keep every moment effortless.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="membership" class="border-y border-white/5 bg-midnight/60 py-24">
+          <div class="mx-auto max-w-6xl px-6">
+            <div class="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-[0.3em] text-neon"
+                  >Membership</span
+                >
+                <h2 class="mt-3 font-display text-3xl font-semibold text-white">
+                  Flexible plans that keep care accessible.
+                </h2>
+                <p class="mt-4 text-sm text-slate-300">
+                  Choose the membership that meets your lifestyle with virtual consultations, 
+                  whitening refills, and priority scheduling for urgent needs.
+                </p>
+                <div class="mt-8 grid gap-6 sm:grid-cols-2">
+                  <div class="rounded-3xl border border-white/5 bg-white/5 p-6">
+                    <h3 class="text-lg font-semibold text-white">Essential</h3>
+                    <p class="mt-2 text-sm text-slate-300">Perfect for preventive care and routine cleanings.</p>
+                    <p class="mt-5 text-3xl font-semibold text-neon">$39<span class="text-base text-slate-300">/mo</span></p>
+                    <ul class="mt-5 space-y-3 text-sm text-slate-200">
+                      <li>2 wellness cleanings</li>
+                      <li>Emergency virtual consults</li>
+                      <li>10% off cosmetic care</li>
+                    </ul>
+                  </div>
+                  <div class="rounded-3xl border border-neon/40 bg-gradient-to-br from-neon/10 via-cyan-400/10 to-blossom/10 p-6 shadow-lg shadow-neon/10">
+                    <h3 class="text-lg font-semibold text-white">Signature</h3>
+                    <p class="mt-2 text-sm text-slate-200">Everything in Essential plus cosmetic enhancements.</p>
+                    <p class="mt-5 text-3xl font-semibold text-white">$79<span class="text-base text-slate-200">/mo</span></p>
+                    <ul class="mt-5 space-y-3 text-sm text-slate-100">
+                      <li>Unlimited whitening refills</li>
+                      <li>Priority evening appointments</li>
+                      <li>Clear aligner monitoring</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="rounded-3xl border border-white/10 bg-midnight/80 p-8 shadow-2xl shadow-black/40">
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-neon">
+                  Concierge Team
+                </p>
+                <h3 class="mt-4 text-2xl font-semibold text-white">
+                  We're here to coordinate every detail.
+                </h3>
+                <p class="mt-3 text-sm text-slate-300">
+                  Get reminders, track treatment progress, and manage payments in one intuitive dashboard. Our team syncs directly with your calendar for frictionless visits.
+                </p>
+                <div class="mt-6 space-y-4 text-sm text-slate-200">
+                  <p class="flex items-center gap-2">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-neon/20 text-neon">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    Text, email, or app updates tailored to your preferences.
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blossom/20 text-blossom">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    Direct line to our after-hours emergency team.
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    Insurance concierge to maximize your benefits.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="testimonials" class="py-24">
+          <div class="mx-auto max-w-6xl px-6">
+            <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-[0.3em] text-neon"
+                  >Stories</span
+                >
+                <h2 class="mt-3 font-display text-3xl font-semibold text-white">
+                  Patients who love their time with us.
+                </h2>
+              </div>
+              <p class="max-w-xl text-sm text-slate-300">
+                From founders to families, OnTime Dental is built for people who value their time.
+                Every smile story is a blend of precision, artistry, and genuine care.
+              </p>
+            </div>
+            <div class="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              <blockquote class="rounded-3xl border border-white/5 bg-white/5 p-8 text-sm text-slate-200">
+                <p>
+                  “I booked a same-day crown during lunch and still made it back to the office. The team handled everything from scans to shade matching with zero stress.”
+                </p>
+                <footer class="mt-6 flex items-center gap-3 text-xs text-slate-400">
+                  <span class="font-semibold text-white">Maya — Product Manager</span>
+                  <span>Signature Member</span>
+                </footer>
+              </blockquote>
+              <blockquote class="rounded-3xl border border-white/5 bg-white/5 p-8 text-sm text-slate-200">
+                <p>
+                  “Their aligner monitoring caught a shift early and adjusted my plan overnight. My smile has never looked this good and appointments are actually fun.”
+                </p>
+                <footer class="mt-6 flex items-center gap-3 text-xs text-slate-400">
+                  <span class="font-semibold text-white">Jordan — Creative Director</span>
+                  <span>Aligner Track</span>
+                </footer>
+              </blockquote>
+              <blockquote class="rounded-3xl border border-white/5 bg-white/5 p-8 text-sm text-slate-200">
+                <p>
+                  “The atmosphere feels like a wellness studio. Dim lighting, curated playlists, and the after-care lounge had me scheduling my next visit on the spot.”
+                </p>
+                <footer class="mt-6 flex items-center gap-3 text-xs text-slate-400">
+                  <span class="font-semibold text-white">Elena — Founder</span>
+                  <span>Whitening Studio</span>
+                </footer>
+              </blockquote>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" class="border-t border-white/5 bg-midnight/60 py-24">
+          <div class="mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-[0.3em] text-neon"
+                >Get in touch</span
+              >
+              <h2 class="mt-3 font-display text-3xl font-semibold text-white">
+                Appointments crafted around your agenda.
+              </h2>
+              <p class="mt-4 text-sm text-slate-300">
+                Send us your ideal time and we will coordinate the rest. Our concierge team responds within minutes during business hours.
+              </p>
+              <div class="mt-8 space-y-4 text-sm text-slate-200">
+                <p class="flex items-center gap-3">
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neon/20 text-neon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75l8.954 5.374a1.5 1.5 0 001.592 0l8.954-5.374M4.5 6.75h15a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-1.5 1.5h-15a1.5 1.5 0 01-1.5-1.5v-7.5a1.5 1.5 0 011.5-1.5z" />
+                    </svg>
+                  </span>
+                  hello@ontimedental.co
+                </p>
+                <p class="flex items-center gap-3">
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blossom/20 text-blossom">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 4.5l6.75 6.75-6.75 6.75" />
+                    </svg>
+                  </span>
+                  555.0123.456 — Call or text
+                </p>
+                <p class="flex items-center gap-3">
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c3.728 0 6.75 3.022 6.75 6.75 0 6.375-6.75 12.75-6.75 12.75S5.25 15.375 5.25 9c0-3.728 3.022-6.75 6.75-6.75z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" />
+                    </svg>
+                  </span>
+                  210 Market Street, Suite 04 — Austin, TX
+                </p>
+              </div>
+            </div>
+            <form class="space-y-6 rounded-3xl border border-white/10 bg-midnight/90 p-8 shadow-2xl shadow-black/40">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-400" for="name">Full name</label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="Jordan Martinez"
+                  class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/40"
+                  required
+                />
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-400" for="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="you@email.com"
+                  class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/40"
+                  required
+                />
+              </div>
+              <div class="grid gap-6 sm:grid-cols-2">
+                <div>
+                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-400" for="date">Preferred date</label>
+                  <input
+                    id="date"
+                    name="date"
+                    type="date"
+                    class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/40"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold uppercase tracking-wide text-slate-400" for="time">Preferred time</label>
+                  <input
+                    id="time"
+                    name="time"
+                    type="time"
+                    class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/40"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-400" for="message">Tell us more</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  rows="4"
+                  placeholder="Let us know what kind of visit you need."
+                  class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/40"
+                ></textarea>
+              </div>
+              <button
+                type="submit"
+                class="w-full rounded-full bg-gradient-to-r from-neon via-cyan-400 to-blossom px-6 py-3 text-sm font-semibold uppercase tracking-wide text-ink shadow-lg shadow-neon/20 transition hover:shadow-xl hover:shadow-blossom/20"
+              >
+                Send request
+              </button>
+              <p class="text-xs text-slate-500">
+                We respond in under 10 minutes during business hours. After-hours messages receive priority replies at 7:00 AM.
+              </p>
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <footer class="border-t border-white/5 bg-ink/90 py-12">
+        <div class="mx-auto flex max-w-6xl flex-col gap-8 px-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="font-display text-lg font-semibold text-white">OnTime Dental</p>
+            <p class="mt-2 text-sm text-slate-400">
+              Precision dentistry in a serene, tech-forward studio.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+            <a class="transition hover:text-white" href="#services">Services</a>
+            <a class="transition hover:text-white" href="#technology">Technology</a>
+            <a class="transition hover:text-white" href="#membership">Membership</a>
+            <a class="transition hover:text-white" href="#testimonials">Stories</a>
+            <a class="transition hover:text-white" href="#contact">Contact</a>
+          </div>
+          <p class="text-xs text-slate-500">© <span id="year"></span> OnTime Dental. Crafted with care.</p>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      const menuButton = document.getElementById('mobile-menu-button');
+      const menu = document.getElementById('mobile-menu');
+      menuButton?.addEventListener('click', () => {
+        menu?.classList.toggle('hidden');
+      });
+      const yearSpan = document.getElementById('year');
+      if (yearSpan) {
+        yearSpan.textContent = new Date().getFullYear();
+      }
+    </script>
+  </body>
+</html>
