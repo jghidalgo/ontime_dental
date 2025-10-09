@@ -1,7 +1,23 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+
+const navigationItems = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Patients', href: '/patients' },
+  { label: 'Laboratory', href: '/laboratory' },
+  { label: 'Documents', href: '/documents' },
+  { label: 'Contacts', href: '/contacts' },
+  { label: 'Schedules', href: '/schedules' },
+  { label: 'Insurances', href: '/insurances' },
+  { label: 'Complaints', href: '/complaints' },
+  { label: 'Licenses', href: '/licenses' },
+  { label: 'Medication', href: '/medication' },
+  { label: 'HR', href: '/hr' },
+  { label: 'Tickets', href: '/tickets' }
+];
 
 const metrics = [
   {
@@ -103,6 +119,7 @@ const announcements = [
 
 export default function DashboardPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
@@ -128,27 +145,100 @@ export default function DashboardPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Dashboard</p>
-            <h1 className="text-2xl font-semibold text-slate-50">Welcome back, {userName || 'team'}.</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
-              Generate Report
-            </button>
-            <button
-              onClick={handleLogout}
-              className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
+        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
+          <div>
+            <div className="flex items-center gap-3 text-slate-100">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
+                OD
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
+                <p className="text-base font-semibold text-slate-50">Dental OS</p>
+              </div>
+            </div>
 
-      <main className="relative mx-auto max-w-7xl px-6 py-12">
+            <nav className="mt-10 space-y-1">
+              {navigationItems.map((item) => {
+                const isActive = pathname === item.href;
+
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+                      isActive
+                        ? 'border-primary-400/60 bg-primary-500/15 text-white shadow-lg shadow-primary-900/30'
+                        : 'border-white/5 text-slate-300 hover:border-primary-400/40 hover:bg-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    <span className={`text-xs font-semibold uppercase tracking-[0.3em] ${isActive ? 'text-primary-200' : 'text-slate-500'}`}>
+                      {isActive ? '•' : '→'}
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-300 shadow-2xl shadow-slate-950/40">
+            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-primary-200/70">Support</p>
+            <p className="mt-3 text-base font-semibold text-slate-50">Need a quick overview?</p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              Download the daily executive summary to share performance highlights with your leadership team.
+            </p>
+            <button className="mt-4 w-full rounded-2xl border border-primary-400/30 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-50 transition hover:bg-primary-400/30">
+              Daily Briefing
+            </button>
+          </div>
+        </aside>
+
+        <div className="flex-1">
+          <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Dashboard</p>
+                  <h1 className="text-2xl font-semibold text-slate-50">Welcome back, {userName || 'team'}.</h1>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
+                  {navigationItems.map((item) => {
+                    const isActive = pathname === item.href;
+
+                    return (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-medium transition ${
+                          isActive
+                            ? 'border-primary-400/60 bg-primary-500/20 text-primary-100'
+                            : 'border-white/10 text-slate-300 hover:border-primary-400/30 hover:text-white'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 self-end lg:self-auto">
+                <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
+                  Generate Report
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -269,6 +359,8 @@ export default function DashboardPage() {
           </aside>
         </div>
       </main>
+      </div>
     </div>
-  );
-}
+  </div>
+    );
+  }
