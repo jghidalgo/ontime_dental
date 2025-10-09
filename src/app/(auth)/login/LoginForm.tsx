@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 type LoginResponse = {
   data?: {
@@ -18,6 +19,7 @@ type LoginResponse = {
 };
 
 export default function LoginForm() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -63,6 +65,11 @@ export default function LoginForm() {
         }
 
         setSuccess(`Welcome back, ${payload.data?.login.user.name ?? 'clinician'}!`);
+        
+        // Redirect to dashboard after successful login
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1000);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       }
