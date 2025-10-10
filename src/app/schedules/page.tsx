@@ -99,6 +99,7 @@ export default function SchedulesPage() {
   const [frontDeskSchedule, setFrontDeskSchedule] = useState<FrontDeskSchedule>(initialFrontDeskSchedule);
   const [doctorSchedule, setDoctorSchedule] = useState<DoctorSchedule>(initialDoctorSchedule);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
+  const [currentDragPayload, setCurrentDragPayload] = useState<DragPayload | null>(null);
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -124,14 +125,15 @@ export default function SchedulesPage() {
   const handleDragStart = (event: DragEvent<HTMLElement>, payload: DragPayload) => {
     event.dataTransfer.setData('application/json', JSON.stringify(payload));
     event.dataTransfer.effectAllowed = 'move';
+    setCurrentDragPayload(payload);
+  };
+
+  const handleDragEnd = () => {
+    setCurrentDragPayload(null);
   };
 
   const allowDropForType = (event: DragEvent<HTMLElement>, type: DragPayload['type']) => {
-    const data = event.dataTransfer.getData('application/json');
-    if (!data) return;
-
-    const payload = safeParsePayload(data);
-    if (!payload || payload.type !== type) return;
+    if (currentDragPayload?.type !== type) return;
 
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -158,6 +160,7 @@ export default function SchedulesPage() {
 
     event.preventDefault();
     setActiveDropZone(null);
+    setCurrentDragPayload(null);
 
     setFrontDeskSchedule((previous) => {
       const source = previous[payload.positionId]?.[payload.clinicId];
@@ -189,6 +192,7 @@ export default function SchedulesPage() {
 
     event.preventDefault();
     setActiveDropZone(null);
+    setCurrentDragPayload(null);
 
     setDoctorSchedule((previous) => {
       const source = previous[payload.dayId]?.[payload.clinicId];
@@ -213,14 +217,10 @@ export default function SchedulesPage() {
   };
 
   const handleDragEnter = (dropZoneId: string) => (event: DragEvent<HTMLDivElement>) => {
-    const data = event.dataTransfer.getData('application/json');
-    if (!data) return;
+    if (!currentDragPayload) return;
 
-    const payload = safeParsePayload(data);
-    if (!payload) return;
-
-    if (dropZoneId.startsWith('frontDesk') && payload.type !== 'frontDesk') return;
-    if (dropZoneId.startsWith('doctor') && payload.type !== 'doctor') return;
+    if (dropZoneId.startsWith('frontDesk') && currentDragPayload.type !== 'frontDesk') return;
+    if (dropZoneId.startsWith('doctor') && currentDragPayload.type !== 'doctor') return;
 
     event.preventDefault();
     setActiveDropZone(dropZoneId);
@@ -345,20 +345,21 @@ export default function SchedulesPage() {
                                     {employee ? employee.name : 'Unassigned'}
                                   </span>
                                 </div>
-                                {employee && (
-                                  <button
-                                    type="button"
-                                    draggable
-                                    onDragStart={(event) => handleDragStart(event, {
-                                      type: 'frontDesk',
-                                      positionId: position.id,
-                                      clinicId: clinic.id
-                                    })}
-                                    className="rounded-xl bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-500/40"
-                                  >
-                                    Drag
-                                  </button>
-                                )}
+                                  {employee && (
+                                    <button
+                                      type="button"
+                                      draggable
+                                      onDragStart={(event) => handleDragStart(event, {
+                                        type: 'frontDesk',
+                                        positionId: position.id,
+                                        clinicId: clinic.id
+                                      })}
+                                      onDragEnd={handleDragEnd}
+                                      className="rounded-xl bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-500/40"
+                                    >
+                                      Drag
+                                    </button>
+                                  )}
                               </div>
                             </td>
                           );
@@ -434,6 +435,7 @@ export default function SchedulesPage() {
                                         dayId: day.id,
                                         clinicId: clinic.id
                                       })}
+                                      onDragEnd={handleDragEnd}
                                       className="rounded-xl bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-100 ring-1 ring-emerald-500/40"
                                     >
                                       Drag
