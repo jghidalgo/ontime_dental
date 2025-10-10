@@ -163,18 +163,29 @@ export default function SchedulesPage() {
     setCurrentDragPayload(null);
 
     setFrontDeskSchedule((previous) => {
-      const source = previous[payload.positionId]?.[payload.clinicId];
-      const target = previous[positionId]?.[clinicId];
+      const source = previous[payload.positionId]?.[payload.clinicId] ?? null;
+      const target = previous[positionId]?.[clinicId] ?? null;
 
       if (!source) {
         return previous;
+      }
+
+      if (payload.positionId === positionId) {
+        return {
+          ...previous,
+          [positionId]: {
+            ...previous[positionId],
+            [payload.clinicId]: target,
+            [clinicId]: source
+          }
+        };
       }
 
       return {
         ...previous,
         [payload.positionId]: {
           ...previous[payload.positionId],
-          [payload.clinicId]: target ?? null
+          [payload.clinicId]: target
         },
         [positionId]: {
           ...previous[positionId],
@@ -195,18 +206,29 @@ export default function SchedulesPage() {
     setCurrentDragPayload(null);
 
     setDoctorSchedule((previous) => {
-      const source = previous[payload.dayId]?.[payload.clinicId];
-      const target = previous[dayId]?.[clinicId];
+      const source = previous[payload.dayId]?.[payload.clinicId] ?? null;
+      const target = previous[dayId]?.[clinicId] ?? null;
 
       if (!source) {
         return previous;
+      }
+
+      if (payload.dayId === dayId) {
+        return {
+          ...previous,
+          [dayId]: {
+            ...previous[dayId],
+            [payload.clinicId]: target,
+            [clinicId]: source
+          }
+        };
       }
 
       return {
         ...previous,
         [payload.dayId]: {
           ...previous[payload.dayId],
-          [payload.clinicId]: target ?? null
+          [payload.clinicId]: target
         },
         [dayId]: {
           ...previous[dayId],
