@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import clsx from 'clsx';
 import './globals.css';
+import AppProviders from './providers';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={clsx(inter.className, 'min-h-screen bg-slate-950 text-slate-100')}>
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
