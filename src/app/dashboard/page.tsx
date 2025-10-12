@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from '@/lib/i18n';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -121,6 +122,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
+  const { t } = useTranslations();
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -172,7 +174,7 @@ export default function DashboardPage() {
                         : 'border-white/5 text-slate-300 hover:border-primary-400/40 hover:bg-white/[0.06] hover:text-white'
                     }`}
                   >
-                    <span>{item.label}</span>
+                    <span>{t(item.label)}</span>
                     <span className={`text-xs font-semibold uppercase tracking-[0.3em] ${isActive ? 'text-primary-200' : 'text-slate-500'}`}>
                       {isActive ? '•' : '→'}
                     </span>
@@ -183,13 +185,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-300 shadow-2xl shadow-slate-950/40">
-            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-primary-200/70">Support</p>
-            <p className="mt-3 text-base font-semibold text-slate-50">Need a quick overview?</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-primary-200/70">{t('Support')}</p>
+            <p className="mt-3 text-base font-semibold text-slate-50">{t('Need a quick overview?')}</p>
             <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              Download the daily executive summary to share performance highlights with your leadership team.
+              {t('Download the daily executive summary to share performance highlights with your leadership team.')}
             </p>
             <button className="mt-4 w-full rounded-2xl border border-primary-400/30 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-50 transition hover:bg-primary-400/30">
-              Daily Briefing
+              {t('Daily Briefing')}
             </button>
           </div>
         </aside>
@@ -199,8 +201,8 @@ export default function DashboardPage() {
             <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Dashboard</p>
-                  <h1 className="text-2xl font-semibold text-slate-50">Welcome back, {userName || 'team'}.</h1>
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Dashboard')}</p>
+                  <h1 className="text-2xl font-semibold text-slate-50">{t('Welcome back, {name}.', { name: userName || t('team') })}</h1>
                 </div>
 
                 <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
@@ -217,7 +219,7 @@ export default function DashboardPage() {
                             : 'border-white/10 text-slate-300 hover:border-primary-400/30 hover:text-white'
                         }`}
                       >
-                        {item.label}
+                        {t(item.label)}
                       </Link>
                     );
                   })}
@@ -226,13 +228,13 @@ export default function DashboardPage() {
 
               <div className="flex items-center gap-3 self-end lg:self-auto">
                 <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
-                  Generate Report
+                  {t('Generate Report')}
                 </button>
                 <button
                   onClick={handleLogout}
                   className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
                 >
-                  Logout
+                  {t('Logout')}
                 </button>
               </div>
             </div>
@@ -248,7 +250,7 @@ export default function DashboardPage() {
                   className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{metric.label}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t(metric.label)}</p>
                     <span
                       className={`text-[10px] font-semibold uppercase tracking-wider ${
                         metric.trend === 'positive'
@@ -258,7 +260,7 @@ export default function DashboardPage() {
                           : 'text-slate-400'
                       }`}
                     >
-                      {metric.delta}
+                      {t(metric.delta)}
                     </span>
                   </div>
                   <p className="mt-4 text-3xl font-semibold text-slate-50">{metric.value}</p>
@@ -270,9 +272,9 @@ export default function DashboardPage() {
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Performance</p>
-                    <h2 className="mt-3 text-xl font-semibold text-slate-50">Monthly Production</h2>
-                    <p className="mt-1 text-sm text-slate-400">Revenue trend across the last six months</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Performance')}</p>
+                    <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Monthly Production')}</h2>
+                    <p className="mt-1 text-sm text-slate-400">{t('Revenue trend across the last six months')}</p>
                   </div>
                   <div className="rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200">
                     +9.5%
@@ -285,7 +287,7 @@ export default function DashboardPage() {
                         className="w-full rounded-2xl bg-gradient-to-t from-primary-500/10 via-primary-400/50 to-primary-300/80 shadow-inner shadow-primary-900/40"
                         style={{ height: `${(point.value / revenueMax) * 160 + 24}px` }}
                       />
-                      <p className="text-xs font-medium text-slate-400">{point.month}</p>
+                      <p className="text-xs font-medium text-slate-400">{t(point.month)}</p>
                     </div>
                   ))}
                 </div>
@@ -294,12 +296,12 @@ export default function DashboardPage() {
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Today</p>
-                    <h2 className="mt-3 text-xl font-semibold text-slate-50">Upcoming Appointments</h2>
-                    <p className="mt-1 text-sm text-slate-400">Confirm readiness and chair availability</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Today')}</p>
+                    <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Upcoming Appointments')}</h2>
+                    <p className="mt-1 text-sm text-slate-400">{t('Confirm readiness and chair availability')}</p>
                   </div>
                   <button className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white">
-                    View schedule
+                    {t('View schedule')}
                   </button>
                 </div>
                 <div className="mt-8 space-y-4">
@@ -310,7 +312,7 @@ export default function DashboardPage() {
                     >
                       <div className="space-y-1">
                         <p className="text-sm font-semibold text-slate-100">{appointment.patient}</p>
-                        <p className="text-xs text-slate-400">{appointment.treatment}</p>
+                        <p className="text-xs text-slate-400">{t(appointment.treatment)}</p>
                       </div>
                       <div className="text-right text-xs text-slate-400">
                         <p className="font-semibold text-slate-100">{appointment.time}</p>
@@ -325,16 +327,16 @@ export default function DashboardPage() {
 
           <aside className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Team pulse</p>
-              <h2 className="mt-3 text-xl font-semibold text-slate-50">Activity Feed</h2>
-              <p className="mt-1 text-sm text-slate-400">Real-time updates across your team</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Team pulse')}</p>
+              <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Activity Feed')}</h2>
+              <p className="mt-1 text-sm text-slate-400">{t('Real-time updates across your team')}</p>
               <div className="mt-6 space-y-4">
                 {teamActivity.map((activity) => (
                   <div key={activity.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                    <p className="text-sm font-semibold text-slate-100">{activity.title}</p>
+                    <p className="text-sm font-semibold text-slate-100">{t(activity.title)}</p>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
                       <span>{activity.owner}</span>
-                      <span>{activity.timestamp}</span>
+                      <span>{t(activity.timestamp)}</span>
                     </div>
                   </div>
                 ))}
@@ -342,16 +344,16 @@ export default function DashboardPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-primary-500/10 via-slate-900/70 to-slate-950 p-8 shadow-2xl shadow-primary-900/40 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Announcements</p>
-              <h2 className="mt-3 text-xl font-semibold text-slate-50">What&apos;s happening</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Announcements')}</p>
+              <h2 className="mt-3 text-xl font-semibold text-slate-50">{t("What's happening")}</h2>
               <div className="mt-6 space-y-5">
                 {announcements.map((item) => (
                   <div key={item.title} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4">
                     <span className="inline-flex items-center rounded-full bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-200">
-                      {item.badge}
+                      {t(item.badge)}
                     </span>
-                    <p className="text-sm font-semibold text-slate-100">{item.title}</p>
-                    <p className="text-xs text-slate-400">{item.description}</p>
+                    <p className="text-sm font-semibold text-slate-100">{t(item.title)}</p>
+                    <p className="text-xs text-slate-400">{t(item.description)}</p>
                   </div>
                 ))}
               </div>
