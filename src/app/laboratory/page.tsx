@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 
@@ -75,6 +75,19 @@ type QualityInsight = {
   sentiment: 'positive' | 'negative' | 'neutral';
 };
 
+type CaseSearchRecord = {
+  caseId: string;
+  lab: string;
+  clinic: string;
+  patientFirstName: string;
+  patientLastName: string;
+  birthday: string;
+  reservationDate: string;
+  doctor: string;
+  procedure: string;
+  status: 'En producción' | 'En tránsito' | 'Completado' | 'En planificación';
+};
+
 const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Patients', href: '/patients' },
@@ -99,8 +112,7 @@ const laboratorySubNavigation: SubNavigationItem[] = [
   {
     id: 'case-search',
     label: 'Case Search',
-    description: 'Lookup cases across labs, clinics and statuses.',
-    planned: true
+    description: 'Lookup cases across labs, clinics and statuses.'
   },
   {
     id: 'production-board',
@@ -260,11 +272,123 @@ const qualityInsights: QualityInsight[] = [
   }
 ];
 
+const caseSearchRecords: CaseSearchRecord[] = [
+  {
+    caseId: 'LAB-10234',
+    lab: 'Miami Central Lab',
+    clinic: 'Miller Dental - Coral Gables',
+    patientFirstName: 'Lucía',
+    patientLastName: 'Ramírez',
+    birthday: '14/02/1986',
+    reservationDate: '18/09/2023',
+    doctor: 'Dr. Alexis Stone',
+    procedure: 'Corona zirconia #14',
+    status: 'En producción'
+  },
+  {
+    caseId: 'LAB-10287',
+    lab: 'Miami Central Lab',
+    clinic: 'Bayfront Smiles',
+    patientFirstName: 'Mateo',
+    patientLastName: 'Salazar',
+    birthday: '22/11/1992',
+    reservationDate: '16/09/2023',
+    doctor: 'Dr. Maya Jensen',
+    procedure: 'Implante unitario #30',
+    status: 'En tránsito'
+  },
+  {
+    caseId: 'LAB-10302',
+    lab: 'Orlando Digital Lab',
+    clinic: 'Sunset Orthodontics',
+    patientFirstName: 'Valeria',
+    patientLastName: 'González',
+    birthday: '05/05/2001',
+    reservationDate: '15/09/2023',
+    doctor: 'Dr. Luis Carmona',
+    procedure: 'Alineador serie 3',
+    status: 'En producción'
+  },
+  {
+    caseId: 'LAB-10345',
+    lab: 'Tampa Ceramics',
+    clinic: 'Coral Ridge Family Dental',
+    patientFirstName: 'Andrés',
+    patientLastName: 'Patiño',
+    birthday: '19/07/1978',
+    reservationDate: '12/09/2023',
+    doctor: 'Dra. Olivia Reyes',
+    procedure: 'Prótesis parcial superior',
+    status: 'Completado'
+  },
+  {
+    caseId: 'LAB-10367',
+    lab: 'Miami Central Lab',
+    clinic: 'Harbor Point Dental',
+    patientFirstName: 'Camila',
+    patientLastName: 'Torres',
+    birthday: '30/09/1989',
+    reservationDate: '19/09/2023',
+    doctor: 'Dr. Ethan Wells',
+    procedure: 'Carillas feldespáticas #7-10',
+    status: 'En planificación'
+  },
+  {
+    caseId: 'LAB-10392',
+    lab: 'Orlando Digital Lab',
+    clinic: 'Lakeview Dental Studio',
+    patientFirstName: 'Sofía',
+    patientLastName: 'Martel',
+    birthday: '11/03/1983',
+    reservationDate: '13/09/2023',
+    doctor: 'Dr. Daniel Ortiz',
+    procedure: 'Puente 3 unidades',
+    status: 'En tránsito'
+  },
+  {
+    caseId: 'LAB-10410',
+    lab: 'Tampa Ceramics',
+    clinic: 'Biscayne Smiles',
+    patientFirstName: 'Héctor',
+    patientLastName: 'Navarro',
+    birthday: '02/01/1971',
+    reservationDate: '17/09/2023',
+    doctor: 'Dra. Isabel Vega',
+    procedure: 'Corona de óxido de zirconio',
+    status: 'En producción'
+  },
+  {
+    caseId: 'LAB-10428',
+    lab: 'Fort Lauderdale Lab',
+    clinic: 'Key Biscayne Dental',
+    patientFirstName: 'María',
+    patientLastName: 'Suárez',
+    birthday: '26/12/1995',
+    reservationDate: '10/09/2023',
+    doctor: 'Dr. Javier Molina',
+    procedure: 'Corona temporal CAD/CAM',
+    status: 'Completado'
+  }
+];
+
 export default function LaboratoryPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const [activeSection, setActiveSection] = useState<SubSectionId>('dashboard');
+  const [searchForm, setSearchForm] = useState({
+    caseId: '',
+    lab: '',
+    clinic: '',
+    patientFirstName: '',
+    patientLastName: '',
+    doctor: '',
+    procedure: '',
+    status: ''
+  });
+  const [searchResults, setSearchResults] = useState<CaseSearchRecord[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState('Debe realizar una búsqueda.');
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -286,6 +410,107 @@ export default function LaboratoryPage() {
     () => transitRoutes.reduce((sum, route) => sum + route.cases, 0),
     []
   );
+
+  const availableLabs = useMemo(
+    () => Array.from(new Set(caseSearchRecords.map((record) => record.lab))).sort(),
+    []
+  );
+
+  const availableClinics = useMemo(
+    () => Array.from(new Set(caseSearchRecords.map((record) => record.clinic))).sort(),
+    []
+  );
+
+  const availableStatuses = useMemo(
+    () => Array.from(new Set(caseSearchRecords.map((record) => record.status))),
+    []
+  );
+
+  const updateResults = (records: CaseSearchRecord[], emptyMessage?: string) => {
+    setSearchResults(records);
+    setHasSearched(true);
+    setSearchFeedback(
+      records.length > 0
+        ? `Se encontraron ${records.length} caso${records.length === 1 ? '' : 's'}.`
+        : emptyMessage ?? 'No se encontraron casos con los criterios seleccionados.'
+    );
+  };
+
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const results = caseSearchRecords.filter((record) => {
+      if (searchForm.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
+        return false;
+      }
+
+      if (searchForm.lab && record.lab !== searchForm.lab) {
+        return false;
+      }
+
+      if (searchForm.clinic && record.clinic !== searchForm.clinic) {
+        return false;
+      }
+
+      if (
+        searchForm.patientFirstName &&
+        !record.patientFirstName.toLowerCase().includes(searchForm.patientFirstName.toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (
+        searchForm.patientLastName &&
+        !record.patientLastName.toLowerCase().includes(searchForm.patientLastName.toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (searchForm.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
+        return false;
+      }
+
+      if (searchForm.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
+        return false;
+      }
+
+      if (searchForm.status && record.status !== searchForm.status) {
+        return false;
+      }
+
+      return true;
+    });
+
+    updateResults(results);
+  };
+
+  const handleNameSearch = () => {
+    const first = searchForm.patientFirstName.trim().toLowerCase();
+    const last = searchForm.patientLastName.trim().toLowerCase();
+
+    if (!first && !last) {
+      updateResults([], 'Ingresa al menos un nombre o apellido para buscar.');
+      return;
+    }
+
+    const results = caseSearchRecords.filter((record) => {
+      const matchesFirst = first ? record.patientFirstName.toLowerCase().includes(first) : true;
+      const matchesLast = last ? record.patientLastName.toLowerCase().includes(last) : true;
+
+      return matchesFirst && matchesLast;
+    });
+
+    updateResults(results);
+  };
+
+  const handleInputChange = (field: keyof typeof searchForm) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const value = event.target.value;
+      setSearchForm((prev) => ({
+        ...prev,
+        [field]: value
+      }));
+    };
 
   const trendBadgeClass = (trend: HighlightMetric['trend']) => {
     switch (trend) {
@@ -600,6 +825,228 @@ export default function LaboratoryPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              ) : activeSection === 'case-search' ? (
+                <div className="space-y-8">
+                  <div className="rounded-3xl border border-white/5 bg-white/[0.03] p-8 shadow-lg shadow-black/20 backdrop-blur">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">Laboratory Lookup</p>
+                        <h2 className="mt-2 text-2xl font-semibold text-white">Buscar casos en los laboratorios</h2>
+                        <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                          Filtra por laboratorio, clínica, odontólogo o procedimiento para localizar un expediente activo. Los datos a continuación son de prueba para validar el flujo de trabajo.
+                        </p>
+                      </div>
+                      <span
+                        className={clsx(
+                          'inline-flex rounded-xl border px-4 py-3 text-xs font-semibold uppercase tracking-wide',
+                          hasSearched && searchResults.length > 0
+                            ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+                            : 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+                        )}
+                      >
+                        {searchFeedback}
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleSearch} className="mt-8 space-y-6">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Case ID</span>
+                          <input
+                            type="text"
+                            value={searchForm.caseId}
+                            onChange={handleInputChange('caseId')}
+                            placeholder="LAB-10XXX"
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                          />
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Laboratorio</span>
+                          <select
+                            value={searchForm.lab}
+                            onChange={handleInputChange('lab')}
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                          >
+                            <option value="">Todos</option>
+                            {availableLabs.map((lab) => (
+                              <option key={lab} value={lab}>
+                                {lab}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Clínica</span>
+                          <select
+                            value={searchForm.clinic}
+                            onChange={handleInputChange('clinic')}
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                          >
+                            <option value="">Todas</option>
+                            {availableClinics.map((clinic) => (
+                              <option key={clinic} value={clinic}>
+                                {clinic}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Estado</span>
+                          <select
+                            value={searchForm.status}
+                            onChange={handleInputChange('status')}
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                          >
+                            <option value="">Cualquiera</option>
+                            {availableStatuses.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Nombre del paciente</span>
+                          <input
+                            type="text"
+                            value={searchForm.patientFirstName}
+                            onChange={handleInputChange('patientFirstName')}
+                            placeholder="Nombre"
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                          />
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Apellido del paciente</span>
+                          <input
+                            type="text"
+                            value={searchForm.patientLastName}
+                            onChange={handleInputChange('patientLastName')}
+                            placeholder="Apellido"
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                          />
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Odontólogo</span>
+                          <input
+                            type="text"
+                            value={searchForm.doctor}
+                            onChange={handleInputChange('doctor')}
+                            placeholder="Dr. o Dra."
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                          />
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Procedimiento</span>
+                          <input
+                            type="text"
+                            value={searchForm.procedure}
+                            onChange={handleInputChange('procedure')}
+                            placeholder="Tipo de trabajo"
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="submit"
+                          className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                        >
+                          Buscar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNameSearch}
+                          className="inline-flex items-center gap-2 rounded-xl border border-primary-400/50 bg-transparent px-4 py-2 text-sm font-semibold text-primary-100 transition hover:border-primary-300 hover:text-primary-50"
+                        >
+                          Buscar por nombre
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/5 bg-white/[0.02] shadow-lg shadow-black/10 backdrop-blur">
+                    {hasSearched ? (
+                      searchResults.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-white/5">
+                            <thead>
+                              <tr className="text-left text-xs uppercase tracking-[0.35em] text-slate-400">
+                                <th className="px-6 py-4">Case ID</th>
+                                <th className="px-6 py-4">Laboratorio</th>
+                                <th className="px-6 py-4">Clínica</th>
+                                <th className="px-6 py-4">Paciente</th>
+                                <th className="px-6 py-4">Nacimiento</th>
+                                <th className="px-6 py-4">Reserva</th>
+                                <th className="px-6 py-4">Doctor</th>
+                                <th className="px-6 py-4">Procedimiento</th>
+                                <th className="px-6 py-4">Estado</th>
+                                <th className="px-6 py-4 text-center">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm text-slate-200">
+                              {searchResults.map((record) => (
+                                <tr key={record.caseId} className="hover:bg-white/5">
+                                  <td className="px-6 py-4 font-semibold text-white">{record.caseId}</td>
+                                  <td className="px-6 py-4">{record.lab}</td>
+                                  <td className="px-6 py-4">{record.clinic}</td>
+                                  <td className="px-6 py-4">
+                                    {record.patientFirstName} {record.patientLastName}
+                                  </td>
+                                  <td className="px-6 py-4 text-slate-400">{record.birthday}</td>
+                                  <td className="px-6 py-4 text-slate-400">{record.reservationDate}</td>
+                                  <td className="px-6 py-4">{record.doctor}</td>
+                                  <td className="px-6 py-4">{record.procedure}</td>
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={clsx(
+                                        'inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
+                                        record.status === 'Completado'
+                                          ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40'
+                                          : record.status === 'En tránsito'
+                                          ? 'bg-sky-500/10 text-sky-200 ring-1 ring-sky-400/40'
+                                          : record.status === 'En planificación'
+                                          ? 'bg-amber-500/10 text-amber-200 ring-1 ring-amber-400/40'
+                                          : 'bg-primary-500/10 text-primary-100 ring-1 ring-primary-400/40'
+                                      )}
+                                    >
+                                      {record.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <button
+                                      type="button"
+                                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
+                                    >
+                                      Ver detalle
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="px-8 py-16 text-center text-sm text-slate-400">
+                          {searchFeedback}
+                        </div>
+                      )
+                    ) : (
+                      <div className="px-8 py-16 text-center text-sm text-slate-400">
+                        {'Selecciona un criterio y presiona "Buscar" para visualizar resultados.'}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
