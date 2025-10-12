@@ -296,7 +296,21 @@ export default function ContactsPage() {
 
             <nav className="flex flex-wrap gap-3 border-t border-white/5 pt-6">
               {contactSections.map((section) => {
-                const isActive = activeSection === section.id;
+                const isLocationsLink = section.id === 'locations-search';
+                const isActive = !isLocationsLink && activeSection === section.id;
+
+                if (isLocationsLink) {
+                  return (
+                    <Link
+                      key={section.id}
+                      href="/contacts/locations-search"
+                      className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-400/40 hover:text-white"
+                    >
+                      {section.label}
+                    </Link>
+                  );
+                }
+
                 return (
                   <button
                     key={section.id}
