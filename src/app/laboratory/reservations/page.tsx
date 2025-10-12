@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
+import { useTranslations } from '@/lib/i18n';
 
 type NavigationItem = {
   label: string;
@@ -338,11 +339,6 @@ const reservationCases: ReservationCase[] = [
   }
 ];
 
-const weekdayFormatter = new Intl.DateTimeFormat('es-ES', { weekday: 'long' });
-const monthFormatter = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
-const dayFormatter = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-const shortWeekdayFormatter = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
-
 const statusStyles: Record<ReservationStatus, string> = {
   Programado: 'bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/40',
   'En fabricación': 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/40',
@@ -401,6 +397,43 @@ export default function LaboratoryReservationsPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2025, 9, 15));
   const [focusedMonth, setFocusedMonth] = useState<Date>(new Date(2025, 9, 1));
   const [monthSelector, setMonthSelector] = useState<string>('2025-10-01');
+  const { t, language } = useTranslations();
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
+
+  const weekdayFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'long' }), [locale]);
+  const monthFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }),
+    [locale]
+  );
+  const dayFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+    [locale]
+  );
+  const shortWeekdayFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { weekday: 'short' }),
+    [locale]
+  );
+  const calendarWeekdays = useMemo(
+    () => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => t(day)),
+    [t]
+  );
+  const formatCaseCount = useCallback(
+    (count: number) => {
+      const unit = count === 1 ? t('case') : t('cases');
+      return `${count} ${unit}`;
+    },
+    [t]
+  );
+  const statusLabelMap = useMemo(
+    () => ({
+      Programado: t('Scheduled'),
+      'En fabricación': t('In fabrication'),
+      'Listo para envío': t('Ready to ship'),
+      Entregado: t('Delivered'),
+      'Pendiente confirmación': t('Pending confirmation')
+    }),
+    [t]
+  );
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -418,8 +451,13 @@ export default function LaboratoryReservationsPage() {
   }, [selectedDate]);
 
   const navigation = useMemo(
-    () => navigationItems.map((item) => ({ ...item, isActive: pathname === item.href })),
-    [pathname]
+    () =>
+      navigationItems.map((item) => ({
+        ...item,
+        label: t(item.label),
+        isActive: pathname === item.href
+      })),
+    [pathname, t]
   );
 
   const casesByDate = useMemo(() => {
@@ -547,7 +585,7 @@ export default function LaboratoryReservationsPage() {
     if (!start || !end) return '';
 
     return `${dayFormatter.format(start)} – ${dayFormatter.format(end)}`;
-  }, [weekDates]);
+  }, [weekDates, dayFormatter]);
 
   const handlePeriodShift = (direction: -1 | 1) => {
     if (viewMode === 'month') {
@@ -583,7 +621,7 @@ export default function LaboratoryReservationsPage() {
         label: monthFormatter.format(date)
       };
     });
-  }, []);
+  }, [monthFormatter]);
 
   const handleMonthSubmit = () => {
     const next = parseISODate(monthSelector);
@@ -631,8 +669,8 @@ export default function LaboratoryReservationsPage() {
           </div>
 
           <div className="mt-auto space-y-1 text-sm text-slate-400">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Signed in as</p>
-            <p className="font-medium text-slate-200">{userName || 'Loading...'}</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Signed in as')}</p>
+            <p className="font-medium text-slate-200">{userName || t('Loading...')}</p>
             <button
               type="button"
               onClick={() => {
@@ -641,7 +679,7 @@ export default function LaboratoryReservationsPage() {
               }}
               className="text-left text-xs font-medium text-slate-500 transition hover:text-primary-200"
             >
-              Log out
+              {t('Log out')}
             </button>
           </div>
         </aside>
@@ -651,44 +689,46 @@ export default function LaboratoryReservationsPage() {
             <header className="flex flex-col gap-4 border-b border-white/5 pb-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">Laboratory</p>
-                  <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">Reservations Control Center</h1>
+                  <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">{t('Laboratory')}</p>
+                  <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">{t('Reservations Control Center')}</h1>
                 </div>
                 <div className="rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-right text-xs text-primary-100">
-                  <p className="font-semibold uppercase tracking-[0.35em]">Vista</p>
+                  <p className="font-semibold uppercase tracking-[0.35em]">{t('View')}</p>
                   <p className="mt-1 text-sm font-medium text-primary-50">
                     {viewMode === 'month' && monthFormatter.format(focusedMonth)}
                     {viewMode === 'week' && weekLabel}
                     {viewMode === 'day' && dayFormatter.format(selectedDate)}
                   </p>
-                  <p className="text-[11px] text-primary-200/70">Actualizado a las 07:45</p>
+                  <p className="text-[11px] text-primary-200/70">{t('Updated at {time}', { time: '07:45' })}</p>
                 </div>
               </div>
               <p className="max-w-3xl text-sm text-slate-400">
-                Coordine la producción y entregas del laboratorio con una vista integrada de los casos activos. Cambie entre los modos mensual, semanal y diario para anticipar la carga de trabajo por procedimiento.
+                {t(
+                  'Coordinate laboratory production and deliveries with an integrated view of active cases. Switch between monthly, weekly, and daily modes to anticipate workload by procedure.'
+                )}
               </p>
             </header>
 
             <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-5">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Casos del mes</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Cases this month')}</p>
                 <p className="mt-3 text-3xl font-semibold text-white">{monthlySummary.total}</p>
-                <p className="text-xs text-slate-400">Desde {monthFormatter.format(focusedMonth)}</p>
+                <p className="text-xs text-slate-400">{t('Since {month}', { month: monthFormatter.format(focusedMonth) })}</p>
               </div>
               <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-5 text-amber-50">
-                <p className="text-xs uppercase tracking-[0.35em] text-amber-200/70">En fabricación</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-amber-200/70">{t('In fabrication')}</p>
                 <p className="mt-3 text-3xl font-semibold">{monthlySummary.fabrication}</p>
-                <p className="text-xs text-amber-100/70">Casos activos en CAD/CAM y terminación</p>
+                <p className="text-xs text-amber-100/70">{t('Active CAD/CAM and finishing cases')}</p>
               </div>
               <div className="rounded-2xl border border-slate-400/30 bg-slate-500/10 px-4 py-5 text-slate-100">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-300/80">Programados</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-300/80">{t('Scheduled')}</p>
                 <p className="mt-3 text-3xl font-semibold">{monthlySummary.scheduled}</p>
-                <p className="text-xs text-slate-400">Casos confirmados para producción</p>
+                <p className="text-xs text-slate-400">{t('Cases confirmed for production')}</p>
               </div>
               <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-5 text-emerald-100">
-                <p className="text-xs uppercase tracking-[0.35em] text-emerald-200/80">Entregados</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-emerald-200/80">{t('Delivered')}</p>
                 <p className="mt-3 text-3xl font-semibold">{monthlySummary.delivered}</p>
-                <p className="text-xs text-emerald-200/70">Incluye rutas completadas</p>
+                <p className="text-xs text-emerald-200/70">{t('Includes completed routes')}</p>
               </div>
             </section>
 
@@ -697,8 +737,8 @@ export default function LaboratoryReservationsPage() {
                 <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Calendario</p>
-                      <h2 className="mt-2 text-2xl font-semibold text-white">Agenda de casos</h2>
+                      <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Calendar')}</p>
+                      <h2 className="mt-2 text-2xl font-semibold text-white">{t('Case agenda')}</h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
@@ -718,7 +758,7 @@ export default function LaboratoryReservationsPage() {
                           onClick={handleMonthSubmit}
                           className="rounded-full bg-primary-500/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-50 transition hover:bg-primary-400"
                         >
-                          Go
+                          {t('Go')}
                         </button>
                       </div>
                       <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1">
@@ -734,9 +774,9 @@ export default function LaboratoryReservationsPage() {
                                 : 'text-slate-300 hover:bg-white/10 hover:text-white'
                             )}
                           >
-                            {mode === 'month' && 'Mes'}
-                            {mode === 'week' && 'Semana'}
-                            {mode === 'day' && 'Día'}
+                            {mode === 'month' && t('Month')}
+                            {mode === 'week' && t('Week')}
+                            {mode === 'day' && t('Day')}
                           </button>
                         ))}
                       </div>
@@ -745,7 +785,7 @@ export default function LaboratoryReservationsPage() {
                           type="button"
                           onClick={() => handlePeriodShift(-1)}
                           className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-                          aria-label="Previous period"
+                          aria-label={t('Previous period')}
                         >
                           ‹
                         </button>
@@ -753,7 +793,7 @@ export default function LaboratoryReservationsPage() {
                           type="button"
                           onClick={() => handlePeriodShift(1)}
                           className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-                          aria-label="Next period"
+                          aria-label={t('Next period')}
                         >
                           ›
                         </button>
@@ -764,8 +804,8 @@ export default function LaboratoryReservationsPage() {
                   {viewMode === 'month' && (
                     <div className="space-y-2">
                       <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((day) => (
-                          <div key={day} className="rounded-lg bg-white/[0.02] py-2">
+                        {calendarWeekdays.map((day, index) => (
+                          <div key={`${day}-${index}`} className="rounded-lg bg-white/[0.02] py-2">
                             {day}
                           </div>
                         ))}
@@ -800,7 +840,7 @@ export default function LaboratoryReservationsPage() {
                                 >
                                   <div className="flex items-center justify-between">
                                     <span className="text-lg font-semibold">{date.getDate()}</span>
-                                    <span className="text-xs text-slate-500">{cases.length} caso{cases.length === 1 ? '' : 's'}</span>
+                                    <span className="text-xs text-slate-500">{formatCaseCount(cases.length)}</span>
                                   </div>
                                   <div className="space-y-1">
                                     {sortedProcedures.map(({ procedure, total }) => (
@@ -817,7 +857,7 @@ export default function LaboratoryReservationsPage() {
                                     ))}
                                     {cases.length === 0 && (
                                       <p className="rounded-lg border border-dashed border-white/10 bg-white/[0.01] px-2 py-3 text-center text-[11px] text-slate-500">
-                                        Sin casos programados
+                                        {t('No scheduled cases')}
                                       </p>
                                     )}
                                   </div>
@@ -852,7 +892,7 @@ export default function LaboratoryReservationsPage() {
                                   onClick={() => setSelectedDate(date)}
                                   className="text-xs font-semibold uppercase tracking-wide text-primary-200 transition hover:text-primary-100"
                                 >
-                                  Ver día
+                                  {t('View day')}
                                 </button>
                               </div>
                               <div className="mt-3 space-y-2">
@@ -869,7 +909,7 @@ export default function LaboratoryReservationsPage() {
                                   ))
                                 ) : (
                                   <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-xs text-slate-500">
-                                    Sin casos programados
+                                    {t('No scheduled cases')}
                                   </p>
                                 )}
                               </div>
@@ -894,7 +934,7 @@ export default function LaboratoryReservationsPage() {
                             type="button"
                             onClick={() => handlePeriodShift(-1)}
                             className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-                            aria-label="Previous day"
+                            aria-label={t('Previous day')}
                           >
                             ‹
                           </button>
@@ -902,7 +942,7 @@ export default function LaboratoryReservationsPage() {
                             type="button"
                             onClick={() => handlePeriodShift(1)}
                             className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-                            aria-label="Next day"
+                            aria-label={t('Next day')}
                           >
                             ›
                           </button>
@@ -915,47 +955,47 @@ export default function LaboratoryReservationsPage() {
                               <div key={reservation.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                   <div>
-                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Caso</p>
+                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{t('Case')}</p>
                                     <p className="text-lg font-semibold text-white">{reservation.procedure}</p>
                                   </div>
                                   <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide', statusStyles[reservation.status])}>
-                                    {reservation.status}
+                                    {statusLabelMap[reservation.status]}
                                   </span>
                                 </div>
                                 <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
                                   <div>
-                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Horario</p>
+                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Schedule')}</p>
                                     <p className="mt-1 font-semibold text-white">
                                       {reservation.time} · {reservation.durationMinutes} min
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Doctor</p>
+                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Doctor')}</p>
                                     <p className="mt-1 text-slate-300">{reservation.doctor}</p>
                                   </div>
                                   <div>
-                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Paciente</p>
+                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</p>
                                     <p className="mt-1 text-slate-300">{reservation.patient}</p>
                                   </div>
                                   <div>
-                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Clínica</p>
+                                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Clinic')}</p>
                                     <p className="mt-1 text-slate-300">{reservation.clinic}</p>
                                   </div>
                                 </div>
                                 <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
-                                  <span>Equipo asignado: {reservation.chair}</span>
+                                  <span>{t('Assigned equipment: {equipment}', { equipment: reservation.chair })}</span>
                                   <button
                                     type="button"
                                     className="text-xs font-semibold uppercase tracking-wide text-primary-200 transition hover:text-primary-100"
                                   >
-                                    Ver detalles
+                                    {t('View details')}
                                   </button>
                                 </div>
                               </div>
                             ))
                           ) : (
                             <p className="rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center text-sm text-slate-500">
-                              No hay casos programados para este día.
+                              {t('No cases scheduled for this day.')}
                             </p>
                           )}
                         </div>
@@ -967,7 +1007,7 @@ export default function LaboratoryReservationsPage() {
 
               <aside className="w-full space-y-6 xl:w-80">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Distribución por procedimiento</p>
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Procedure distribution')}</p>
                   <div className="mt-4 space-y-3">
                     {monthlyProcedureTotals.map((item) => (
                       <div key={item.procedure} className="flex items-center gap-3">
@@ -976,42 +1016,42 @@ export default function LaboratoryReservationsPage() {
                         </span>
                         <div>
                           <p className="text-sm font-semibold text-white">{item.procedure}</p>
-                          <p className="text-xs text-slate-500">Casos programados este mes</p>
+                          <p className="text-xs text-slate-500">{t('Scheduled cases this month')}</p>
                         </div>
                       </div>
                     ))}
                     {monthlyProcedureTotals.length === 0 && (
                       <p className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-500">
-                        Aún no hay procedimientos asignados.
+                        {t('No procedures assigned yet.')}
                       </p>
                     )}
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Estado de los casos</p>
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Case status')}</p>
                   <div className="mt-4 space-y-2 text-sm text-slate-300">
                     <div className="flex items-center justify-between">
-                      <span>En fabricación</span>
+                      <span>{t('In fabrication')}</span>
                       <span className="font-semibold text-amber-200">{monthlySummary.fabrication}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Programados</span>
+                      <span>{t('Scheduled')}</span>
                       <span className="font-semibold text-slate-100">{monthlySummary.scheduled}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Entregados</span>
+                      <span>{t('Delivered')}</span>
                       <span className="font-semibold text-emerald-200">{monthlySummary.delivered}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Pendientes de confirmación</span>
+                      <span>{t('Pending confirmation')}</span>
                       <span className="font-semibold text-rose-200">{monthlySummary.pending}</span>
                     </div>
                   </div>
                   <div className="mt-5 rounded-2xl border border-dashed border-primary-400/30 bg-primary-500/10 p-4 text-xs text-primary-100">
-                    <p className="font-semibold uppercase tracking-[0.35em]">Recomendación</p>
+                    <p className="font-semibold uppercase tracking-[0.35em]">{t('Recommendation')}</p>
                     <p className="mt-2 text-[13px]">
-                      Reserve bloques adicionales para prótesis parciales los jueves: la semana entrante supera el umbral operativo.
+                      {t('Reserve additional blocks for partial prosthetics on Thursdays: next week exceeds the operational threshold.')}
                     </p>
                   </div>
                 </div>
