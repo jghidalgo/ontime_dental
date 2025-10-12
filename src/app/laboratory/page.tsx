@@ -14,6 +14,7 @@ type NavigationItem = {
 type SubSectionId =
   | 'dashboard'
   | 'case-search'
+  | 'reservations'
   | 'production-board'
   | 'transit-tracking'
   | 'remakes-quality'
@@ -131,6 +132,11 @@ const laboratorySubNavigation: SubNavigationItem[] = [
     id: 'case-search',
     label: 'Case Search',
     description: 'Lookup cases across labs, clinics and statuses.'
+  },
+  {
+    id: 'reservations',
+    label: 'Reservations',
+    description: 'Agenda operativa de casos por procedimiento y día.'
   },
   {
     id: 'production-board',
@@ -748,6 +754,10 @@ export default function LaboratoryPage() {
                     type="button"
                     onClick={() => {
                       if (section.planned) return;
+                      if (section.id === 'reservations') {
+                        router.push('/laboratory/reservations');
+                        return;
+                      }
                       setActiveSection(section.id);
                     }}
                     className={clsx(
