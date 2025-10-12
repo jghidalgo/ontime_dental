@@ -241,6 +241,9 @@ const translations: Record<Language, Record<string, string>> = {
     'Digital impressions': 'Impresiones digitales',
     'Production health, KPIs and live operations overview.': 'Salud de producción, KPI y vista de operaciones en vivo.',
     'Lookup cases across labs, clinics and statuses.': 'Busca casos en laboratorios, clínicas y estados.',
+    'Laboratory Lookup': 'Consulta de laboratorio',
+    'Filter by lab, clinic, doctor or procedure to locate an active case. The data below is sample information to validate the workflow.':
+      'Filtra por laboratorio, clínica, odontólogo o procedimiento para localizar un expediente activo. Los datos a continuación son de prueba para validar el flujo de trabajo.',
     'Work-in-progress by stage and technician workload.': 'Trabajo en progreso por etapa y carga del técnico.',
     'Routes to clinics, courier SLAs and delivery ETAs.': 'Rutas a clínicas, SLA del mensajero y tiempos estimados de entrega.',
     'Root causes, remake approvals and satisfaction trends.': 'Causas raíz, aprobaciones de rehacer y tendencias de satisfacción.',
@@ -265,7 +268,8 @@ const translations: Record<Language, Record<string, string>> = {
     'Search': 'Buscar',
     'Search by name': 'Buscar por nombre',
     'Please perform a search.': 'Debe realizar una búsqueda.',
-    'Showing {count} cases.': 'Se encontraron {count} casos.',
+    'One case found.': 'Se encontró 1 caso.',
+    '{count} cases found.': 'Se encontraron {count} casos.',
     'No cases were found with the selected criteria.': 'No se encontraron casos con los criterios seleccionados.',
     'Select a filter and press "Search" to display results.': 'Selecciona un criterio y presiona "Buscar" para ver los resultados.',
     'Patient': 'Paciente',
@@ -274,6 +278,7 @@ const translations: Record<Language, Record<string, string>> = {
     'Status': 'Estado',
     'Action': 'Acción',
     'View details': 'Ver detalle',
+    'Enter at least a first or last name to search.': 'Ingresa al menos un nombre o apellido para buscar.',
     'This workspace is on our roadmap. Let the product team know what workflows you\'d like to streamline here.':
       'Este espacio de trabajo está en nuestra hoja de ruta. Indica al equipo de producto qué flujos de trabajo deseas optimizar aquí.',
     'Module in discovery': 'Módulo en descubrimiento',
