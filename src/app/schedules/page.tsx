@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { DragEvent } from 'react';
+import type { ChangeEvent, DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -98,6 +98,12 @@ export default function SchedulesPage() {
   const [userName, setUserName] = useState<string>('');
   const [frontDeskSchedule, setFrontDeskSchedule] = useState<FrontDeskSchedule>(initialFrontDeskSchedule);
   const [doctorSchedule, setDoctorSchedule] = useState<DoctorSchedule>(initialDoctorSchedule);
+  const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
+    { positionId: string; clinicId: string; name: string } | null
+  >(null);
+  const [editingDoctorCell, setEditingDoctorCell] = useState<
+    { dayId: string; clinicId: string; name: string } | null
+  >(null);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
   const [currentDragPayload, setCurrentDragPayload] = useState<DragPayload | null>(null);
 
@@ -161,6 +167,7 @@ export default function SchedulesPage() {
     event.preventDefault();
     setActiveDropZone(null);
     setCurrentDragPayload(null);
+    setEditingFrontDeskCell(null);
 
     setFrontDeskSchedule((previous) => {
       const source = previous[payload.positionId]?.[payload.clinicId] ?? null;
@@ -204,6 +211,7 @@ export default function SchedulesPage() {
     event.preventDefault();
     setActiveDropZone(null);
     setCurrentDragPayload(null);
+    setEditingDoctorCell(null);
 
     setDoctorSchedule((previous) => {
       const source = previous[payload.dayId]?.[payload.clinicId] ?? null;
@@ -236,6 +244,126 @@ export default function SchedulesPage() {
         }
       };
     });
+  };
+
+  const handleStartFrontDeskEdit = (positionId: string, clinicId: string) => {
+    const employee = frontDeskSchedule[positionId]?.[clinicId];
+    if (!employee) return;
+
+    setEditingFrontDeskCell({ positionId, clinicId, name: employee.name });
+  };
+
+  const handleFrontDeskNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setEditingFrontDeskCell((previous) => (previous ? { ...previous, name: value } : previous));
+  };
+
+  const handleCancelFrontDeskEdit = () => {
+    setEditingFrontDeskCell(null);
+  };
+
+  const handleSaveFrontDeskEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingFrontDeskCell) return;
+
+    const { positionId, clinicId, name } = editingFrontDeskCell;
+    const trimmedName = name.trim();
+
+    setFrontDeskSchedule((previous) => {
+      const current = previous[positionId]?.[clinicId];
+      if (!current) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [positionId]: {
+          ...previous[positionId],
+          [clinicId]: { ...current, name: trimmedName || current.name }
+        }
+      };
+    });
+
+    setEditingFrontDeskCell(null);
+  };
+
+  const handleDeleteFrontDeskCard = (positionId: string, clinicId: string) => {
+    setFrontDeskSchedule((previous) => {
+      const positionSchedule = previous[positionId] ?? {};
+
+      return {
+        ...previous,
+        [positionId]: {
+          ...positionSchedule,
+          [clinicId]: null
+        }
+      };
+    });
+
+    setEditingFrontDeskCell((previous) =>
+      previous && previous.positionId === positionId && previous.clinicId === clinicId ? null : previous
+    );
+  };
+
+  const handleStartDoctorEdit = (dayId: string, clinicId: string) => {
+    const assignment = doctorSchedule[dayId]?.[clinicId];
+    if (!assignment) return;
+
+    setEditingDoctorCell({ dayId, clinicId, name: assignment.name });
+  };
+
+  const handleDoctorNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setEditingDoctorCell((previous) => (previous ? { ...previous, name: value } : previous));
+  };
+
+  const handleCancelDoctorEdit = () => {
+    setEditingDoctorCell(null);
+  };
+
+  const handleSaveDoctorEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingDoctorCell) return;
+
+    const { dayId, clinicId, name } = editingDoctorCell;
+    const trimmedName = name.trim();
+
+    setDoctorSchedule((previous) => {
+      const current = previous[dayId]?.[clinicId];
+      if (!current) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [dayId]: {
+          ...previous[dayId],
+          [clinicId]: { ...current, name: trimmedName || current.name }
+        }
+      };
+    });
+
+    setEditingDoctorCell(null);
+  };
+
+  const handleDeleteDoctorCard = (dayId: string, clinicId: string) => {
+    setDoctorSchedule((previous) => {
+      const daySchedule = previous[dayId] ?? {};
+
+      return {
+        ...previous,
+        [dayId]: {
+          ...daySchedule,
+          [clinicId]: null
+        }
+      };
+    });
+
+    setEditingDoctorCell((previous) =>
+      previous && previous.dayId === dayId && previous.clinicId === clinicId ? null : previous
+    );
   };
 
   const handleDragEnter = (dropZoneId: string) => (event: DragEvent<HTMLDivElement>) => {
@@ -351,6 +479,9 @@ export default function SchedulesPage() {
                         {clinics.map((clinic) => {
                           const employee = frontDeskSchedule[position.id]?.[clinic.id] ?? null;
                           const zoneId = `frontDesk:${position.id}:${clinic.id}`;
+                          const isEditingFrontDeskCell =
+                            editingFrontDeskCell?.positionId === position.id &&
+                            editingFrontDeskCell?.clinicId === clinic.id;
 
                           return (
                             <td key={clinic.id} className="px-4 py-4">
@@ -361,27 +492,94 @@ export default function SchedulesPage() {
                                 onDragLeave={() => setActiveDropZone(null)}
                                 onDrop={handleFrontDeskDrop(position.id, clinic.id)}
                               >
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
-                                  <span className="text-sm font-semibold text-white">
-                                    {employee ? employee.name : 'Unassigned'}
-                                  </span>
-                                </div>
-                                  {employee && (
-                                    <button
-                                      type="button"
-                                      draggable
-                                      onDragStart={(event) => handleDragStart(event, {
-                                        type: 'frontDesk',
-                                        positionId: position.id,
-                                        clinicId: clinic.id
-                                      })}
-                                      onDragEnd={handleDragEnd}
-                                      className="rounded-xl bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-500/40"
+                                {isEditingFrontDeskCell ? (
+                                  <form onSubmit={handleSaveFrontDeskEdit} className="flex w-full items-center gap-3">
+                                    <div className="flex flex-1 flex-col">
+                                      <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">
+                                        {clinic.name}
+                                      </span>
+                                      <input
+                                        autoFocus
+                                        value={editingFrontDeskCell?.name ?? ''}
+                                        onChange={handleFrontDeskNameChange}
+                                        className="mt-1 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-white placeholder:text-slate-500 focus:border-primary-400/60 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
+                                        placeholder="Enter name"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="submit"
+                                        className="rounded-xl bg-primary-500/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-white shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={handleCancelFrontDeskEdit}
+                                        className="rounded-xl bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:bg-white/10"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </form>
+                                ) : (
+                                  <>
+                                    <div
+                                      className={`flex flex-col ${employee ? 'cursor-text' : ''}`}
+                                      onDoubleClick={() => handleStartFrontDeskEdit(position.id, clinic.id)}
+                                      title={employee ? 'Double-click to edit name' : undefined}
                                     >
-                                      Drag
-                                    </button>
-                                  )}
+                                      <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">
+                                        {clinic.name}
+                                      </span>
+                                      <span className="text-sm font-semibold text-white">
+                                        {employee ? employee.name : 'Unassigned'}
+                                      </span>
+                                    </div>
+                                    {employee && (
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                          type="button"
+                                          draggable
+                                          onDragStart={(event) =>
+                                            handleDragStart(event, {
+                                              type: 'frontDesk',
+                                              positionId: position.id,
+                                              clinicId: clinic.id
+                                            })
+                                          }
+                                          onDragEnd={handleDragEnd}
+                                          className="rounded-xl bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-500/40"
+                                        >
+                                          Drag
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteFrontDeskCard(position.id, clinic.id)}
+                                          aria-label="Delete assignment"
+                                          className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/40 transition hover:bg-rose-500/30"
+                                        >
+                                          <span className="sr-only">Delete assignment</span>
+                                          <svg
+                                            aria-hidden="true"
+                                            viewBox="0 0 20 20"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-3.5 w-3.5"
+                                          >
+                                            <path
+                                              d="M5 5L15 15M15 5L5 15"
+                                              stroke="currentColor"
+                                              strokeWidth="1.75"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
                               </div>
                             </td>
                           );
@@ -428,6 +626,8 @@ export default function SchedulesPage() {
                         {clinics.map((clinic) => {
                           const assignment = doctorSchedule[day.id]?.[clinic.id] ?? null;
                           const zoneId = `doctor:${day.id}:${clinic.id}`;
+                          const isEditingDoctorCell =
+                            editingDoctorCell?.dayId === day.id && editingDoctorCell?.clinicId === clinic.id;
 
                           return (
                             <td key={clinic.id} className="px-4 py-4">
@@ -438,32 +638,102 @@ export default function SchedulesPage() {
                                 onDragLeave={() => setActiveDropZone(null)}
                                 onDrop={handleDoctorDrop(day.id, clinic.id)}
                               >
-                                <div>
-                                  <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
-                                  <p className="mt-1 text-sm font-semibold text-white">
-                                    {assignment ? assignment.name : 'Unassigned'}
-                                  </p>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">
-                                    {assignment ? assignment.shift : '—'}
-                                  </span>
-                                  {assignment && (
-                                    <button
-                                      type="button"
-                                      draggable
-                                      onDragStart={(event) => handleDragStart(event, {
-                                        type: 'doctor',
-                                        dayId: day.id,
-                                        clinicId: clinic.id
-                                      })}
-                                      onDragEnd={handleDragEnd}
-                                      className="rounded-xl bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-100 ring-1 ring-emerald-500/40"
+                                {isEditingDoctorCell ? (
+                                  <form onSubmit={handleSaveDoctorEdit} className="flex h-full flex-col justify-between gap-3">
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">
+                                        {clinic.name}
+                                      </span>
+                                      <input
+                                        autoFocus
+                                        value={editingDoctorCell?.name ?? ''}
+                                        onChange={handleDoctorNameChange}
+                                        className="mt-1 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                                        placeholder="Enter name"
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">
+                                        {assignment ? assignment.shift : '—'}
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="submit"
+                                          className="rounded-xl bg-emerald-500/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-white shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-400"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelDoctorEdit}
+                                          className="rounded-xl bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-200 transition hover:bg-white/10"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </form>
+                                ) : (
+                                  <>
+                                    <div
+                                      className={`flex flex-col ${assignment ? 'cursor-text' : ''}`}
+                                      onDoubleClick={() => handleStartDoctorEdit(day.id, clinic.id)}
+                                      title={assignment ? 'Double-click to edit name' : undefined}
                                     >
-                                      Drag
-                                    </button>
-                                  )}
-                                </div>
+                                      <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
+                                      <p className="mt-1 text-sm font-semibold text-white">
+                                        {assignment ? assignment.name : 'Unassigned'}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">
+                                        {assignment ? assignment.shift : '—'}
+                                      </span>
+                                      {assignment && (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <button
+                                            type="button"
+                                            draggable
+                                            onDragStart={(event) =>
+                                              handleDragStart(event, {
+                                                type: 'doctor',
+                                                dayId: day.id,
+                                                clinicId: clinic.id
+                                              })
+                                            }
+                                            onDragEnd={handleDragEnd}
+                                            className="rounded-xl bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-100 ring-1 ring-emerald-500/40"
+                                          >
+                                            Drag
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteDoctorCard(day.id, clinic.id)}
+                                            aria-label="Delete assignment"
+                                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/40 transition hover:bg-rose-500/30"
+                                          >
+                                            <span className="sr-only">Delete assignment</span>
+                                            <svg
+                                              aria-hidden="true"
+                                              viewBox="0 0 20 20"
+                                              fill="none"
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              className="h-3.5 w-3.5"
+                                            >
+                                              <path
+                                                d="M5 5L15 15M15 5L5 15"
+                                                stroke="currentColor"
+                                                strokeWidth="1.75"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                              />
+                                            </svg>
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </td>
                           );
