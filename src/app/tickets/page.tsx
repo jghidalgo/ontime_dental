@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
+
+import { useTranslations } from '@/lib/i18n';
 
 type TicketStatus = 'new' | 'in_progress' | 'waiting' | 'resolved';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -113,32 +115,11 @@ const initialTickets: Ticket[] = [
   }
 ];
 
-const statusLabels: Record<TicketStatus, string> = {
-  new: 'New',
-  in_progress: 'In Progress',
-  waiting: 'Waiting on Response',
-  resolved: 'Resolved'
-};
-
-const statusDescriptions: Record<TicketStatus, string> = {
-  new: 'Awaiting triage',
-  in_progress: 'Actively being worked',
-  waiting: 'Pending external action',
-  resolved: 'Completed and documented'
-};
-
 const statusStyles: Record<TicketStatus, string> = {
   new: 'bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40',
   in_progress: 'bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/40',
   waiting: 'bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/40',
   resolved: 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/40'
-};
-
-const priorityLabels: Record<TicketPriority, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  urgent: 'Urgent'
 };
 
 const priorityStyles: Record<TicketPriority, string> = {
@@ -155,6 +136,8 @@ const categoryPalettes: Record<string, string> = {
   'IT Support': 'bg-indigo-500/10 text-indigo-200 ring-1 ring-indigo-500/30'
 };
 
+const ticketStatuses: TicketStatus[] = ['new', 'in_progress', 'waiting', 'resolved'];
+
 const defaultFormState: TicketFormState = {
   subject: '',
   requester: '',
@@ -164,16 +147,62 @@ const defaultFormState: TicketFormState = {
   description: ''
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
 export default function TicketsPage() {
+  const { t, language } = useTranslations();
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
+
+  const statusLabels = useMemo<Record<TicketStatus, string>>(
+    () => ({
+      new: t('New'),
+      in_progress: t('In Progress'),
+      waiting: t('Waiting on Response'),
+      resolved: t('Resolved')
+    }),
+    [t]
+  );
+
+  const statusDescriptions = useMemo<Record<TicketStatus, string>>(
+    () => ({
+      new: t('Awaiting triage'),
+      in_progress: t('Actively being worked'),
+      waiting: t('Pending external action'),
+      resolved: t('Completed and documented')
+    }),
+    [t]
+  );
+
+  const priorityLabels = useMemo<Record<TicketPriority, string>>(
+    () => ({
+      low: t('Low'),
+      medium: t('Medium'),
+      high: t('High'),
+      urgent: t('Urgent')
+    }),
+    [t]
+  );
+
+  const categoryLabels = useMemo<Record<string, string>>(
+    () => ({
+      'IT Support': t('IT Support'),
+      Equipment: t('Equipment'),
+      Facilities: t('Facilities'),
+      HR: t('HR'),
+      Clinical: t('Clinical')
+    }),
+    [t]
+  );
+
+  const formatDate = useCallback(
+    (iso: string) =>
+      new Date(iso).toLocaleString(locale, {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+    [locale]
+  );
+
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
   const [form, setForm] = useState<TicketFormState>(defaultFormState);
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
@@ -218,7 +247,7 @@ export default function TicketsPage() {
   }, [tickets, statusFilter, search]);
 
   const statusBreakdown = useMemo(() => {
-    return (Object.keys(statusLabels) as TicketStatus[]).map((status) => {
+    return ticketStatuses.map((status) => {
       const count = tickets.filter((ticket) => ticket.status === status).length;
       const percentage = tickets.length ? Math.round((count / tickets.length) * 100) : 0;
 
@@ -260,17 +289,18 @@ export default function TicketsPage() {
       <div className="border-b border-slate-800 bg-slate-900/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Support Hub</p>
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">Tickets</h1>
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('Support Hub')}</p>
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('Tickets')}</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-300">
-              Monitor live requests, prioritize escalations, and deliver quick resolutions across every
-              OnTime Dental clinic.
+              {t(
+                'Monitor live requests, prioritize escalations, and deliver quick resolutions across every OnTime Dental clinic.'
+              )}
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-            <p className="text-xs uppercase tracking-wider text-slate-400">Average satisfaction</p>
+            <p className="text-xs uppercase tracking-wider text-slate-400">{t('Average satisfaction')}</p>
             <p className="text-3xl font-semibold text-emerald-300">{metrics.satisfaction}%</p>
-            <p className="text-xs text-slate-500">Based on last 30 closed tickets</p>
+            <p className="text-xs text-slate-500">{t('Based on last 30 closed tickets')}</p>
           </div>
         </div>
         <nav className="mt-6 border-t border-slate-800">
@@ -285,7 +315,7 @@ export default function TicketsPage() {
                       : 'hover:bg-slate-800/80 hover:text-white'
                   }`}
                 >
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               </li>
             ))}
@@ -295,27 +325,27 @@ export default function TicketsPage() {
 
       <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-primary-900/10">
-          <p className="text-xs uppercase tracking-wider text-slate-400">Active tickets</p>
+          <p className="text-xs uppercase tracking-wider text-slate-400">{t('Active tickets')}</p>
           <p className="mt-2 text-4xl font-semibold text-white">{metrics.open}</p>
-          <p className="mt-3 text-xs text-slate-400">New, in progress, and waiting requests</p>
+          <p className="mt-3 text-xs text-slate-400">{t('New, in progress, and waiting requests')}</p>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-primary-900/10">
-          <p className="text-xs uppercase tracking-wider text-slate-400">Urgent escalations</p>
+          <p className="text-xs uppercase tracking-wider text-slate-400">{t('Urgent escalations')}</p>
           <p className="mt-2 text-4xl font-semibold text-rose-200">{metrics.urgent}</p>
-          <p className="mt-3 text-xs text-slate-400">Equipment failures and clinic outages</p>
+          <p className="mt-3 text-xs text-slate-400">{t('Equipment failures and clinic outages')}</p>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-primary-900/10">
-          <p className="text-xs uppercase tracking-wider text-slate-400">Awaiting clinics</p>
+          <p className="text-xs uppercase tracking-wider text-slate-400">{t('Awaiting clinics')}</p>
           <p className="mt-2 text-4xl font-semibold text-amber-200">{metrics.waiting}</p>
-          <p className="mt-3 text-xs text-slate-400">Tickets pending feedback or confirmation</p>
+          <p className="mt-3 text-xs text-slate-400">{t('Tickets pending feedback or confirmation')}</p>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-primary-900/10">
-          <p className="text-xs uppercase tracking-wider text-slate-400">Response playbook</p>
+          <p className="text-xs uppercase tracking-wider text-slate-400">{t('Response playbook')}</p>
           <p className="mt-2 text-base text-slate-300">
-            Trigger automatic alerts for urgent tickets and share live updates with clinic leaders.
+            {t('Trigger automatic alerts for urgent tickets and share live updates with clinic leaders.')}
           </p>
           <button className="mt-4 w-full rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-400">
-            Open escalation matrix
+            {t('Open escalation matrix')}
           </button>
         </div>
       </div>
@@ -325,15 +355,15 @@ export default function TicketsPage() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
             <div className="flex flex-col gap-4 border-b border-slate-800 pb-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-white">Live queue</h2>
+                <h2 className="text-xl font-semibold text-white">{t('Live queue')}</h2>
                 <p className="text-sm text-slate-400">
-                  Filter by status, drill into tickets, and follow resolution updates in real time.
+                  {t('Filter by status, drill into tickets, and follow resolution updates in real time.')}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/60 px-3 py-1.5">
-                  <span className="text-xs text-slate-500">Filter</span>
-                  {(['all', 'new', 'in_progress', 'waiting', 'resolved'] as const).map((status) => (
+                  <span className="text-xs text-slate-500">{t('Filter')}</span>
+                  {(['all', ...ticketStatuses] as const).map((status) => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -343,7 +373,7 @@ export default function TicketsPage() {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      {status === 'all' ? 'All' : statusLabels[status]}
+                      {status === 'all' ? t('All') : statusLabels[status]}
                     </button>
                   ))}
                 </div>
@@ -352,7 +382,7 @@ export default function TicketsPage() {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     className="h-9 w-48 rounded-full border border-slate-800 bg-slate-950/60 px-4 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
-                    placeholder="Search tickets"
+                    placeholder={t('Search tickets')}
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                     ⌕
@@ -364,7 +394,7 @@ export default function TicketsPage() {
             <div className="mt-6 space-y-4">
               {filteredTickets.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-10 text-center text-sm text-slate-400">
-                  No tickets found. Try adjusting your filters or creating a new ticket below.
+                  {t('No tickets found. Try adjusting your filters or creating a new ticket below.')}
                 </div>
               ) : (
                 filteredTickets.map((ticket) => (
@@ -384,36 +414,36 @@ export default function TicketsPage() {
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${priorityStyles[ticket.priority]}`}
                           >
-                            Priority · {priorityLabels[ticket.priority]}
+                            {t('Priority')} · {priorityLabels[ticket.priority]}
                           </span>
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${
                               categoryPalettes[ticket.category] ?? 'bg-slate-500/10 text-slate-200'
                             }`}
                           >
-                            {ticket.category}
+                            {categoryLabels[ticket.category] ?? ticket.category}
                           </span>
                         </div>
                         <h3 className="text-lg font-semibold text-white">{ticket.subject}</h3>
                         <p className="text-sm text-slate-400">{ticket.description}</p>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
-                          <span>Requester: {ticket.requester}</span>
-                          <span>Clinic: {ticket.location}</span>
-                          <span>Channel: {ticket.channel}</span>
+                          <span>{t('Requester: {requester}', { requester: ticket.requester })}</span>
+                          <span>{t('Clinic: {clinic}', { clinic: ticket.location })}</span>
+                          <span>{t('Channel: {channel}', { channel: ticket.channel })}</span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end justify-between text-right text-xs text-slate-400">
                         <div>
-                          <p className="font-semibold text-slate-200">Created</p>
+                          <p className="font-semibold text-slate-200">{t('Created')}</p>
                           <p>{formatDate(ticket.createdAt)}</p>
                         </div>
                         <div className="mt-3">
-                          <p className="font-semibold text-slate-200">Target Resolution</p>
+                          <p className="font-semibold text-slate-200">{t('Target Resolution')}</p>
                           <p>{formatDate(ticket.dueDate)}</p>
                         </div>
                         <div className="mt-3">
-                          <p className="font-semibold text-slate-200">Updates</p>
-                          <p>{ticket.updates} touchpoints logged</p>
+                          <p className="font-semibold text-slate-200">{t('Updates')}</p>
+                          <p>{t('{count} touchpoints logged', { count: ticket.updates.toString() })}</p>
                         </div>
                       </div>
                     </div>
@@ -424,57 +454,57 @@ export default function TicketsPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-xl font-semibold text-white">Create new ticket</h2>
+            <h2 className="text-xl font-semibold text-white">{t('Create new ticket')}</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Log a clinic request. A coordinator will triage it instantly and send updates to the requester.
+              {t('Log a clinic request. A coordinator will triage it instantly and send updates to the requester.')}
             </p>
             <form onSubmit={handleSubmit} className="mt-6 grid gap-5 sm:grid-cols-2">
               <label className="space-y-2 text-sm text-slate-200">
-                Subject
+                {t('Subject')}
                 <input
                   value={form.subject}
                   onChange={(event) => setForm((prev) => ({ ...prev, subject: event.target.value }))}
-                  placeholder="Describe the issue"
+                  placeholder={t('Describe the issue')}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
                   required
                 />
               </label>
               <label className="space-y-2 text-sm text-slate-200">
-                Requester
+                {t('Requester')}
                 <input
                   value={form.requester}
                   onChange={(event) => setForm((prev) => ({ ...prev, requester: event.target.value }))}
-                  placeholder="Clinic contact"
+                  placeholder={t('Clinic contact')}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
                   required
                 />
               </label>
               <label className="space-y-2 text-sm text-slate-200">
-                Clinic / Location
+                {t('Clinic / Location')}
                 <input
                   value={form.location}
                   onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                  placeholder="Where is this happening?"
+                  placeholder={t('Where is this happening?')}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
                   required
                 />
               </label>
               <label className="space-y-2 text-sm text-slate-200">
-                Category
+                {t('Category')}
                 <select
                   value={form.category}
                   onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white focus:border-primary-400 focus:outline-none"
                 >
-                  <option value="IT Support">IT Support</option>
-                  <option value="Equipment">Equipment</option>
-                  <option value="Facilities">Facilities</option>
-                  <option value="HR">HR</option>
-                  <option value="Clinical">Clinical</option>
+                  <option value="IT Support">{t('IT Support')}</option>
+                  <option value="Equipment">{t('Equipment')}</option>
+                  <option value="Facilities">{t('Facilities')}</option>
+                  <option value="HR">{t('HR')}</option>
+                  <option value="Clinical">{t('Clinical')}</option>
                 </select>
               </label>
               <label className="space-y-2 text-sm text-slate-200">
-                Priority
+                {t('Priority')}
                 <select
                   value={form.priority}
                   onChange={(event) =>
@@ -482,32 +512,32 @@ export default function TicketsPage() {
                   }
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white focus:border-primary-400 focus:outline-none"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
+                  <option value="low">{t('Low')}</option>
+                  <option value="medium">{t('Medium')}</option>
+                  <option value="high">{t('High')}</option>
+                  <option value="urgent">{t('Urgent')}</option>
                 </select>
               </label>
               <label className="space-y-2 text-sm text-slate-200 sm:col-span-2">
-                Detailed description
+                {t('Detailed description')}
                 <textarea
                   value={form.description}
                   onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                   rows={4}
-                  placeholder="Provide context, impacted patients, and any steps already taken."
+                  placeholder={t('Provide context, impacted patients, and any steps already taken.')}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
                   required
                 />
               </label>
               <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2">
                 <p className="text-xs text-slate-500">
-                  By submitting you will notify the operations coordination team and start the SLA clock.
+                  {t('By submitting you will notify the operations coordination team and start the SLA clock.')}
                 </p>
                 <button
                   type="submit"
                   className="rounded-lg bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-400"
                 >
-                  Log ticket
+                  {t('Log ticket')}
                 </button>
               </div>
             </form>
@@ -516,8 +546,8 @@ export default function TicketsPage() {
 
         <aside className="space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-xl font-semibold text-white">Status radar</h2>
-            <p className="mt-1 text-sm text-slate-400">Snapshot of volume by lifecycle stage.</p>
+            <h2 className="text-xl font-semibold text-white">{t('Status radar')}</h2>
+            <p className="mt-1 text-sm text-slate-400">{t('Snapshot of volume by lifecycle stage.')}</p>
             <ul className="mt-5 space-y-4">
               {statusBreakdown.map((item) => (
                 <li key={item.status} className="flex items-center justify-between text-sm">
@@ -527,7 +557,9 @@ export default function TicketsPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-white">{item.count}</p>
-                    <p className="text-xs text-slate-500">{item.percentage}% of tickets</p>
+                    <p className="text-xs text-slate-500">
+                      {t('{percentage}% of tickets', { percentage: item.percentage.toString() })}
+                    </p>
                   </div>
                 </li>
               ))}
@@ -535,36 +567,36 @@ export default function TicketsPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-xl font-semibold text-white">Operations bulletin</h2>
+            <h2 className="text-xl font-semibold text-white">{t('Operations bulletin')}</h2>
             <ul className="mt-4 space-y-4 text-sm text-slate-300">
               <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="font-semibold text-white">Digital workflows</p>
+                <p className="font-semibold text-white">{t('Digital workflows')}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Every urgent ticket sends SMS alerts to regional directors for faster acknowledgment.
+                  {t('Every urgent ticket sends SMS alerts to regional directors for faster acknowledgment.')}
                 </p>
               </li>
               <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="font-semibold text-white">Sunrise huddles</p>
+                <p className="font-semibold text-white">{t('Sunrise huddles')}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Share overnight ticket summaries with on-call dentists before the first appointment block.
+                  {t('Share overnight ticket summaries with on-call dentists before the first appointment block.')}
                 </p>
               </li>
               <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="font-semibold text-white">Learning loop</p>
+                <p className="font-semibold text-white">{t('Learning loop')}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Resolved tickets with high satisfaction feed back into our service playbook templates.
+                  {t('Resolved tickets with high satisfaction feed back into our service playbook templates.')}
                 </p>
               </li>
             </ul>
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-primary-500/10 via-primary-500/0 to-primary-500/20 p-6">
-            <h2 className="text-xl font-semibold text-white">VIP monitoring</h2>
+            <h2 className="text-xl font-semibold text-white">{t('VIP monitoring')}</h2>
             <p className="mt-1 text-sm text-slate-200">
-              Enable concierge tracking for executives, urgent surgical cases, and enterprise partners.
+              {t('Enable concierge tracking for executives, urgent surgical cases, and enterprise partners.')}
             </p>
             <button className="mt-4 w-full rounded-lg border border-primary-400/40 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-100 transition hover:border-primary-300 hover:bg-primary-500/30">
-              Launch white-glove view
+              {t('Launch white-glove view')}
             </button>
           </div>
         </aside>
