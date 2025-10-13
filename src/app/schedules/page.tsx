@@ -4,6 +4,14 @@ import Link from 'next/link';
 import type { ChangeEvent, DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_FRONT_DESK_SCHEDULES, GET_DOCTOR_SCHEDULES } from '@/graphql/schedule-queries';
+import { 
+  UPDATE_FRONT_DESK_SCHEDULE, 
+  UPDATE_DOCTOR_SCHEDULE,
+  SWAP_FRONT_DESK_ASSIGNMENTS,
+  SWAP_DOCTOR_ASSIGNMENTS 
+} from '@/graphql/schedule-mutations';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -96,8 +104,6 @@ export default function SchedulesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
-  const [frontDeskSchedule, setFrontDeskSchedule] = useState<FrontDeskSchedule>(initialFrontDeskSchedule);
-  const [doctorSchedule, setDoctorSchedule] = useState<DoctorSchedule>(initialDoctorSchedule);
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
   >(null);
@@ -106,6 +112,45 @@ export default function SchedulesPage() {
   >(null);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
   const [currentDragPayload, setCurrentDragPayload] = useState<DragPayload | null>(null);
+
+  // Fetch schedules from GraphQL
+  const { data: frontDeskData, loading: frontDeskLoading, refetch: refetchFrontDesk } = useQuery(GET_FRONT_DESK_SCHEDULES);
+  const { data: doctorData, loading: doctorLoading, refetch: refetchDoctor } = useQuery(GET_DOCTOR_SCHEDULES);
+
+  // Mutations
+  const [updateFrontDeskMutation] = useMutation(UPDATE_FRONT_DESK_SCHEDULE);
+  const [updateDoctorMutation] = useMutation(UPDATE_DOCTOR_SCHEDULE);
+  const [swapFrontDeskMutation] = useMutation(SWAP_FRONT_DESK_ASSIGNMENTS);
+  const [swapDoctorMutation] = useMutation(SWAP_DOCTOR_ASSIGNMENTS);
+
+  // Transform GraphQL data to UI format
+  const frontDeskSchedule = useMemo<FrontDeskSchedule>(() => {
+    if (!frontDeskData?.frontDeskSchedules) return initialFrontDeskSchedule;
+    
+    const schedule: FrontDeskSchedule = {};
+    frontDeskData.frontDeskSchedules.forEach((item: any) => {
+      if (!schedule[item.positionId]) {
+        schedule[item.positionId] = {};
+      }
+      schedule[item.positionId][item.clinicId] = item.employee;
+    });
+    
+    return schedule;
+  }, [frontDeskData]);
+
+  const doctorSchedule = useMemo<DoctorSchedule>(() => {
+    if (!doctorData?.doctorSchedules) return initialDoctorSchedule;
+    
+    const schedule: DoctorSchedule = {};
+    doctorData.doctorSchedules.forEach((item: any) => {
+      if (!schedule[item.dayId]) {
+        schedule[item.dayId] = {};
+      }
+      schedule[item.dayId][item.clinicId] = item.doctor;
+    });
+    
+    return schedule;
+  }, [doctorData]);
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -158,7 +203,7 @@ export default function SchedulesPage() {
     }
   };
 
-  const handleFrontDeskDrop = (positionId: string, clinicId: string) => (event: DragEvent<HTMLDivElement>) => {
+  const handleFrontDeskDrop = (positionId: string, clinicId: string) => async (event: DragEvent<HTMLDivElement>) => {
     const data = event.dataTransfer.getData('application/json');
     const payload = safeParsePayload(data);
 
@@ -169,40 +214,24 @@ export default function SchedulesPage() {
     setCurrentDragPayload(null);
     setEditingFrontDeskCell(null);
 
-    setFrontDeskSchedule((previous) => {
-      const source = previous[payload.positionId]?.[payload.clinicId] ?? null;
-      const target = previous[positionId]?.[clinicId] ?? null;
-
-      if (!source) {
-        return previous;
-      }
-
-      if (payload.positionId === positionId) {
-        return {
-          ...previous,
-          [positionId]: {
-            ...previous[positionId],
-            [payload.clinicId]: target,
-            [clinicId]: source
-          }
-        };
-      }
-
-      return {
-        ...previous,
-        [payload.positionId]: {
-          ...previous[payload.positionId],
-          [payload.clinicId]: target
-        },
-        [positionId]: {
-          ...previous[positionId],
-          [clinicId]: source
+    // Call GraphQL mutation to swap assignments
+    try {
+      await swapFrontDeskMutation({
+        variables: {
+          sourcePositionId: payload.positionId,
+          sourceClinicId: payload.clinicId,
+          targetPositionId: positionId,
+          targetClinicId: clinicId
         }
-      };
-    });
+      });
+      await refetchFrontDesk();
+    } catch (error) {
+      console.error('Error swapping front desk assignments:', error);
+      alert('Failed to swap assignments. Please try again.');
+    }
   };
 
-  const handleDoctorDrop = (dayId: string, clinicId: string) => (event: DragEvent<HTMLDivElement>) => {
+  const handleDoctorDrop = (dayId: string, clinicId: string) => async (event: DragEvent<HTMLDivElement>) => {
     const data = event.dataTransfer.getData('application/json');
     const payload = safeParsePayload(data);
 
@@ -213,37 +242,21 @@ export default function SchedulesPage() {
     setCurrentDragPayload(null);
     setEditingDoctorCell(null);
 
-    setDoctorSchedule((previous) => {
-      const source = previous[payload.dayId]?.[payload.clinicId] ?? null;
-      const target = previous[dayId]?.[clinicId] ?? null;
-
-      if (!source) {
-        return previous;
-      }
-
-      if (payload.dayId === dayId) {
-        return {
-          ...previous,
-          [dayId]: {
-            ...previous[dayId],
-            [payload.clinicId]: target,
-            [clinicId]: source
-          }
-        };
-      }
-
-      return {
-        ...previous,
-        [payload.dayId]: {
-          ...previous[payload.dayId],
-          [payload.clinicId]: target
-        },
-        [dayId]: {
-          ...previous[dayId],
-          [clinicId]: source
+    // Call GraphQL mutation to swap doctor assignments
+    try {
+      await swapDoctorMutation({
+        variables: {
+          sourceDayId: payload.dayId,
+          sourceClinicId: payload.clinicId,
+          targetDayId: dayId,
+          targetClinicId: clinicId
         }
-      };
-    });
+      });
+      await refetchDoctor();
+    } catch (error) {
+      console.error('Error swapping doctor assignments:', error);
+      alert('Failed to swap assignments. Please try again.');
+    }
   };
 
   const handleStartFrontDeskEdit = (positionId: string, clinicId: string) => {
@@ -262,7 +275,7 @@ export default function SchedulesPage() {
     setEditingFrontDeskCell(null);
   };
 
-  const handleSaveFrontDeskEdit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveFrontDeskEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!editingFrontDeskCell) return;
@@ -270,40 +283,49 @@ export default function SchedulesPage() {
     const { positionId, clinicId, name } = editingFrontDeskCell;
     const trimmedName = name.trim();
 
-    setFrontDeskSchedule((previous) => {
-      const current = previous[positionId]?.[clinicId];
-      if (!current) {
-        return previous;
-      }
+    if (!trimmedName) {
+      alert('Name cannot be empty');
+      return;
+    }
 
-      return {
-        ...previous,
-        [positionId]: {
-          ...previous[positionId],
-          [clinicId]: { ...current, name: trimmedName || current.name }
+    const current = frontDeskSchedule[positionId]?.[clinicId];
+    if (!current) return;
+
+    try {
+      await updateFrontDeskMutation({
+        variables: {
+          positionId,
+          clinicId,
+          employee: {
+            id: current.id,
+            name: trimmedName
+          }
         }
-      };
-    });
-
-    setEditingFrontDeskCell(null);
+      });
+      await refetchFrontDesk();
+      setEditingFrontDeskCell(null);
+    } catch (error) {
+      console.error('Error updating front desk schedule:', error);
+      alert('Failed to update employee name. Please try again.');
+    }
   };
 
-  const handleDeleteFrontDeskCard = (positionId: string, clinicId: string) => {
-    setFrontDeskSchedule((previous) => {
-      const positionSchedule = previous[positionId] ?? {};
+  const handleDeleteFrontDeskCard = async (positionId: string, clinicId: string) => {
+    if (!confirm('Are you sure you want to remove this assignment?')) return;
 
-      return {
-        ...previous,
-        [positionId]: {
-          ...positionSchedule,
-          [clinicId]: null
+    try {
+      await updateFrontDeskMutation({
+        variables: {
+          positionId,
+          clinicId,
+          employee: null
         }
-      };
-    });
-
-    setEditingFrontDeskCell((previous) =>
-      previous && previous.positionId === positionId && previous.clinicId === clinicId ? null : previous
-    );
+      });
+      await refetchFrontDesk();
+    } catch (error) {
+      console.error('Error deleting front desk assignment:', error);
+      alert('Failed to remove assignment. Please try again.');
+    }
   };
 
   const handleStartDoctorEdit = (dayId: string, clinicId: string) => {
@@ -322,7 +344,7 @@ export default function SchedulesPage() {
     setEditingDoctorCell(null);
   };
 
-  const handleSaveDoctorEdit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveDoctorEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!editingDoctorCell) return;
@@ -330,40 +352,50 @@ export default function SchedulesPage() {
     const { dayId, clinicId, name } = editingDoctorCell;
     const trimmedName = name.trim();
 
-    setDoctorSchedule((previous) => {
-      const current = previous[dayId]?.[clinicId];
-      if (!current) {
-        return previous;
-      }
+    if (!trimmedName) {
+      alert('Name cannot be empty');
+      return;
+    }
 
-      return {
-        ...previous,
-        [dayId]: {
-          ...previous[dayId],
-          [clinicId]: { ...current, name: trimmedName || current.name }
+    const current = doctorSchedule[dayId]?.[clinicId];
+    if (!current) return;
+
+    try {
+      await updateDoctorMutation({
+        variables: {
+          dayId,
+          clinicId,
+          doctor: {
+            id: current.id,
+            name: trimmedName,
+            shift: current.shift
+          }
         }
-      };
-    });
-
-    setEditingDoctorCell(null);
+      });
+      await refetchDoctor();
+      setEditingDoctorCell(null);
+    } catch (error) {
+      console.error('Error updating doctor schedule:', error);
+      alert('Failed to update doctor name. Please try again.');
+    }
   };
 
-  const handleDeleteDoctorCard = (dayId: string, clinicId: string) => {
-    setDoctorSchedule((previous) => {
-      const daySchedule = previous[dayId] ?? {};
+  const handleDeleteDoctorCard = async (dayId: string, clinicId: string) => {
+    if (!confirm('Are you sure you want to remove this assignment?')) return;
 
-      return {
-        ...previous,
-        [dayId]: {
-          ...daySchedule,
-          [clinicId]: null
+    try {
+      await updateDoctorMutation({
+        variables: {
+          dayId,
+          clinicId,
+          doctor: null
         }
-      };
-    });
-
-    setEditingDoctorCell((previous) =>
-      previous && previous.dayId === dayId && previous.clinicId === clinicId ? null : previous
-    );
+      });
+      await refetchDoctor();
+    } catch (error) {
+      console.error('Error deleting doctor assignment:', error);
+      alert('Failed to remove assignment. Please try again.');
+    }
   };
 
   const handleDragEnter = (dropZoneId: string) => (event: DragEvent<HTMLDivElement>) => {

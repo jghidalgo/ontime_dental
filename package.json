@@ -9,12 +9,16 @@
     "lint": "next lint",
     "seed": "tsx scripts/seed-user.ts",
     "seed:contacts": "tsx scripts/seed-contacts.ts",
-    "seed:admin": "tsx scripts/seed-admin-user.ts"
+    "seed:admin": "tsx scripts/seed-admin-user.ts",
+    "seed:schedules": "tsx scripts/seed-schedules.ts"
   },
   "dependencies": {
     "@apollo/client": "^3.10.0",
     "@apollo/server": "^4.10.0",
     "@as-integrations/next": "^3.2.0",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "graphql": "^16.9.0",

@@ -224,11 +224,12 @@ async function seedDatabase() {
       // Create entries for each group
       for (const group of ['corporate', 'frontdesk', 'offices'] as const) {
         const entries = data.entries[group];
-        for (const entry of entries) {
+        for (let i = 0; i < entries.length; i++) {
           await DirectoryEntry.create({
             entityId: data.entityId,
             group,
-            ...entry
+            order: i,
+            ...entries[i]
           });
         }
         console.log(`   ✓ Created ${entries.length} ${group} entries`);

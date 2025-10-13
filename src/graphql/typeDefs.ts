@@ -28,6 +28,7 @@ const typeDefs = gql`
     extension: String!
     department: String!
     employee: String!
+    order: Int!
   }
 
   type DirectoryEntityWithEntries {
@@ -66,6 +67,31 @@ const typeDefs = gql`
     clinics: [Clinic!]!
   }
 
+  type Employee {
+    id: String!
+    name: String!
+  }
+
+  type FrontDeskSchedule {
+    id: ID!
+    positionId: String!
+    clinicId: String!
+    employee: Employee
+  }
+
+  type DoctorAssignment {
+    id: String!
+    name: String!
+    shift: String!
+  }
+
+  type DoctorSchedule {
+    id: ID!
+    dayId: String!
+    clinicId: String!
+    doctor: DoctorAssignment
+  }
+
   input CoordinatesInput {
     lat: Float!
     lng: Float!
@@ -91,6 +117,18 @@ const typeDefs = gql`
     extension: String!
     department: String!
     employee: String!
+    order: Int
+  }
+
+  input EmployeeInput {
+    id: String!
+    name: String!
+  }
+
+  input DoctorAssignmentInput {
+    id: String!
+    name: String!
+    shift: String!
   }
 
   type Query {
@@ -106,6 +144,10 @@ const typeDefs = gql`
     # Clinic location queries
     clinicLocations: [ClinicLocation!]!
     clinicLocation(companyId: String!): ClinicLocation
+    
+    # Schedule queries
+    frontDeskSchedules: [FrontDeskSchedule!]!
+    doctorSchedules: [DoctorSchedule!]!
   }
 
   type Mutation {
@@ -116,6 +158,7 @@ const typeDefs = gql`
     createDirectoryEntry(input: DirectoryEntryInput!): DirectoryEntry!
     updateDirectoryEntry(id: ID!, input: DirectoryEntryInput!): DirectoryEntry!
     deleteDirectoryEntry(id: ID!): Boolean!
+    reorderDirectoryEntries(entityId: String!, group: String!, entryIds: [ID!]!): [DirectoryEntry!]!
     
     # Clinic location mutations
     createClinicLocation(
@@ -136,6 +179,22 @@ const typeDefs = gql`
     ): ClinicLocation!
     addClinic(companyId: String!, clinic: ClinicInput!): ClinicLocation!
     removeClinic(companyId: String!, clinicId: String!): ClinicLocation!
+    
+    # Schedule mutations
+    updateFrontDeskSchedule(positionId: String!, clinicId: String!, employee: EmployeeInput): FrontDeskSchedule!
+    updateDoctorSchedule(dayId: String!, clinicId: String!, doctor: DoctorAssignmentInput): DoctorSchedule!
+    swapFrontDeskAssignments(
+      sourcePositionId: String!
+      sourceClinicId: String!
+      targetPositionId: String!
+      targetClinicId: String!
+    ): [FrontDeskSchedule!]!
+    swapDoctorAssignments(
+      sourceDayId: String!
+      sourceClinicId: String!
+      targetDayId: String!
+      targetClinicId: String!
+    ): [DoctorSchedule!]!
   }
 `;
 

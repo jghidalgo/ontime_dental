@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import { GET_ALL_DIRECTORY_DATA } from '@/graphql/queries';
+import { UPDATE_DIRECTORY_ENTRY, DELETE_DIRECTORY_ENTRY } from '@/graphql/mutations';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -15,6 +16,7 @@ type DirectoryEntry = {
   extension: string;
   department: string;
   employee: string;
+  order?: number;
 };
 
 type DirectoryEntityWithEntries = {
@@ -67,14 +69,93 @@ export default function ContactsPage() {
     entityId: '',
     group: 'corporate'
   }));
+  
+  // Edit modal state
+  const [editingEntry, setEditingEntry] = useState<DirectoryEntry | null>(null);
+  const [editForm, setEditForm] = useState({
+    location: '',
+    phone: '',
+    extension: '',
+    department: '',
+    employee: ''
+  });
 
   // Fetch directory data from GraphQL
-  const { data, loading, error } = useQuery(GET_ALL_DIRECTORY_DATA);
+  const { data, loading, error, refetch } = useQuery(GET_ALL_DIRECTORY_DATA);
+
+  // Mutations
+  const [updateEntry, { loading: updating }] = useMutation(UPDATE_DIRECTORY_ENTRY, {
+    onCompleted: () => {
+      refetch();
+      setEditingEntry(null);
+    },
+    onError: (err) => {
+      console.error('Error updating entry:', err);
+      alert('Failed to update entry. Please try again.');
+    }
+  });
+
+  const [deleteEntry, { loading: deleting }] = useMutation(DELETE_DIRECTORY_ENTRY, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (err) => {
+      console.error('Error deleting entry:', err);
+      alert('Failed to delete entry. Please try again.');
+    }
+  });
 
   const directory = useMemo<DirectoryEntityWithEntries[]>(
     () => data?.allDirectoryData || [],
     [data]
   );
+
+  // Handler functions
+  const handleEditClick = (entry: DirectoryEntry) => {
+    setEditingEntry(entry);
+    setEditForm({
+      location: entry.location,
+      phone: entry.phone,
+      extension: entry.extension,
+      department: entry.department,
+      employee: entry.employee
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEntry) return;
+
+    await updateEntry({
+      variables: {
+        id: editingEntry.id,
+        input: {
+          entityId: activeSelection.entityId,
+          group: activeSelection.group,
+          ...editForm,
+          order: editingEntry.order || 0
+        }
+      }
+    });
+  };
+
+  const handleDeleteClick = async (entry: DirectoryEntry) => {
+    if (confirm(`Are you sure you want to delete ${entry.employee}?`)) {
+      await deleteEntry({
+        variables: { id: entry.id }
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingEntry(null);
+    setEditForm({
+      location: '',
+      phone: '',
+      extension: '',
+      department: '',
+      employee: ''
+    });
+  };
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -341,24 +422,40 @@ export default function ContactsPage() {
                     <table className="min-w-full divide-y divide-white/5 text-left text-sm text-slate-200">
                       <thead className="bg-white/[0.03] text-xs uppercase tracking-wider text-white/50">
                         <tr>
-                          <th className="px-4 py-3 font-medium">ID</th>
                           <th className="px-4 py-3 font-medium">Location</th>
                           <th className="px-4 py-3 font-medium">Phone number</th>
                           <th className="px-4 py-3 font-medium">Ext</th>
                           <th className="px-4 py-3 font-medium">Department</th>
                           <th className="px-4 py-3 font-medium">Employee</th>
+                          <th className="px-4 py-3 font-medium text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {selectedEntries.length ? (
                           selectedEntries.map((entry) => (
                             <tr key={entry.id} className="transition hover:bg-primary-500/10">
-                              <td className="px-4 py-3 text-xs font-semibold uppercase tracking-widest text-white/60">{entry.id}</td>
                               <td className="px-4 py-3 text-sm text-slate-100">{entry.location}</td>
                               <td className="px-4 py-3 text-sm text-slate-100">{entry.phone}</td>
                               <td className="px-4 py-3 text-sm font-semibold text-primary-100">{entry.extension}</td>
                               <td className="px-4 py-3 text-sm text-slate-200">{entry.department}</td>
                               <td className="px-4 py-3 text-sm text-slate-100">{entry.employee}</td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleEditClick(entry)}
+                                    className="rounded-lg border border-primary-400/30 bg-primary-500/10 px-3 py-1.5 text-xs font-semibold text-primary-100 transition hover:bg-primary-500/20"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClick(entry)}
+                                    disabled={deleting}
+                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-500/20 disabled:opacity-50"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
                           ))
                         ) : (
@@ -391,6 +488,104 @@ export default function ContactsPage() {
           </main>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900 p-8 shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-slate-50">Edit Contact Entry</h2>
+              <p className="mt-2 text-sm text-slate-400">Update the contact information below</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="edit-location" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                  Location
+                </label>
+                <input
+                  id="edit-location"
+                  type="text"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="edit-phone" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                    Phone
+                  </label>
+                  <input
+                    id="edit-phone"
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="edit-extension" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                    Extension
+                  </label>
+                  <input
+                    id="edit-extension"
+                    type="text"
+                    value={editForm.extension}
+                    onChange={(e) => setEditForm({ ...editForm, extension: e.target.value })}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="edit-department" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                  Department
+                </label>
+                <input
+                  id="edit-department"
+                  type="text"
+                  value={editForm.department}
+                  onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-employee" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                  Employee Name
+                </label>
+                <input
+                  id="edit-employee"
+                  type="text"
+                  value={editForm.employee}
+                  onChange={(e) => setEditForm({ ...editForm, employee: e.target.value })}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-3">
+              <button
+                onClick={handleSaveEdit}
+                disabled={updating}
+                className="flex-1 rounded-2xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400 disabled:opacity-50"
+              >
+                {updating ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={updating}
+                className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

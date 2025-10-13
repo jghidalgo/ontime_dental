@@ -8,6 +8,7 @@ export interface IDirectoryEntry extends Document {
   extension: string;
   department: string;
   employee: string;
+  order: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +45,10 @@ const DirectoryEntrySchema = new Schema<IDirectoryEntry>(
     employee: {
       type: String,
       required: true
+    },
+    order: {
+      type: Number,
+      default: 0
     }
   },
   {
