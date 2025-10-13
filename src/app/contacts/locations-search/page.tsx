@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -24,8 +26,8 @@ type Coordinates = {
   lng: number;
 };
 
-type ClinicLocation = {
-  id: string;
+type Clinic = {
+  clinicId: string;
   name: string;
   address: string;
   city: string;
@@ -37,100 +39,14 @@ type ClinicLocation = {
 };
 
 type CompanyLocations = {
+  id: string;
   companyId: string;
   companyName: string;
   headquarters: string;
   description: string;
   mapCenter: Coordinates;
-  clinics: ClinicLocation[];
+  clinics: Clinic[];
 };
-
-const companyLocations: CompanyLocations[] = [
-  {
-    companyId: 'ontime-holdings',
-    companyName: 'OnTime Dental Holdings',
-    headquarters: 'San Juan, PR',
-    description: 'Puerto Rico network of clinics delivering community-first dental care with bilingual teams and extended hours.',
-    mapCenter: { lat: 18.438555, lng: -66.062911 },
-    clinics: [
-      {
-        id: 'PR-SJ-01',
-        name: 'Old San Juan Clinic',
-        address: '101 Fortaleza Street Suite 210',
-        city: 'San Juan, PR',
-        zip: '00901',
-        phone: '(787) 555-5200',
-        email: 'oldsanjuan@ontimedental.com',
-        hours: 'Mon–Fri 8:00a – 6:00p',
-        coordinates: { lat: 18.465539, lng: -66.105735 }
-      },
-      {
-        id: 'PR-CG-02',
-        name: 'Caguas Specialty Center',
-        address: '500 Calle Betances Level 3',
-        city: 'Caguas, PR',
-        zip: '00725',
-        phone: '(787) 555-6200',
-        email: 'caguas@ontimedental.com',
-        hours: 'Mon–Sat 8:00a – 7:00p',
-        coordinates: { lat: 18.233412, lng: -66.039993 }
-      },
-      {
-        id: 'PR-BY-03',
-        name: 'Bayamón Family Dental',
-        address: '77 Avenida Main Plaza',
-        city: 'Bayamón, PR',
-        zip: '00956',
-        phone: '(787) 555-6210',
-        email: 'bayamon@ontimedental.com',
-        hours: 'Mon–Fri 9:00a – 5:30p',
-        coordinates: { lat: 18.39856, lng: -66.155723 }
-      }
-    ]
-  },
-  {
-    companyId: 'bluno-james',
-    companyName: 'Bluno James Dental Group',
-    headquarters: 'Miami, FL',
-    description: 'South Florida flagship centers focused on cosmetic and specialty dentistry with concierge teams.',
-    mapCenter: { lat: 25.761681, lng: -80.191788 },
-    clinics: [
-      {
-        id: 'FL-MIA-01',
-        name: 'Coral Gables Flagship',
-        address: '120 Miracle Mile Suite 500',
-        city: 'Coral Gables, FL',
-        zip: '33134',
-        phone: '(305) 555-1100',
-        email: 'coralgables@blunojames.com',
-        hours: 'Mon–Sat 8:00a – 6:00p',
-        coordinates: { lat: 25.750145, lng: -80.263724 }
-      },
-      {
-        id: 'FL-MIA-02',
-        name: 'Miller Dental Studio',
-        address: '8455 SW 72nd Street Suite 210',
-        city: 'Miami, FL',
-        zip: '33143',
-        phone: '(305) 555-3012',
-        email: 'miller@blunojames.com',
-        hours: 'Mon–Fri 8:00a – 5:00p',
-        coordinates: { lat: 25.701531, lng: -80.323273 }
-      },
-      {
-        id: 'FL-MIA-03',
-        name: 'Biscayne Pediatric Loft',
-        address: '3101 NE 7th Avenue Level 9',
-        city: 'Miami, FL',
-        zip: '33137',
-        phone: '(305) 555-3077',
-        email: 'biscayne@blunojames.com',
-        hours: 'Mon–Sat 9:00a – 5:00p',
-        coordinates: { lat: 25.806173, lng: -80.185837 }
-      }
-    ]
-  }
-];
 
 const domainToCompany: Record<string, string> = {
   'ontimedental.com': 'ontime-holdings',
@@ -149,11 +65,14 @@ function decodeToken(token: string): TokenPayload | null {
     }
 
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const paddingNeeded = (4 - (base64.length % 4)) % 4;
+    const paddedBase64 = base64 + '='.repeat(paddingNeeded);
+    const hexMapper = (char: string) => {
+      const hex = ('00' + char.charCodeAt(0).toString(16)).slice(-2);
+      return '%' + hex;
+    };
     const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
+      atob(paddedBase64).split('').map(hexMapper).join('')
     );
 
     return JSON.parse(jsonPayload) as TokenPayload;
@@ -180,13 +99,26 @@ export default function LocationSearchPage() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [companyId, setCompanyId] = useState(companyLocations[0]?.companyId ?? '');
+  const [companyId, setCompanyId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [zipQuery, setZipQuery] = useState('');
-  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(
-    companyLocations[0]?.clinics[0]?.id ?? null
-  );
+  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
+
+  // Fetch clinic locations from GraphQL
+  const { data, loading, error } = useQuery(GET_CLINIC_LOCATIONS);
+
+  const companyLocations = useMemo<CompanyLocations[]>(
+    () => data?.clinicLocations || [],
+    [data]
+  );
+
+  // Initialize companyId when data loads
+  useEffect(() => {
+    if (companyLocations.length > 0 && !companyId) {
+      setCompanyId(companyLocations[0].companyId);
+    }
+  }, [companyLocations, companyId]);
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -212,7 +144,7 @@ export default function LocationSearchPage() {
 
   const currentCompany = useMemo(() => {
     return companyLocations.find((company) => company.companyId === companyId) ?? companyLocations[0];
-  }, [companyId]);
+  }, [companyId, companyLocations]);
 
   useEffect(() => {
     if (!currentCompany) {
@@ -220,14 +152,16 @@ export default function LocationSearchPage() {
     }
 
     setSelectedClinicId((prev) => {
-      if (prev && currentCompany.clinics.some((clinic) => clinic.id === prev)) {
+      if (prev && currentCompany.clinics.some((clinic) => clinic.clinicId === prev)) {
         return prev;
       }
-      return currentCompany.clinics[0]?.id ?? null;
+      return currentCompany.clinics[0]?.clinicId ?? null;
     });
   }, [currentCompany]);
 
   const filteredClinics = useMemo(() => {
+    if (!currentCompany?.clinics) return [];
+    
     const nameQuery = searchQuery.trim().toLowerCase();
     const zipOrAddressQuery = zipQuery.trim().toLowerCase();
 
@@ -253,28 +187,48 @@ export default function LocationSearchPage() {
     }
 
     setSelectedClinicId((prev) => {
-      if (prev && filteredClinics.some((clinic) => clinic.id === prev)) {
+      if (prev && filteredClinics.some((clinic) => clinic.clinicId === prev)) {
         return prev;
       }
 
-      return filteredClinics[0]?.id ?? null;
+      return filteredClinics[0]?.clinicId ?? null;
     });
   }, [filteredClinics]);
 
-  const selectedClinic = filteredClinics.find((clinic) => clinic.id === selectedClinicId) ?? null;
+  const selectedClinic = filteredClinics.find((clinic) => clinic.clinicId === selectedClinicId) ?? null;
 
+  const mapTypeParam = mapType === 'satellite' ? 'k' : '';
   const mapSource = selectedClinic
-    ? `https://maps.google.com/maps?q=${selectedClinic.coordinates.lat},${selectedClinic.coordinates.lng}&t=${
-        mapType === 'satellite' ? 'k' : ''
-      }&z=13&output=embed`
-    : `https://maps.google.com/maps?q=${currentCompany.mapCenter.lat},${currentCompany.mapCenter.lng}&t=${
-        mapType === 'satellite' ? 'k' : ''
-      }&z=10&output=embed`;
+    ? `https://maps.google.com/maps?q=${selectedClinic.coordinates.lat},${selectedClinic.coordinates.lng}&t=${mapTypeParam}&z=13&output=embed`
+    : currentCompany?.mapCenter 
+      ? `https://maps.google.com/maps?q=${currentCompany.mapCenter.lat},${currentCompany.mapCenter.lng}&t=${mapTypeParam}&z=10&output=embed`
+      : '';
 
   const handleLogout = () => {
     window.localStorage.removeItem('ontime.authToken');
     router.push('/login');
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-center">
+          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+          <p className="text-slate-400">Loading clinic locations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-8 text-center">
+          <p className="text-red-400">Error loading locations: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
@@ -385,10 +339,11 @@ export default function LocationSearchPage() {
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                 <form className="flex flex-col gap-4 lg:flex-row lg:items-end">
                   <div className="flex-1">
-                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                    <label htmlFor="search-name" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
                       Location name search
                     </label>
                     <input
+                      id="search-name"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
                       placeholder="Search clinics or cities"
@@ -397,10 +352,11 @@ export default function LocationSearchPage() {
                   </div>
 
                   <div className="flex-1">
-                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                    <label htmlFor="search-zip" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
                       Enter address or zip code
                     </label>
                     <input
+                      id="search-zip"
                       value={zipQuery}
                       onChange={(event) => setZipQuery(event.target.value)}
                       placeholder="Filter by street, city, or ZIP"
@@ -466,8 +422,9 @@ export default function LocationSearchPage() {
 
                 <div className="h-[28rem] w-full bg-slate-900/80">
                   <iframe
-                    key={`${selectedClinic?.id ?? 'default'}-${mapType}`}
+                    key={`${selectedClinic?.clinicId ?? 'default'}-${mapType}`}
                     src={mapSource}
+                    title={selectedClinic ? `Map of ${selectedClinic.name}` : 'Clinic locations map'}
                     className="h-full w-full"
                     allowFullScreen
                     loading="lazy"
@@ -521,12 +478,12 @@ export default function LocationSearchPage() {
                 <div className="mt-5 space-y-3">
                   {filteredClinics.length ? (
                     filteredClinics.map((clinic) => {
-                      const isActive = clinic.id === selectedClinicId;
+                      const isActive = clinic.clinicId === selectedClinicId;
                       return (
                         <button
-                          key={clinic.id}
+                          key={clinic.clinicId}
                           type="button"
-                          onClick={() => setSelectedClinicId(clinic.id)}
+                          onClick={() => setSelectedClinicId(clinic.clinicId)}
                           className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
                             isActive
                               ? 'border-primary-400/60 bg-primary-500/15 text-white shadow-lg shadow-primary-900/30'

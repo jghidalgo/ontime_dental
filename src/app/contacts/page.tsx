@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_ALL_DIRECTORY_DATA } from '@/graphql/queries';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -15,10 +17,13 @@ type DirectoryEntry = {
   employee: string;
 };
 
-type DirectoryEntity = {
+type DirectoryEntityWithEntries = {
   id: string;
+  entityId: string;
   name: string;
-  groups: Record<GroupKey, DirectoryEntry[]>;
+  corporate: DirectoryEntry[];
+  frontdesk: DirectoryEntry[];
+  offices: DirectoryEntry[];
 };
 
 const navigationItems = [
@@ -51,132 +56,25 @@ const groupLabels: Record<GroupKey, string> = {
   offices: 'Offices'
 };
 
-const directory: DirectoryEntity[] = [
-  {
-    id: 'bluno-james',
-    name: 'Bluno James Dental Group',
-    groups: {
-      corporate: [
-        {
-          id: 'EXT-100',
-          location: 'Coral Gables HQ',
-          phone: '(305) 555-1100',
-          extension: '1001',
-          department: 'Executive Suite',
-          employee: 'Damaris Núñez'
-        },
-        {
-          id: 'EXT-101',
-          location: 'Coral Gables HQ',
-          phone: '(305) 555-1100',
-          extension: '1015',
-          department: 'Operations',
-          employee: 'Kevin Ortega'
-        }
-      ],
-      frontdesk: [
-        {
-          id: 'EXT-201',
-          location: 'CE Miller Front Desk',
-          phone: '(305) 555-2002',
-          extension: '2002',
-          department: 'Reception',
-          employee: 'Naomi Chen'
-        },
-        {
-          id: 'EXT-202',
-          location: 'CE Miller Front Desk',
-          phone: '(305) 555-2003',
-          extension: '2003',
-          department: 'Patient Liaison',
-          employee: 'Isaac Ponce'
-        }
-      ],
-      offices: [
-        {
-          id: 'EXT-301',
-          location: 'CE Coral Gables',
-          phone: '(305) 555-3001',
-          extension: '3010',
-          department: 'Hygiene',
-          employee: 'Alexis Stone'
-        },
-        {
-          id: 'EXT-302',
-          location: 'Miller Dental',
-          phone: '(305) 555-3012',
-          extension: '3012',
-          department: 'Orthodontics',
-          employee: 'Dr. Farid Blanco'
-        }
-      ]
-    }
-  },
-  {
-    id: 'ontime-holdings',
-    name: 'OnTime Dental Holdings',
-    groups: {
-      corporate: [
-        {
-          id: 'EXT-410',
-          location: 'San Juan Support Center',
-          phone: '(787) 555-4100',
-          extension: '4100',
-          department: 'Finance',
-          employee: 'Maya Rivera'
-        },
-        {
-          id: 'EXT-411',
-          location: 'San Juan Support Center',
-          phone: '(787) 555-4101',
-          extension: '4108',
-          department: 'Human Resources',
-          employee: 'Carlos Vélez'
-        }
-      ],
-      frontdesk: [
-        {
-          id: 'EXT-512',
-          location: 'Old San Juan Clinic',
-          phone: '(787) 555-5200',
-          extension: '5202',
-          department: 'Reception',
-          employee: 'Luz Martínez'
-        }
-      ],
-      offices: [
-        {
-          id: 'EXT-620',
-          location: 'Caguas Specialty',
-          phone: '(787) 555-6200',
-          extension: '6215',
-          department: 'Pediatric Dentistry',
-          employee: 'Dr. Elisa Navarro'
-        },
-        {
-          id: 'EXT-621',
-          location: 'Bayamón Family Dental',
-          phone: '(787) 555-6210',
-          extension: '6218',
-          department: 'Endodontics',
-          employee: 'Dr. Samuel Ortiz'
-        }
-      ]
-    }
-  }
-];
-
 export default function ContactsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const [activeSection, setActiveSection] = useState<ContactSectionId>('extensions');
-  const [formEntityId, setFormEntityId] = useState<string>(directory[0]?.id ?? '');
+  const [formEntityId, setFormEntityId] = useState<string>('');
   const [formGroupId, setFormGroupId] = useState<GroupKey>('corporate');
   const [activeSelection, setActiveSelection] = useState<{ entityId: string; group: GroupKey }>(() => ({
-    entityId: directory[0]?.id ?? '',
+    entityId: '',
     group: 'corporate'
   }));
+
+  // Fetch directory data from GraphQL
+  const { data, loading, error } = useQuery(GET_ALL_DIRECTORY_DATA);
+
+  const directory = useMemo<DirectoryEntityWithEntries[]>(
+    () => data?.allDirectoryData || [],
+    [data]
+  );
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -189,14 +87,27 @@ export default function ContactsPage() {
     setUserName('Dr. Carter');
   }, [router]);
 
+  // Initialize form and active selection when data loads
   useEffect(() => {
-    const entity = directory.find((item) => item.id === formEntityId);
+    if (directory.length > 0 && !formEntityId) {
+      const firstEntity = directory[0];
+      setFormEntityId(firstEntity.entityId);
+      setActiveSelection({
+        entityId: firstEntity.entityId,
+        group: 'corporate'
+      });
+    }
+  }, [directory, formEntityId]);
+
+  useEffect(() => {
+    const entity = directory.find((item) => item.entityId === formEntityId);
     if (!entity) return;
 
-    if (!entity.groups[formGroupId]?.length) {
+    const groupHasEntries = entity[formGroupId]?.length > 0;
+    if (!groupHasEntries) {
       setFormGroupId('corporate');
     }
-  }, [formEntityId, formGroupId]);
+  }, [formEntityId, formGroupId, directory]);
 
   const navigationWithState = useMemo(
     () => navigationItems.map((item) => ({ ...item, isActive: pathname === item.href })),
@@ -204,11 +115,11 @@ export default function ContactsPage() {
   );
 
   const selectedEntity = useMemo(
-    () => directory.find((item) => item.id === activeSelection.entityId) ?? directory[0],
-    [activeSelection.entityId]
+    () => directory.find((item) => item.entityId === activeSelection.entityId) ?? directory[0],
+    [activeSelection.entityId, directory]
   );
 
-  const selectedEntries = selectedEntity?.groups[activeSelection.group] ?? [];
+  const selectedEntries = selectedEntity?.[activeSelection.group] ?? [];
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -216,6 +127,27 @@ export default function ContactsPage() {
   };
 
   const isExtensionsSection = activeSection === 'extensions';
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-center">
+          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+          <p className="text-slate-400">Loading contacts...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-8 text-center">
+          <p className="text-red-400">Error loading contacts: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
@@ -346,15 +278,16 @@ export default function ContactsPage() {
 
                     <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Select an entity</label>
+                        <label htmlFor="entity-select" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Select an entity</label>
                         <div className="mt-2 rounded-2xl border border-white/10 bg-slate-950/60 p-3">
                           <select
+                            id="entity-select"
                             value={formEntityId}
                             onChange={(event) => setFormEntityId(event.target.value)}
                             className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-2.5 text-sm font-medium text-slate-200 outline-none transition focus:border-primary-400/60 focus:text-white"
                           >
                             {directory.map((entity) => (
-                              <option key={entity.id} value={entity.id}>
+                              <option key={entity.entityId} value={entity.entityId}>
                                 {entity.name}
                               </option>
                             ))}
@@ -363,9 +296,10 @@ export default function ContactsPage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Select a group</label>
+                        <label htmlFor="group-select" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Select a group</label>
                         <div className="mt-2 rounded-2xl border border-white/10 bg-slate-950/60 p-3">
                           <select
+                            id="group-select"
                             value={formGroupId}
                             onChange={(event) => setFormGroupId(event.target.value as GroupKey)}
                             className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-2.5 text-sm font-medium text-slate-200 outline-none transition focus:border-primary-400/60 focus:text-white"

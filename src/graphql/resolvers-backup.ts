@@ -4,6 +4,12 @@ import User from '@/models/User';
 import DirectoryEntity from '@/models/DirectoryEntity';
 import DirectoryEntry from '@/models/DirectoryEntry';
 import ClinicLocation from '@/models/ClinicLocation';
+import type { Types } from 'mongoose';
+
+interface MongoDocument {
+  _id: Types.ObjectId;
+  [key: string]: any;
+}
 
 export const resolvers = {
   Query: {
@@ -12,21 +18,12 @@ export const resolvers = {
     // Directory Queries
     directoryEntities: async () => {
       await connectToDatabase();
-      const entities = await DirectoryEntity.find().lean();
-      return entities.map((entity: any) => ({
-        ...entity,
-        id: entity._id.toString()
-      }));
+      return await DirectoryEntity.find().lean();
     },
 
     directoryEntity: async (_: unknown, { entityId }: { entityId: string }) => {
       await connectToDatabase();
-      const entity: any = await DirectoryEntity.findOne({ entityId }).lean();
-      if (!entity) return null;
-      return {
-        ...entity,
-        id: entity._id.toString()
-      };
+      return await DirectoryEntity.findOne({ entityId }).lean();
     },
 
     directoryEntriesByEntity: async (
@@ -38,61 +35,57 @@ export const resolvers = {
       if (group) {
         filter.group = group;
       }
-      const entries = await DirectoryEntry.find(filter).lean();
-      return entries.map((entry: any) => ({
-        ...entry,
-        id: entry._id.toString()
-      }));
+      return await DirectoryEntry.find(filter).lean();
     },
 
     directoryEntityWithEntries: async (_: unknown, { entityId }: { entityId: string }) => {
       await connectToDatabase();
       
-      const entity: any = await DirectoryEntity.findOne({ entityId }).lean();
+      const entity = await DirectoryEntity.findOne({ entityId }).lean();
       if (!entity) {
         throw new Error('Entity not found');
       }
 
-      const allEntries: any[] = await DirectoryEntry.find({ entityId }).lean();
+      const allEntries = await DirectoryEntry.find({ entityId }).lean();
 
       return {
-        id: entity._id.toString(),
+        id: (entity as MongoDocument)._id.toString(),
         entityId: entity.entityId,
         name: entity.name,
         corporate: allEntries
-          .filter((e) => e.group === 'corporate')
-          .map((e) => ({ ...e, id: e._id.toString() })),
+          .filter((e: any) => e.group === 'corporate')
+          .map((e: any) => ({ ...e, id: e._id.toString() })),
         frontdesk: allEntries
-          .filter((e) => e.group === 'frontdesk')
-          .map((e) => ({ ...e, id: e._id.toString() })),
+          .filter((e: any) => e.group === 'frontdesk')
+          .map((e: any) => ({ ...e, id: e._id.toString() })),
         offices: allEntries
-          .filter((e) => e.group === 'offices')
-          .map((e) => ({ ...e, id: e._id.toString() }))
+          .filter((e: any) => e.group === 'offices')
+          .map((e: any) => ({ ...e, id: e._id.toString() }))
       };
     },
 
     allDirectoryData: async () => {
       await connectToDatabase();
       
-      const entities: any[] = await DirectoryEntity.find().lean();
-      const allEntries: any[] = await DirectoryEntry.find().lean();
+      const entities = await DirectoryEntity.find().lean();
+      const allEntries = await DirectoryEntry.find().lean();
 
-      return entities.map((entity) => {
-        const entityEntries = allEntries.filter((e) => e.entityId === entity.entityId);
+      return entities.map((entity: any) => {
+        const entityEntries = allEntries.filter((e: any) => e.entityId === entity.entityId);
         
         return {
           id: entity._id.toString(),
           entityId: entity.entityId,
           name: entity.name,
           corporate: entityEntries
-            .filter((e) => e.group === 'corporate')
-            .map((e) => ({ ...e, id: e._id.toString() })),
+            .filter((e: any) => e.group === 'corporate')
+            .map((e: any) => ({ ...e, id: e._id.toString() })),
           frontdesk: entityEntries
-            .filter((e) => e.group === 'frontdesk')
-            .map((e) => ({ ...e, id: e._id.toString() })),
+            .filter((e: any) => e.group === 'frontdesk')
+            .map((e: any) => ({ ...e, id: e._id.toString() })),
           offices: entityEntries
-            .filter((e) => e.group === 'offices')
-            .map((e) => ({ ...e, id: e._id.toString() }))
+            .filter((e: any) => e.group === 'offices')
+            .map((e: any) => ({ ...e, id: e._id.toString() }))
         };
       });
     },
@@ -100,21 +93,12 @@ export const resolvers = {
     // Clinic Location Queries
     clinicLocations: async () => {
       await connectToDatabase();
-      const locations = await ClinicLocation.find().lean();
-      return locations.map((location: any) => ({
-        ...location,
-        id: location._id.toString()
-      }));
+      return await ClinicLocation.find().lean();
     },
 
     clinicLocation: async (_: unknown, { companyId }: { companyId: string }) => {
       await connectToDatabase();
-      const location: any = await ClinicLocation.findOne({ companyId }).lean();
-      if (!location) return null;
-      return {
-        ...location,
-        id: location._id.toString()
-      };
+      return await ClinicLocation.findOne({ companyId }).lean();
     }
   },
 
@@ -160,19 +144,13 @@ export const resolvers = {
     ) => {
       await connectToDatabase();
       const entity = await DirectoryEntity.create({ entityId, name });
-      return {
-        ...entity.toObject(),
-        id: entity._id.toString()
-      };
+      return entity.toObject();
     },
 
     createDirectoryEntry: async (_: unknown, { input }: { input: any }) => {
       await connectToDatabase();
       const entry = await DirectoryEntry.create(input);
-      return {
-        ...entry.toObject(),
-        id: entry._id.toString()
-      };
+      return entry.toObject();
     },
 
     updateDirectoryEntry: async (_: unknown, { id, input }: { id: string; input: any }) => {
@@ -181,10 +159,7 @@ export const resolvers = {
       if (!entry) {
         throw new Error('Directory entry not found');
       }
-      return {
-        ...entry.toObject(),
-        id: entry._id.toString()
-      };
+      return entry.toObject();
     },
 
     deleteDirectoryEntry: async (_: unknown, { id }: { id: string }) => {
@@ -197,10 +172,7 @@ export const resolvers = {
     createClinicLocation: async (_: unknown, args: any) => {
       await connectToDatabase();
       const location = await ClinicLocation.create(args);
-      return {
-        ...location.toObject(),
-        id: location._id.toString()
-      };
+      return location.toObject();
     },
 
     updateClinicLocation: async (_: unknown, { companyId, ...updates }: any) => {
@@ -213,10 +185,7 @@ export const resolvers = {
       if (!location) {
         throw new Error('Clinic location not found');
       }
-      return {
-        ...location.toObject(),
-        id: location._id.toString()
-      };
+      return location.toObject();
     },
 
     addClinic: async (_: unknown, { companyId, clinic }: { companyId: string; clinic: any }) => {
@@ -229,10 +198,7 @@ export const resolvers = {
       if (!location) {
         throw new Error('Clinic location not found');
       }
-      return {
-        ...location.toObject(),
-        id: location._id.toString()
-      };
+      return location.toObject();
     },
 
     removeClinic: async (
@@ -248,10 +214,8 @@ export const resolvers = {
       if (!location) {
         throw new Error('Clinic location not found');
       }
-      return {
-        ...location.toObject(),
-        id: location._id.toString()
-      };
+      return location.toObject();
     }
   }
 };
+
