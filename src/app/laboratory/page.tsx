@@ -159,8 +159,7 @@ const laboratorySubNavigation: SubNavigationItem[] = [
   {
     id: 'billing',
     label: 'Billing',
-    description: 'Statements, adjustments and COD tracking.',
-    planned: true
+    description: 'Statements, adjustments and COD tracking.'
   }
 ];
 
@@ -756,6 +755,10 @@ export default function LaboratoryPage() {
                       if (section.planned) return;
                       if (section.id === 'reservations') {
                         router.push('/laboratory/reservations');
+                        return;
+                      }
+                      if (section.id === 'billing') {
+                        router.push('/laboratory/billing');
                         return;
                       }
                       setActiveSection(section.id);
