@@ -2,11 +2,20 @@
 
 import Link from 'next/link';
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useQuery, useMutation } from '@apollo/client';
 
 import { useTranslations } from '@/lib/i18n';
+import { GET_TICKETS } from '@/graphql/ticket-queries';
+import { CREATE_TICKET, UPDATE_TICKET, DELETE_TICKET } from '@/graphql/ticket-mutations';
 
 type TicketStatus = 'new' | 'in_progress' | 'waiting' | 'resolved';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+type TicketUpdate = {
+  timestamp: string;
+  message: string;
+  user: string;
+};
 
 type Ticket = {
   id: string;
@@ -20,8 +29,8 @@ type Ticket = {
   priority: TicketPriority;
   createdAt: string;
   dueDate: string;
-  updates: number;
-  satisfaction: number;
+  updates: TicketUpdate[];
+  satisfaction?: string;
 };
 
 type TicketFormState = {
@@ -46,73 +55,6 @@ const navigationItems = [
   { label: 'Medication', href: '/medication' },
   { label: 'HR', href: '/hr' },
   { label: 'Tickets', href: '/tickets' }
-];
-
-const initialTickets: Ticket[] = [
-  {
-    id: 'TCK-1428',
-    subject: 'Scanner calibration issue',
-    requester: 'Naomi Chen',
-    location: 'CE Miller Front Desk',
-    channel: 'Portal',
-    category: 'Equipment',
-    description:
-      'Intraoral scanner is not calibrating properly. Patients scheduled for digital impressions this afternoon.',
-    status: 'in_progress',
-    priority: 'urgent',
-    createdAt: '2024-07-05T09:12:00.000Z',
-    dueDate: '2024-07-05T18:00:00.000Z',
-    updates: 5,
-    satisfaction: 82
-  },
-  {
-    id: 'TCK-1427',
-    subject: 'New associate onboarding',
-    requester: 'Carlos Vélez',
-    location: 'San Juan Support Center',
-    channel: 'Email',
-    category: 'HR',
-    description:
-      'Need access credentials, payroll setup, and benefits enrollment for Dr. Navarro starting Monday.',
-    status: 'waiting',
-    priority: 'high',
-    createdAt: '2024-07-04T15:24:00.000Z',
-    dueDate: '2024-07-08T20:00:00.000Z',
-    updates: 3,
-    satisfaction: 91
-  },
-  {
-    id: 'TCK-1424',
-    subject: 'Broken chair armrest',
-    requester: 'Luz Martínez',
-    location: 'Old San Juan Clinic',
-    channel: 'Phone',
-    category: 'Facilities',
-    description:
-      'Armrest on operatory 4 is loose and creates safety risk. Patients scheduled tomorrow morning.',
-    status: 'new',
-    priority: 'medium',
-    createdAt: '2024-07-04T11:06:00.000Z',
-    dueDate: '2024-07-06T16:00:00.000Z',
-    updates: 1,
-    satisfaction: 100
-  },
-  {
-    id: 'TCK-1419',
-    subject: 'Portal login locked',
-    requester: 'Alexis Stone',
-    location: 'CE Coral Gables',
-    channel: 'Portal',
-    category: 'IT Support',
-    description:
-      'User account locked after multiple failed attempts. Needs MFA reset for remote access.',
-    status: 'resolved',
-    priority: 'medium',
-    createdAt: '2024-07-01T08:22:00.000Z',
-    dueDate: '2024-07-01T18:00:00.000Z',
-    updates: 4,
-    satisfaction: 96
-  }
 ];
 
 const statusStyles: Record<TicketStatus, string> = {
@@ -203,7 +145,65 @@ export default function TicketsPage() {
     [locale]
   );
 
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  // Map backend status to UI status
+  const mapStatusToUI = (backendStatus: string): TicketStatus => {
+    const mapping: Record<string, TicketStatus> = {
+      'Open': 'new',
+      'In Progress': 'in_progress',
+      'Scheduled': 'waiting',
+      'Resolved': 'resolved'
+    };
+    return mapping[backendStatus] || 'new';
+  };
+
+  // Map UI status to backend status
+  const mapStatusToBackend = (uiStatus: TicketStatus): string => {
+    const mapping: Record<TicketStatus, string> = {
+      'new': 'Open',
+      'in_progress': 'In Progress',
+      'waiting': 'Scheduled',
+      'resolved': 'Resolved'
+    };
+    return mapping[uiStatus];
+  };
+
+  // Map backend priority to UI priority
+  const mapPriorityToUI = (backendPriority: string): TicketPriority => {
+    if (backendPriority === 'Low') return 'low';
+    if (backendPriority === 'Medium') return 'medium';
+    if (backendPriority === 'High') return 'urgent'; // Treating High as urgent for UI
+    return 'medium';
+  };
+
+  // Map UI priority to backend priority
+  const mapPriorityToBackend = (uiPriority: TicketPriority): string => {
+    const mapping: Record<TicketPriority, string> = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'urgent': 'High' // Map urgent to High in backend
+    };
+    return mapping[uiPriority];
+  };
+
+  // Fetch tickets from GraphQL
+  const { data, loading, refetch } = useQuery(GET_TICKETS);
+  const [createTicketMutation] = useMutation(CREATE_TICKET);
+  const [updateTicketMutation] = useMutation(UPDATE_TICKET);
+  const [deleteTicketMutation] = useMutation(DELETE_TICKET);
+
+  // Transform GraphQL data to UI format
+  const tickets = useMemo((): Ticket[] => {
+    if (!data?.tickets) return [];
+    return data.tickets.map((ticket: any): Ticket => ({
+      ...ticket,
+      status: mapStatusToUI(ticket.status),
+      priority: mapPriorityToUI(ticket.priority),
+      updates: ticket.updates || [],
+      satisfaction: ticket.satisfaction || ''
+    }));
+  }, [data]);
+
   const [form, setForm] = useState<TicketFormState>(defaultFormState);
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
   const [search, setSearch] = useState('');
@@ -212,9 +212,16 @@ export default function TicketsPage() {
     const openTickets = tickets.filter((ticket) => ticket.status !== 'resolved');
     const urgentTickets = tickets.filter((ticket) => ticket.priority === 'urgent');
     const waitingTickets = tickets.filter((ticket) => ticket.status === 'waiting');
+    
+    // Calculate satisfaction - default to 100 if not available
     const satisfaction = tickets.length
       ? Math.round(
-          tickets.reduce((acc, ticket) => acc + ticket.satisfaction, 0) / tickets.length
+          tickets.reduce((acc, ticket) => {
+            const val = ticket.satisfaction ? 
+              (ticket.satisfaction === 'Satisfied' ? 100 : ticket.satisfaction === 'Neutral' ? 50 : 0) : 
+              100;
+            return acc + val;
+          }, 0) / tickets.length
         )
       : 0;
 
@@ -255,7 +262,7 @@ export default function TicketsPage() {
     });
   }, [tickets]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!form.subject || !form.requester || !form.location || !form.description) {
@@ -263,25 +270,38 @@ export default function TicketsPage() {
     }
 
     const now = new Date();
+    const dueDate = new Date(now.getTime() + 1000 * 60 * 60 * 24);
 
-    const newTicket: Ticket = {
-      id: `TCK-${Math.floor(1000 + Math.random() * 9000)}`,
-      subject: form.subject,
-      requester: form.requester,
-      location: form.location,
-      channel: 'Portal',
-      category: form.category,
-      description: form.description,
-      status: 'new',
-      priority: form.priority,
-      createdAt: now.toISOString(),
-      dueDate: new Date(now.getTime() + 1000 * 60 * 60 * 24).toISOString(),
-      updates: 0,
-      satisfaction: 100
-    };
+    try {
+      await createTicketMutation({
+        variables: {
+          input: {
+            subject: form.subject,
+            requester: form.requester,
+            location: form.location,
+            channel: 'Portal',
+            category: form.category,
+            description: form.description,
+            status: mapStatusToBackend('new'),
+            priority: mapPriorityToBackend(form.priority),
+            dueDate: dueDate.toISOString(),
+            updates: [
+              {
+                timestamp: now.toISOString(),
+                message: 'Ticket created',
+                user: form.requester
+              }
+            ]
+          }
+        }
+      });
 
-    setTickets((current) => [newTicket, ...current]);
-    setForm(defaultFormState);
+      await refetch();
+      setForm(defaultFormState);
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      alert('Failed to create ticket. Please try again.');
+    }
   };
 
   return (
@@ -443,7 +463,7 @@ export default function TicketsPage() {
                         </div>
                         <div className="mt-3">
                           <p className="font-semibold text-slate-200">{t('Updates')}</p>
-                          <p>{t('{count} touchpoints logged', { count: ticket.updates.toString() })}</p>
+                          <p>{t('{count} touchpoints logged', { count: ticket.updates.length.toString() })}</p>
                         </div>
                       </div>
                     </div>

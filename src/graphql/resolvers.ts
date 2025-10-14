@@ -6,6 +6,7 @@ import DirectoryEntry from '@/models/DirectoryEntry';
 import ClinicLocation from '@/models/ClinicLocation';
 import FrontDeskSchedule from '@/models/FrontDeskSchedule';
 import DoctorSchedule from '@/models/DoctorSchedule';
+import Ticket from '@/models/Ticket';
 
 export const resolvers = {
   Query: {
@@ -136,6 +137,26 @@ export const resolvers = {
         ...schedule,
         id: schedule._id.toString()
       }));
+    },
+
+    // Ticket Queries
+    tickets: async () => {
+      await connectToDatabase();
+      const tickets = await Ticket.find().sort({ createdAt: -1 }).lean();
+      return tickets.map((ticket: any) => ({
+        ...ticket,
+        id: ticket._id.toString()
+      }));
+    },
+
+    ticket: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const ticket: any = await Ticket.findById(id).lean();
+      if (!ticket) return null;
+      return {
+        ...ticket,
+        id: ticket._id.toString()
+      };
     }
   },
 
@@ -411,6 +432,57 @@ export const resolvers = {
         { ...updatedSource.toObject(), id: updatedSource._id.toString() },
         { ...updatedTarget.toObject(), id: updatedTarget._id.toString() }
       ];
+    },
+
+    // Ticket Mutations
+    createTicket: async (
+      _: unknown,
+      { input }: { input: any }
+    ) => {
+      await connectToDatabase();
+      
+      const ticketData = {
+        ...input,
+        createdAt: new Date().toISOString()
+      };
+      
+      const ticket: any = await Ticket.create(ticketData);
+      return {
+        ...ticket.toObject(),
+        id: ticket._id.toString()
+      };
+    },
+
+    updateTicket: async (
+      _: unknown,
+      { id, input }: { id: string; input: any }
+    ) => {
+      await connectToDatabase();
+      
+      const ticket: any = await Ticket.findByIdAndUpdate(
+        id,
+        input,
+        { new: true }
+      );
+      
+      if (!ticket) {
+        throw new Error('Ticket not found');
+      }
+      
+      return {
+        ...ticket.toObject(),
+        id: ticket._id.toString()
+      };
+    },
+
+    deleteTicket: async (
+      _: unknown,
+      { id }: { id: string }
+    ) => {
+      await connectToDatabase();
+      
+      const result = await Ticket.findByIdAndDelete(id);
+      return !!result;
     }
   }
 };

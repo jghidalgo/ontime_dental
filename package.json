@@ -10,7 +10,8 @@
     "seed": "tsx scripts/seed-user.ts",
     "seed:contacts": "tsx scripts/seed-contacts.ts",
     "seed:admin": "tsx scripts/seed-admin-user.ts",
-    "seed:schedules": "tsx scripts/seed-schedules.ts"
+    "seed:schedules": "tsx scripts/seed-schedules.ts",
+    "seed:tickets": "tsx scripts/seed-tickets.ts"
   },
   "dependencies": {
     "@apollo/client": "^3.10.0",

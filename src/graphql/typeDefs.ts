@@ -92,6 +92,28 @@ const typeDefs = gql`
     doctor: DoctorAssignment
   }
 
+  type TicketUpdate {
+    timestamp: String!
+    message: String!
+    user: String!
+  }
+
+  type Ticket {
+    id: ID!
+    subject: String!
+    requester: String!
+    location: String!
+    channel: String!
+    category: String!
+    description: String!
+    status: String!
+    priority: String!
+    createdAt: String!
+    dueDate: String!
+    updates: [TicketUpdate!]!
+    satisfaction: String
+  }
+
   input CoordinatesInput {
     lat: Float!
     lng: Float!
@@ -131,6 +153,26 @@ const typeDefs = gql`
     shift: String!
   }
 
+  input TicketUpdateInput {
+    timestamp: String!
+    message: String!
+    user: String!
+  }
+
+  input TicketInput {
+    subject: String!
+    requester: String!
+    location: String!
+    channel: String!
+    category: String!
+    description: String!
+    status: String!
+    priority: String!
+    dueDate: String!
+    updates: [TicketUpdateInput!]
+    satisfaction: String
+  }
+
   type Query {
     health: String!
     
@@ -148,6 +190,10 @@ const typeDefs = gql`
     # Schedule queries
     frontDeskSchedules: [FrontDeskSchedule!]!
     doctorSchedules: [DoctorSchedule!]!
+    
+    # Ticket queries
+    tickets: [Ticket!]!
+    ticket(id: ID!): Ticket
   }
 
   type Mutation {
@@ -195,6 +241,11 @@ const typeDefs = gql`
       targetDayId: String!
       targetClinicId: String!
     ): [DoctorSchedule!]!
+    
+    # Ticket mutations
+    createTicket(input: TicketInput!): Ticket!
+    updateTicket(id: ID!, input: TicketInput!): Ticket!
+    deleteTicket(id: ID!): Boolean!
   }
 `;
 
