@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/i18n';
 
@@ -27,6 +27,7 @@ type DocumentRecord = {
   date: string;
   description: string;
   url: string;
+  fileName?: string;
 };
 
 type DocumentGroup = {
@@ -41,7 +42,7 @@ type DocumentEntity = {
   groups: DocumentGroup[];
 };
 
-const documentCatalog: DocumentEntity[] = [
+const initialDocumentCatalog: DocumentEntity[] = [
   {
     id: 'blanco-amos-dental-group',
     name: 'Blanco Amos Dental Group',
@@ -178,18 +179,61 @@ const documentCatalog: DocumentEntity[] = [
   }
 ];
 
+const cloneDocumentCatalog = (catalog: DocumentEntity[]): DocumentEntity[] =>
+  catalog.map((entity) => ({
+    ...entity,
+    groups: entity.groups.map((group) => ({
+      ...group,
+      documents: group.documents.map((document) => ({ ...document }))
+    }))
+  }));
+
 export default function DocumentsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslations();
 
   const [userName, setUserName] = useState<string>('');
+  const [documents, setDocuments] = useState<DocumentEntity[]>(() => cloneDocumentCatalog(initialDocumentCatalog));
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [appliedSelection, setAppliedSelection] = useState<{
     entityId: string;
     groupId: string;
   } | null>(null);
+  const [editingTarget, setEditingTarget] = useState<{
+    entityId: string;
+    groupId: string;
+    documentId: string;
+  } | null>(null);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    version: string;
+    date: string;
+    description: string;
+    fileName: string;
+    fileUrl: string;
+    fileChanged: boolean;
+  }>({
+    title: '',
+    version: '',
+    date: '',
+    description: '',
+    fileName: '',
+    fileUrl: '',
+    fileChanged: false
+  });
+  const objectUrlsRef = useRef<string[]>([]);
+  const resetEditForm = () =>
+    setEditForm({
+      title: '',
+      version: '',
+      date: '',
+      description: '',
+      fileName: '',
+      fileUrl: '',
+      fileChanged: false
+    });
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -206,25 +250,33 @@ export default function DocumentsPage() {
     setSelectedGroupId('');
   }, [selectedEntityId]);
 
+  useEffect(() => {
+    const objectUrls = objectUrlsRef.current;
+
+    return () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   const availableGroups = useMemo(() => {
-    const entity = documentCatalog.find((item) => item.id === selectedEntityId);
+    const entity = documents.find((item) => item.id === selectedEntityId);
     return entity?.groups ?? [];
-  }, [selectedEntityId]);
+  }, [documents, selectedEntityId]);
 
   const appliedDocuments = useMemo(() => {
     if (!appliedSelection) return [];
 
-    const entity = documentCatalog.find((item) => item.id === appliedSelection.entityId);
+    const entity = documents.find((item) => item.id === appliedSelection.entityId);
     const group = entity?.groups.find((item) => item.id === appliedSelection.groupId);
 
     return group?.documents ?? [];
-  }, [appliedSelection]);
+  }, [appliedSelection, documents]);
 
   const appliedEntityName = appliedSelection
-    ? documentCatalog.find((entity) => entity.id === appliedSelection.entityId)?.name ?? '—'
+    ? documents.find((entity) => entity.id === appliedSelection.entityId)?.name ?? '—'
     : '—';
   const appliedGroupName = appliedSelection
-    ? documentCatalog
+    ? documents
         .find((entity) => entity.id === appliedSelection.entityId)
         ?.groups.find((group) => group.id === appliedSelection.groupId)?.name ?? '—'
     : '—';
@@ -322,7 +374,7 @@ export default function DocumentsPage() {
                     className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
                   >
                     <option value="">{t('Select entity...')}</option>
-                    {documentCatalog.map((entity) => (
+                    {documents.map((entity) => (
                       <option key={entity.id} value={entity.id}>
                         {entity.name}
                       </option>
@@ -379,6 +431,7 @@ export default function DocumentsPage() {
                         <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Date')}</th>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Description')}</th>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Download')}</th>
+                        <th className="px-6 py-3 text-right font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -395,14 +448,40 @@ export default function DocumentsPage() {
                                 href={document.url}
                                 className="inline-flex items-center rounded-lg border border-primary-500/40 bg-primary-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/60 hover:bg-primary-500/20"
                               >
-                                {t('Download')}
+                                {document.fileName ? document.fileName : t('Download')}
                               </a>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!appliedSelection) return;
+
+                                  setEditingTarget({
+                                    entityId: appliedSelection.entityId,
+                                    groupId: appliedSelection.groupId,
+                                    documentId: document.id
+                                  });
+                                  setEditForm({
+                                    title: document.title,
+                                    version: document.version,
+                                    date: document.date,
+                                    description: document.description,
+                                    fileName: document.fileName ?? '',
+                                    fileUrl: document.url,
+                                    fileChanged: false
+                                  });
+                                }}
+                                className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
+                              >
+                                {t('Edit')}
+                              </button>
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="px-6 py-16 text-center text-sm text-slate-500">
+                          <td colSpan={7} className="px-6 py-16 text-center text-sm text-slate-500">
                             {appliedSelection
                               ? t('No documents were found for the selected group.')
                               : t('No records to display. Apply a filter to load documents.')}
@@ -414,6 +493,155 @@ export default function DocumentsPage() {
                 </div>
               </div>
             </section>
+
+            {editingTarget && (
+              <section className="mt-10 rounded-3xl border border-primary-500/30 bg-primary-500/5 p-6 backdrop-blur">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{t('Edit document')}</h2>
+                    <p className="text-sm text-slate-300">
+                      {t('Update the document details or upload a new file to replace the existing download link.')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editForm.fileChanged && editForm.fileUrl) {
+                        URL.revokeObjectURL(editForm.fileUrl);
+                      }
+                      setEditingTarget(null);
+                      resetEditForm();
+                    }}
+                    className="rounded-lg border border-transparent px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-white/20 hover:text-white"
+                  >
+                    {t('Cancel')}
+                  </button>
+                </div>
+
+                <form
+                  className="mt-6 grid gap-4 sm:grid-cols-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!editingTarget) return;
+
+                    setDocuments((prev) =>
+                      prev.map((entity) => {
+                        if (entity.id !== editingTarget.entityId) return entity;
+
+                        return {
+                          ...entity,
+                          groups: entity.groups.map((group) => {
+                            if (group.id !== editingTarget.groupId) return group;
+
+                            return {
+                              ...group,
+                              documents: group.documents.map((doc) => {
+                                if (doc.id !== editingTarget.documentId) return doc;
+
+                                if (editForm.fileChanged && doc.url.startsWith('blob:')) {
+                                  URL.revokeObjectURL(doc.url);
+                                }
+
+                                return {
+                                  ...doc,
+                                  title: editForm.title,
+                                  version: editForm.version,
+                                  date: editForm.date,
+                                  description: editForm.description,
+                                  url: editForm.fileChanged ? editForm.fileUrl : doc.url,
+                                  fileName: editForm.fileChanged ? editForm.fileName : doc.fileName
+                                };
+                              })
+                            };
+                          })
+                        };
+                      })
+                    );
+
+                    setEditingTarget(null);
+                    resetEditForm();
+                  }}
+                >
+                  <label className="flex flex-col gap-2 text-sm text-slate-300">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Title')}</span>
+                    <input
+                      type="text"
+                      required
+                      value={editForm.title}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Version')}</span>
+                    <input
+                      type="text"
+                      required
+                      value={editForm.version}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, version: event.target.value }))}
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Date')}</span>
+                    <input
+                      type="text"
+                      required
+                      value={editForm.date}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, date: event.target.value }))}
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300 sm:col-span-2">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Description')}</span>
+                    <textarea
+                      required
+                      value={editForm.description}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, description: event.target.value }))}
+                      className="min-h-[6rem] w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300 sm:col-span-2">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Upload new file')}</span>
+                    <input
+                      type="file"
+                      accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+
+                        const newUrl = URL.createObjectURL(file);
+                        objectUrlsRef.current.push(newUrl);
+
+                        setEditForm((prev) => ({
+                          ...prev,
+                          fileName: file.name,
+                          fileUrl: newUrl,
+                          fileChanged: true
+                        }));
+                      }}
+                      className="w-full cursor-pointer rounded-xl border border-dashed border-white/20 bg-slate-900/60 px-3 py-3 text-sm text-slate-300 shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-950 file:transition file:hover:bg-primary-400"
+                    />
+                    {editForm.fileName && (
+                      <p className="text-xs text-primary-100">{t('Selected file')}: {editForm.fileName}</p>
+                    )}
+                  </label>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center rounded-xl bg-primary-500 px-6 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                    >
+                      {t('Save changes')}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            )}
           </div>
         </main>
       </div>
