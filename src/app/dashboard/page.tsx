@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/i18n';
+import { useQuery } from '@apollo/client';
+import { GET_DASHBOARD_DATA } from '@/graphql/dashboard-queries';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -20,109 +22,21 @@ const navigationItems = [
   { label: 'Tickets', href: '/tickets' }
 ];
 
-const metrics = [
-  {
-    label: 'Active Patients',
-    value: '1,248',
-    delta: '+5.2% vs last month',
-    trend: 'positive'
-  },
-  {
-    label: 'Scheduled Appointments',
-    value: '86',
-    delta: '12 today',
-    trend: 'neutral'
-  },
-  {
-    label: 'Treatment Acceptance',
-    value: '78%',
-    delta: '+2.1% this week',
-    trend: 'positive'
-  },
-  {
-    label: 'Outstanding Balances',
-    value: '$12.4K',
-    delta: '-$3.1K since Monday',
-    trend: 'negative'
-  }
-];
-
-const upcomingAppointments = [
-  {
-    time: '09:30 AM',
-    patient: 'Amelia Rivers',
-    treatment: 'Invisalign Checkup',
-    practitioner: 'Dr. Carter'
-  },
-  {
-    time: '10:15 AM',
-    patient: 'Jonah Mills',
-    treatment: 'Implant Consultation',
-    practitioner: 'Dr. Patel'
-  },
-  {
-    time: '01:00 PM',
-    patient: 'Sophie Becker',
-    treatment: 'Hygiene Maintenance',
-    practitioner: 'Alexis Stone, RDH'
-  },
-  {
-    time: '03:45 PM',
-    patient: 'Micah Lang',
-    treatment: 'Whitening Touch-Up',
-    practitioner: 'Dr. Carter'
-  }
-];
-
-const revenueTrend = [
-  { month: 'Apr', value: 42 },
-  { month: 'May', value: 48 },
-  { month: 'Jun', value: 51 },
-  { month: 'Jul', value: 57 },
-  { month: 'Aug', value: 62 },
-  { month: 'Sep', value: 66 }
-];
-
-const teamActivity = [
-  {
-    id: 1,
-    title: 'New note added to Amelia Rivers',
-    timestamp: '12 minutes ago',
-    owner: 'Alexis Stone'
-  },
-  {
-    id: 2,
-    title: 'Treatment plan approved: Jonah Mills',
-    timestamp: '43 minutes ago',
-    owner: 'Dr. Patel'
-  },
-  {
-    id: 3,
-    title: 'Invoice sent to Sophie Becker',
-    timestamp: '1 hour ago',
-    owner: 'Sanjay Mehta'
-  }
-];
-
-const announcements = [
-  {
-    title: 'Autumn promotion launching Monday',
-    description:
-      'Front office team to send reminder emails Friday. Include whitening upgrade for eligible patients.',
-    badge: 'Marketing'
-  },
-  {
-    title: 'New OSHA documentation posted',
-    description: 'Please review and acknowledge by the end of the week in the compliance portal.',
-    badge: 'Compliance'
-  }
-];
-
 export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const { t } = useTranslations();
+  
+  const { data } = useQuery(GET_DASHBOARD_DATA, {
+    pollInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const metrics = useMemo(() => data?.dashboardData?.metrics || [], [data]);
+  const upcomingAppointments = useMemo(() => data?.dashboardData?.upcomingAppointments || [], [data]);
+  const revenueTrend = useMemo(() => data?.dashboardData?.revenueTrend || [], [data]);
+  const teamActivity = useMemo(() => data?.dashboardData?.teamActivity || [], [data]);
+  const announcements = useMemo(() => data?.dashboardData?.announcements || [], [data]);
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -135,7 +49,16 @@ export default function DashboardPage() {
     setUserName('Dr. Carter');
   }, [router]);
 
-  const revenueMax = useMemo(() => Math.max(...revenueTrend.map((item) => item.value)), []);
+  const revenueMax = useMemo(() => {
+    if (revenueTrend.length === 0) return 100;
+    return Math.max(...revenueTrend.map((item: any) => item.value));
+  }, [revenueTrend]);
+
+  const getTrendColor = (trend: string) => {
+    if (trend === 'positive') return 'text-emerald-300';
+    if (trend === 'negative') return 'text-rose-300';
+    return 'text-slate-400';
+  };
 
   const handleLogout = () => {
     window.localStorage.removeItem('ontime.authToken');
@@ -241,82 +164,77 @@ export default function DashboardPage() {
           </header>
 
           <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
+            {data ? (
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {metrics.map((metric) => (
+              {metrics.map((metric: any) => (
                 <div
                   key={metric.label}
                   className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t(metric.label)}</p>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 truncate">{t(metric.label)}</p>
+                    <p className="text-3xl font-semibold text-slate-50 truncate">{metric.value}</p>
                     <span
-                      className={`text-[10px] font-semibold uppercase tracking-wider ${
-                        metric.trend === 'positive'
-                          ? 'text-emerald-300'
-                          : metric.trend === 'negative'
-                          ? 'text-rose-300'
-                          : 'text-slate-400'
-                      }`}
+                      className={`text-[10px] font-semibold uppercase tracking-wider ${getTrendColor(metric.trend)} truncate`}
                     >
                       {t(metric.delta)}
                     </span>
                   </div>
-                  <p className="mt-4 text-3xl font-semibold text-slate-50">{metric.value}</p>
                 </div>
               ))}
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Performance')}</p>
-                    <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Monthly Production')}</h2>
-                    <p className="mt-1 text-sm text-slate-400">{t('Revenue trend across the last six months')}</p>
+                    <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Monthly Production')}</h2>
+                    <p className="mt-1 text-sm text-slate-400 truncate">{t('Revenue trend across the last six months')}</p>
                   </div>
-                  <div className="rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200">
+                  <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200 whitespace-nowrap">
                     +9.5%
                   </div>
                 </div>
-                <div className="mt-8 flex items-end gap-4">
-                  {revenueTrend.map((point) => (
-                    <div key={point.month} className="flex w-full flex-col items-center gap-3">
+                <div className="mt-8 flex items-end gap-4 overflow-x-auto pb-2">
+                  {revenueTrend.map((point: any) => (
+                    <div key={point.month} className="flex w-full min-w-[40px] flex-col items-center gap-3">
                       <div
                         className="w-full rounded-2xl bg-gradient-to-t from-primary-500/10 via-primary-400/50 to-primary-300/80 shadow-inner shadow-primary-900/40"
                         style={{ height: `${(point.value / revenueMax) * 160 + 24}px` }}
                       />
-                      <p className="text-xs font-medium text-slate-400">{t(point.month)}</p>
+                      <p className="text-xs font-medium text-slate-400 whitespace-nowrap">{t(point.month)}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Today')}</p>
-                    <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Upcoming Appointments')}</h2>
-                    <p className="mt-1 text-sm text-slate-400">{t('Confirm readiness and chair availability')}</p>
+                    <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Upcoming Appointments')}</h2>
+                    <p className="mt-1 text-sm text-slate-400 truncate">{t('Confirm readiness and chair availability')}</p>
                   </div>
-                  <button className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white">
+                  <button className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white whitespace-nowrap">
                     {t('View schedule')}
                   </button>
                 </div>
                 <div className="mt-8 space-y-4">
-                  {upcomingAppointments.map((appointment) => (
+                  {upcomingAppointments.map((appointment: any, index: number) => (
                     <div
-                      key={`${appointment.time}-${appointment.patient}`}
-                      className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-primary-400/30 hover:bg-white/[0.06]"
+                      key={`${appointment.time}-${appointment.patient}-${index}`}
+                      className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-primary-400/30 hover:bg-white/[0.06]"
                     >
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-100">{appointment.patient}</p>
-                        <p className="text-xs text-slate-400">{t(appointment.treatment)}</p>
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-100 truncate">{appointment.patient}</p>
+                        <p className="text-xs text-slate-400 truncate">{t(appointment.treatment)}</p>
                       </div>
-                      <div className="text-right text-xs text-slate-400">
-                        <p className="font-semibold text-slate-100">{appointment.time}</p>
-                        <p>{appointment.practitioner}</p>
+                      <div className="text-right text-xs text-slate-400 flex-shrink-0">
+                        <p className="font-semibold text-slate-100 whitespace-nowrap">{appointment.time}</p>
+                        <p className="truncate max-w-[120px]">{appointment.practitioner}</p>
                       </div>
                     </div>
                   ))}
@@ -327,16 +245,16 @@ export default function DashboardPage() {
 
           <aside className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Team pulse')}</p>
-              <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Activity Feed')}</h2>
-              <p className="mt-1 text-sm text-slate-400">{t('Real-time updates across your team')}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80 truncate">{t('Team pulse')}</p>
+              <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Activity Feed')}</h2>
+              <p className="mt-1 text-sm text-slate-400 truncate">{t('Real-time updates across your team')}</p>
               <div className="mt-6 space-y-4">
-                {teamActivity.map((activity) => (
+                {teamActivity.map((activity: any) => (
                   <div key={activity.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                    <p className="text-sm font-semibold text-slate-100">{t(activity.title)}</p>
-                    <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                      <span>{activity.owner}</span>
-                      <span>{t(activity.timestamp)}</span>
+                    <p className="text-sm font-semibold text-slate-100 break-words">{t(activity.title)}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-400">
+                      <span className="truncate">{activity.owner}</span>
+                      <span className="flex-shrink-0 whitespace-nowrap">{t(activity.timestamp)}</span>
                     </div>
                   </div>
                 ))}
@@ -344,22 +262,30 @@ export default function DashboardPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-primary-500/10 via-slate-900/70 to-slate-950 p-8 shadow-2xl shadow-primary-900/40 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Announcements')}</p>
-              <h2 className="mt-3 text-xl font-semibold text-slate-50">{t("What's happening")}</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80 truncate">{t('Announcements')}</p>
+              <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t("What's happening")}</h2>
               <div className="mt-6 space-y-5">
-                {announcements.map((item) => (
-                  <div key={item.title} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4">
-                    <span className="inline-flex items-center rounded-full bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-200">
+                {announcements.map((item: any, index: number) => (
+                  <div key={`${item.title}-${index}`} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4 overflow-hidden">
+                    <span className="inline-flex items-center rounded-full bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-200 whitespace-nowrap">
                       {t(item.badge)}
                     </span>
-                    <p className="text-sm font-semibold text-slate-100">{t(item.title)}</p>
-                    <p className="text-xs text-slate-400">{t(item.description)}</p>
+                    <p className="text-sm font-semibold text-slate-100 break-words">{t(item.title)}</p>
+                    <p className="text-xs text-slate-400 break-words">{t(item.description)}</p>
                   </div>
                 ))}
               </div>
             </div>
           </aside>
         </div>
+            ) : (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-primary-500/20 border-t-primary-500" />
+                  <p className="text-slate-400">{t('Loading dashboard data...')}</p>
+                </div>
+              </div>
+            )}
       </main>
       </div>
     </div>

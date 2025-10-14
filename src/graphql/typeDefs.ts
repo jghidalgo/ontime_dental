@@ -114,6 +114,69 @@ const typeDefs = gql`
     satisfaction: String
   }
 
+  type DocumentRecord {
+    id: String!
+    title: String!
+    version: String!
+    date: String!
+    description: String!
+    url: String!
+    fileName: String
+  }
+
+  type DocumentGroup {
+    id: String!
+    name: String!
+    documents: [DocumentRecord!]!
+  }
+
+  type DocumentEntity {
+    id: ID!
+    entityId: String!
+    name: String!
+    groups: [DocumentGroup!]!
+  }
+
+  type DashboardMetric {
+    label: String!
+    value: String!
+    delta: String!
+    trend: String!
+  }
+
+  type DashboardAppointment {
+    time: String!
+    patient: String!
+    treatment: String!
+    practitioner: String!
+  }
+
+  type DashboardActivity {
+    id: String!
+    title: String!
+    timestamp: String!
+    owner: String!
+  }
+
+  type DashboardAnnouncement {
+    title: String!
+    description: String!
+    badge: String!
+  }
+
+  type RevenueTrendPoint {
+    month: String!
+    value: Float!
+  }
+
+  type DashboardData {
+    metrics: [DashboardMetric!]!
+    upcomingAppointments: [DashboardAppointment!]!
+    revenueTrend: [RevenueTrendPoint!]!
+    teamActivity: [DashboardActivity!]!
+    announcements: [DashboardAnnouncement!]!
+  }
+
   input CoordinatesInput {
     lat: Float!
     lng: Float!
@@ -173,6 +236,22 @@ const typeDefs = gql`
     satisfaction: String
   }
 
+  input DocumentRecordInput {
+    id: String!
+    title: String!
+    version: String!
+    date: String!
+    description: String!
+    url: String!
+    fileName: String
+  }
+
+  input DocumentGroupInput {
+    id: String!
+    name: String!
+    documents: [DocumentRecordInput!]
+  }
+
   type Query {
     health: String!
     
@@ -194,6 +273,13 @@ const typeDefs = gql`
     # Ticket queries
     tickets: [Ticket!]!
     ticket(id: ID!): Ticket
+    
+    # Document queries
+    documentEntities: [DocumentEntity!]!
+    documentEntity(entityId: String!): DocumentEntity
+    
+    # Dashboard query
+    dashboardData: DashboardData!
   }
 
   type Mutation {
@@ -246,6 +332,17 @@ const typeDefs = gql`
     createTicket(input: TicketInput!): Ticket!
     updateTicket(id: ID!, input: TicketInput!): Ticket!
     deleteTicket(id: ID!): Boolean!
+    
+    # Document mutations
+    createDocumentEntity(entityId: String!, name: String!): DocumentEntity!
+    updateDocumentEntity(entityId: String!, name: String): DocumentEntity!
+    deleteDocumentEntity(entityId: String!): Boolean!
+    addDocumentGroup(entityId: String!, groupId: String!, groupName: String!): DocumentEntity!
+    updateDocumentGroup(entityId: String!, groupId: String!, groupName: String!): DocumentEntity!
+    deleteDocumentGroup(entityId: String!, groupId: String!): DocumentEntity!
+    addDocument(entityId: String!, groupId: String!, document: DocumentRecordInput!): DocumentEntity!
+    updateDocument(entityId: String!, groupId: String!, documentId: String!, document: DocumentRecordInput!): DocumentEntity!
+    deleteDocument(entityId: String!, groupId: String!, documentId: String!): DocumentEntity!
   }
 `;
 

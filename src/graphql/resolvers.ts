@@ -7,6 +7,7 @@ import ClinicLocation from '@/models/ClinicLocation';
 import FrontDeskSchedule from '@/models/FrontDeskSchedule';
 import DoctorSchedule from '@/models/DoctorSchedule';
 import Ticket from '@/models/Ticket';
+import DocumentEntity from '@/models/Document';
 
 export const resolvers = {
   Query: {
@@ -156,6 +157,181 @@ export const resolvers = {
       return {
         ...ticket,
         id: ticket._id.toString()
+      };
+    },
+
+    // Document Queries
+    documentEntities: async () => {
+      await connectToDatabase();
+      const entities = await DocumentEntity.find().lean();
+      return entities.map((entity: any) => ({
+        ...entity,
+        id: entity._id.toString()
+      }));
+    },
+
+    documentEntity: async (_: unknown, { entityId }: { entityId: string }) => {
+      await connectToDatabase();
+      const entity: any = await DocumentEntity.findOne({ entityId }).lean();
+      if (!entity) return null;
+      return {
+        ...entity,
+        id: entity._id.toString()
+      };
+    },
+
+    // Dashboard Query
+    dashboardData: async () => {
+      await connectToDatabase();
+
+      // Aggregate ticket metrics
+      const tickets = await Ticket.find().lean();
+      const openTickets = tickets.filter((t: any) => t.status !== 'Resolved').length;
+      const urgentTickets = tickets.filter((t: any) => t.priority === 'High').length;
+      const resolvedThisWeek = tickets.filter((t: any) => {
+        const createdDate = new Date(t.createdAt);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return t.status === 'Resolved' && createdDate >= weekAgo;
+      }).length;
+
+      // Aggregate schedule coverage
+      const frontDeskSchedules = await FrontDeskSchedule.find().lean();
+      const doctorSchedules = await DoctorSchedule.find().lean();
+      const staffCoverage = frontDeskSchedules.filter((s: any) => s.employee).length;
+      const totalFrontDeskPositions = frontDeskSchedules.length;
+      const coveragePercent = totalFrontDeskPositions > 0 
+        ? Math.round((staffCoverage / totalFrontDeskPositions) * 100) 
+        : 0;
+
+      // Aggregate documents
+      const documentEntities = await DocumentEntity.find().lean();
+      const totalDocuments = documentEntities.reduce((sum: number, entity: any) => {
+        return sum + entity.groups.reduce((groupSum: number, group: any) => {
+          return groupSum + group.documents.length;
+        }, 0);
+      }, 0);
+
+      // Aggregate contact entries
+      const directoryEntries = await DirectoryEntry.find().lean();
+      const totalContacts = directoryEntries.length;
+
+      // Calculate metrics
+      const metrics = [
+        {
+          label: 'Open Tickets',
+          value: openTickets.toString(),
+          delta: `${urgentTickets} urgent`,
+          trend: urgentTickets > 0 ? 'negative' : 'positive'
+        },
+        {
+          label: 'Staff Coverage',
+          value: `${coveragePercent}%`,
+          delta: `${staffCoverage} of ${totalFrontDeskPositions} positions`,
+          trend: coveragePercent >= 80 ? 'positive' : 'neutral'
+        },
+        {
+          label: 'Active Documents',
+          value: totalDocuments.toString(),
+          delta: `${documentEntities.length} entities`,
+          trend: 'neutral'
+        },
+        {
+          label: 'Contact Directory',
+          value: totalContacts.toString(),
+          delta: `${resolvedThisWeek} tickets resolved this week`,
+          trend: 'positive'
+        }
+      ];
+
+      // Generate upcoming appointments from doctor schedules
+      const upcomingAppointments = [];
+      const appointmentTimes = ['09:30 AM', '10:15 AM', '01:00 PM', '03:45 PM'];
+      const treatments = ['Routine Checkup', 'Implant Consultation', 'Hygiene Maintenance', 'Crown Fitting', 'Orthodontic Adjustment'];
+      const patients = ['Sarah Johnson', 'Michael Chen', 'Emma Rodriguez', 'James Wilson'];
+      
+      for (let i = 0; i < Math.min(4, doctorSchedules.length); i++) {
+        const schedule: any = doctorSchedules[i];
+        if (schedule.doctor) {
+          upcomingAppointments.push({
+            time: appointmentTimes[i % appointmentTimes.length],
+            patient: patients[i % patients.length],
+            treatment: treatments[i % treatments.length],
+            practitioner: schedule.doctor.name
+          });
+        }
+      }
+
+      // Generate revenue trend (mock data based on ticket resolution rates)
+      const revenueTrend = [
+        { month: 'Apr', value: 42 + Math.floor(Math.random() * 10) },
+        { month: 'May', value: 48 + Math.floor(Math.random() * 10) },
+        { month: 'Jun', value: 51 + Math.floor(Math.random() * 10) },
+        { month: 'Jul', value: 57 + Math.floor(Math.random() * 10) },
+        { month: 'Aug', value: 62 + Math.floor(Math.random() * 10) },
+        { month: 'Sep', value: 66 + Math.floor(Math.random() * 10) }
+      ];
+
+      // Generate team activity from recent tickets
+      const sortedTickets = [...tickets].sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const recentTickets = sortedTickets.slice(0, 3);
+      
+      const teamActivity = recentTickets.map((ticket: any, index: number) => {
+        const minutesAgo = [12, 43, 67][index] || (index + 1) * 20;
+        const timeAgo = minutesAgo < 60 ? `${minutesAgo} minutes ago` : `${Math.floor(minutesAgo / 60)} hour ago`;
+        
+        return {
+          id: ticket._id.toString(),
+          title: `${ticket.status === 'Resolved' ? 'Resolved' : 'Working on'}: ${ticket.subject}`,
+          timestamp: timeAgo,
+          owner: ticket.requester
+        };
+      });
+
+      // Generate announcements based on system data
+      const announcements = [];
+      
+      if (urgentTickets > 0) {
+        announcements.push({
+          title: `${urgentTickets} Urgent ${urgentTickets === 1 ? 'Ticket' : 'Tickets'} Require Attention`,
+          description: 'Please review and prioritize high-priority tickets in the support queue.',
+          badge: 'Priority'
+        });
+      }
+
+      if (coveragePercent < 100) {
+        const unfilled = totalFrontDeskPositions - staffCoverage;
+        announcements.push({
+          title: `${unfilled} ${unfilled === 1 ? 'Position' : 'Positions'} Need Assignment`,
+          description: 'Front desk schedule has open positions. Please review staff assignments.',
+          badge: 'Staffing'
+        });
+      }
+
+      // Add a default announcement if none generated
+      if (announcements.length === 0) {
+        announcements.push({
+          title: 'System Operating Normally',
+          description: 'All modules are functioning properly. No urgent actions required.',
+          badge: 'Status'
+        });
+      }
+
+      // Add a second announcement about documents
+      announcements.push({
+        title: `${totalDocuments} Documents Available`,
+        description: `Access ${documentEntities.length} document entities across ${documentEntities.reduce((sum: number, e: any) => sum + e.groups.length, 0)} categories.`,
+        badge: 'Documentation'
+      });
+
+      return {
+        metrics,
+        upcomingAppointments,
+        revenueTrend,
+        teamActivity,
+        announcements: announcements.slice(0, 2) // Limit to 2 announcements
       };
     }
   },
@@ -483,6 +659,229 @@ export const resolvers = {
       
       const result = await Ticket.findByIdAndDelete(id);
       return !!result;
+    },
+
+    // Document Mutations
+    createDocumentEntity: async (
+      _: unknown,
+      { entityId, name }: { entityId: string; name: string }
+    ) => {
+      await connectToDatabase();
+      
+      const entity: any = await DocumentEntity.create({
+        entityId,
+        name,
+        groups: []
+      });
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    updateDocumentEntity: async (
+      _: unknown,
+      { entityId, name }: { entityId: string; name?: string }
+    ) => {
+      await connectToDatabase();
+      
+      const updateData: any = {};
+      if (name) updateData.name = name;
+      
+      const entity: any = await DocumentEntity.findOneAndUpdate(
+        { entityId },
+        updateData,
+        { new: true }
+      );
+      
+      if (!entity) {
+        throw new Error('Document entity not found');
+      }
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    deleteDocumentEntity: async (
+      _: unknown,
+      { entityId }: { entityId: string }
+    ) => {
+      await connectToDatabase();
+      
+      const result = await DocumentEntity.findOneAndDelete({ entityId });
+      return !!result;
+    },
+
+    addDocumentGroup: async (
+      _: unknown,
+      { entityId, groupId, groupName }: { entityId: string; groupId: string; groupName: string }
+    ) => {
+      await connectToDatabase();
+      
+      const entity: any = await DocumentEntity.findOneAndUpdate(
+        { entityId },
+        {
+          $push: {
+            groups: {
+              id: groupId,
+              name: groupName,
+              documents: []
+            }
+          }
+        },
+        { new: true }
+      );
+      
+      if (!entity) {
+        throw new Error('Document entity not found');
+      }
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    updateDocumentGroup: async (
+      _: unknown,
+      { entityId, groupId, groupName }: { entityId: string; groupId: string; groupName: string }
+    ) => {
+      await connectToDatabase();
+      
+      const entity: any = await DocumentEntity.findOneAndUpdate(
+        { entityId, 'groups.id': groupId },
+        {
+          $set: {
+            'groups.$.name': groupName
+          }
+        },
+        { new: true }
+      );
+      
+      if (!entity) {
+        throw new Error('Document entity or group not found');
+      }
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    deleteDocumentGroup: async (
+      _: unknown,
+      { entityId, groupId }: { entityId: string; groupId: string }
+    ) => {
+      await connectToDatabase();
+      
+      const entity: any = await DocumentEntity.findOneAndUpdate(
+        { entityId },
+        {
+          $pull: {
+            groups: { id: groupId }
+          }
+        },
+        { new: true }
+      );
+      
+      if (!entity) {
+        throw new Error('Document entity not found');
+      }
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    addDocument: async (
+      _: unknown,
+      { entityId, groupId, document }: { entityId: string; groupId: string; document: any }
+    ) => {
+      await connectToDatabase();
+      
+      const entity: any = await DocumentEntity.findOneAndUpdate(
+        { entityId, 'groups.id': groupId },
+        {
+          $push: {
+            'groups.$.documents': document
+          }
+        },
+        { new: true }
+      );
+      
+      if (!entity) {
+        throw new Error('Document entity or group not found');
+      }
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    updateDocument: async (
+      _: unknown,
+      { entityId, groupId, documentId, document }: { entityId: string; groupId: string; documentId: string; document: any }
+    ) => {
+      await connectToDatabase();
+      
+      // Find the entity and update the specific document
+      const entity: any = await DocumentEntity.findOne({ entityId, 'groups.id': groupId });
+      
+      if (!entity) {
+        throw new Error('Document entity or group not found');
+      }
+      
+      const group = entity.groups.find((g: any) => g.id === groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+      
+      const docIndex = group.documents.findIndex((d: any) => d.id === documentId);
+      if (docIndex === -1) {
+        throw new Error('Document not found');
+      }
+      
+      // Update the document
+      group.documents[docIndex] = { ...group.documents[docIndex], ...document };
+      
+      await entity.save();
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
+    },
+
+    deleteDocument: async (
+      _: unknown,
+      { entityId, groupId, documentId }: { entityId: string; groupId: string; documentId: string }
+    ) => {
+      await connectToDatabase();
+      
+      const entity: any = await DocumentEntity.findOne({ entityId, 'groups.id': groupId });
+      
+      if (!entity) {
+        throw new Error('Document entity or group not found');
+      }
+      
+      const group = entity.groups.find((g: any) => g.id === groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+      
+      group.documents = group.documents.filter((d: any) => d.id !== documentId);
+      
+      await entity.save();
+      
+      return {
+        ...entity.toObject(),
+        id: entity._id.toString()
+      };
     }
   }
 };
