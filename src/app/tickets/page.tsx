@@ -75,7 +75,12 @@ const categoryPalettes: Record<string, string> = {
   Equipment: 'bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-500/30',
   Facilities: 'bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/30',
   HR: 'bg-amber-500/10 text-amber-200 ring-1 ring-amber-500/30',
-  'IT Support': 'bg-indigo-500/10 text-indigo-200 ring-1 ring-indigo-500/30'
+  'IT Support': 'bg-indigo-500/10 text-indigo-200 ring-1 ring-indigo-500/30',
+  Clinical: 'bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-500/30',
+  Supplies: 'bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/30',
+  'Patient Care': 'bg-pink-500/10 text-pink-200 ring-1 ring-pink-500/30',
+  Training: 'bg-purple-500/10 text-purple-200 ring-1 ring-purple-500/30',
+  Other: 'bg-slate-500/10 text-slate-200 ring-1 ring-slate-500/30'
 };
 
 const ticketStatuses: TicketStatus[] = ['new', 'in_progress', 'waiting', 'resolved'];
@@ -129,7 +134,11 @@ export default function TicketsPage() {
       Equipment: t('Equipment'),
       Facilities: t('Facilities'),
       HR: t('HR'),
-      Clinical: t('Clinical')
+      Clinical: t('Clinical'),
+      Supplies: t('Supplies'),
+      'Patient Care': t('Patient Care'),
+      Training: t('Training'),
+      Other: t('Other')
     }),
     [t]
   );
@@ -521,6 +530,10 @@ export default function TicketsPage() {
                   <option value="Facilities">{t('Facilities')}</option>
                   <option value="HR">{t('HR')}</option>
                   <option value="Clinical">{t('Clinical')}</option>
+                  <option value="Supplies">{t('Supplies')}</option>
+                  <option value="Patient Care">{t('Patient Care')}</option>
+                  <option value="Training">{t('Training')}</option>
+                  <option value="Other">{t('Other')}</option>
                 </select>
               </label>
               <label className="space-y-2 text-sm text-slate-200">
