@@ -21,7 +21,62 @@ const authLink = setContext((_, { headers }) => {
 
 const client = new ApolloClient({
   link: authLink.concat(httpLink),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {
+          // Cache tickets for 5 minutes
+          tickets: {
+            merge(existing = [], incoming) {
+              return incoming;
+            },
+          },
+          // Cache dashboard data for 30 seconds
+          dashboardData: {
+            merge(existing, incoming) {
+              return incoming;
+            },
+          },
+          // Cache schedules
+          frontDeskSchedules: {
+            merge(existing = [], incoming) {
+              return incoming;
+            },
+          },
+          doctorSchedules: {
+            merge(existing = [], incoming) {
+              return incoming;
+            },
+          },
+          // Cache directory entries
+          directoryEntries: {
+            merge(existing = [], incoming) {
+              return incoming;
+            },
+          },
+          // Cache document entities
+          documentEntities: {
+            merge(existing = [], incoming) {
+              return incoming;
+            },
+          },
+        },
+      },
+    },
+  }),
+  defaultOptions: {
+    watchQuery: {
+      fetchPolicy: 'cache-and-network',
+      nextFetchPolicy: 'cache-first',
+    },
+    query: {
+      fetchPolicy: 'cache-first',
+      errorPolicy: 'all',
+    },
+    mutate: {
+      errorPolicy: 'all',
+    },
+  },
 });
 
 export default function AppProviders({ children }: Readonly<{ children: React.ReactNode }>) {

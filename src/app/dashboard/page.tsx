@@ -1,30 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/i18n';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_DATA } from '@/graphql/dashboard-queries';
-
-const navigationItems = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
-];
+import { Navigation, MobileNavigation } from '@/components/navigation';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const { t } = useTranslations();
   
@@ -83,28 +67,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <nav className="mt-10 space-y-1">
-              {navigationItems.map((item) => {
-                const isActive = pathname === item.href;
-
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                      isActive
-                        ? 'border-primary-400/60 bg-primary-500/15 text-white shadow-lg shadow-primary-900/30'
-                        : 'border-white/5 text-slate-300 hover:border-primary-400/40 hover:bg-white/[0.06] hover:text-white'
-                    }`}
-                  >
-                    <span>{t(item.label)}</span>
-                    <span className={`text-xs font-semibold uppercase tracking-[0.3em] ${isActive ? 'text-primary-200' : 'text-slate-500'}`}>
-                      {isActive ? '•' : '→'}
-                    </span>
-                  </Link>
-                );
-              })}
-            </nav>
+            <Navigation className="mt-10 space-y-1" />
           </div>
 
           <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-300 shadow-2xl shadow-slate-950/40">
@@ -128,25 +91,7 @@ export default function DashboardPage() {
                   <h1 className="text-2xl font-semibold text-slate-50">{t('Welcome back, {name}.', { name: userName || t('team') })}</h1>
                 </div>
 
-                <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                  {navigationItems.map((item) => {
-                    const isActive = pathname === item.href;
-
-                    return (
-                      <Link
-                        key={item.label}
-                        href={item.href}
-                        className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-medium transition ${
-                          isActive
-                            ? 'border-primary-400/60 bg-primary-500/20 text-primary-100'
-                            : 'border-white/10 text-slate-300 hover:border-primary-400/30 hover:text-white'
-                        }`}
-                      >
-                        {t(item.label)}
-                      </Link>
-                    );
-                  })}
-                </div>
+                <MobileNavigation className="flex gap-2 overflow-x-auto pb-1 lg:hidden" />
               </div>
 
               <div className="flex items-center gap-3 self-end lg:self-auto">
