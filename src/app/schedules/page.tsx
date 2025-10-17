@@ -114,8 +114,8 @@ export default function SchedulesPage() {
   const [currentDragPayload, setCurrentDragPayload] = useState<DragPayload | null>(null);
 
   // Fetch schedules from GraphQL
-  const { data: frontDeskData, loading: frontDeskLoading, refetch: refetchFrontDesk } = useQuery(GET_FRONT_DESK_SCHEDULES);
-  const { data: doctorData, loading: doctorLoading, refetch: refetchDoctor } = useQuery(GET_DOCTOR_SCHEDULES);
+  const { data: frontDeskData, refetch: refetchFrontDesk } = useQuery(GET_FRONT_DESK_SCHEDULES);
+  const { data: doctorData, refetch: refetchDoctor } = useQuery(GET_DOCTOR_SCHEDULES);
 
   // Mutations
   const [updateFrontDeskMutation] = useMutation(UPDATE_FRONT_DESK_SCHEDULE);

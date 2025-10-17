@@ -5,6 +5,9 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } fro
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Language, useTranslations } from '@/lib/i18n';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_LAB_CASES } from '@/graphql/lab-queries';
+import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
 
 type NavigationItem = {
   label: string;
@@ -464,6 +467,7 @@ export default function LaboratoryPage() {
   const { t, language } = useTranslations();
   const [userName, setUserName] = useState<string>('');
   const [activeSection, setActiveSection] = useState<SubSectionId>('dashboard');
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchForm, setSearchForm] = useState<CaseSearchForm>({
     caseId: '',
     lab: '',
@@ -478,6 +482,14 @@ export default function LaboratoryPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [searchFeedback, setSearchFeedback] = useState(() => t('Please perform a search.'));
   const [lastEmptyMessageKey, setLastEmptyMessageKey] = useState<string | undefined>(undefined);
+
+  const { refetch: refetchCases } = useQuery(GET_LAB_CASES);
+  const [createLabCase] = useMutation(CREATE_LAB_CASE, {
+    onCompleted: () => {
+      refetchCases();
+      setShowCreateModal(false);
+    },
+  });
 
   const caseSearchRecords = useMemo(
     () => caseSearchRecordsByLanguage[language],
@@ -506,12 +518,12 @@ export default function LaboratoryPage() {
   );
 
   const availableLabs = useMemo(
-    () => Array.from(new Set(caseSearchRecords.map((record) => record.lab))).sort(),
+    () => Array.from(new Set(caseSearchRecords.map((record) => record.lab))).sort((a, b) => a.localeCompare(b)),
     [caseSearchRecords]
   );
 
   const availableClinics = useMemo(
-    () => Array.from(new Set(caseSearchRecords.map((record) => record.clinic))).sort(),
+    () => Array.from(new Set(caseSearchRecords.map((record) => record.clinic))).sort((a, b) => a.localeCompare(b)),
     [caseSearchRecords]
   );
 
@@ -560,50 +572,163 @@ export default function LaboratoryPage() {
     setSearchFeedback(formatFeedback(searchResults.length, lastEmptyMessageKey));
   }, [formatFeedback, hasSearched, lastEmptyMessageKey, searchResults.length, t]);
 
+  const matchesSearchCriteria = (record: any) => {
+    if (searchForm.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
+      return false;
+    }
+
+    if (searchForm.lab && record.lab !== searchForm.lab) {
+      return false;
+    }
+
+    if (searchForm.clinic && record.clinic !== searchForm.clinic) {
+      return false;
+    }
+
+    if (
+      searchForm.patientFirstName &&
+      !record.patientFirstName.toLowerCase().includes(searchForm.patientFirstName.toLowerCase())
+    ) {
+      return false;
+    }
+
+    if (
+      searchForm.patientLastName &&
+      !record.patientLastName.toLowerCase().includes(searchForm.patientLastName.toLowerCase())
+    ) {
+      return false;
+    }
+
+    if (searchForm.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
+      return false;
+    }
+
+    if (searchForm.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
+      return false;
+    }
+
+    if (searchForm.status && record.status !== searchForm.status) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const renderSearchResults = () => {
+    if (!hasSearched) {
+      return (
+        <div className="px-8 py-16 text-center text-sm text-slate-400">
+          {t('Select a filter and press "Search" to display results.')}
+        </div>
+      );
+    }
+
+    if (searchResults.length === 0) {
+      return (
+        <div className="px-8 py-16 text-center text-sm text-slate-400">
+          {searchFeedback}
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-white/5">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-[0.35em] text-slate-400">
+              <th className="px-6 py-4">{t('Case ID')}</th>
+              <th className="px-6 py-4">{t('Lab')}</th>
+              <th className="px-6 py-4">{t('Clinic')}</th>
+              <th className="px-6 py-4">{t('Patient')}</th>
+              <th className="px-6 py-4">{t('Birthdate')}</th>
+              <th className="px-6 py-4">{t('Reservation')}</th>
+              <th className="px-6 py-4">{t('Doctor')}</th>
+              <th className="px-6 py-4">{t('Procedure')}</th>
+              <th className="px-6 py-4">{t('Status')}</th>
+              <th className="px-6 py-4 text-center">{t('Action')}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5 text-sm text-slate-200">
+            {searchResults.map((record) => (
+              <tr key={record.caseId} className="hover:bg-white/5">
+                <td className="px-6 py-4 font-semibold text-white">{record.caseId}</td>
+                <td className="px-6 py-4">{record.lab}</td>
+                <td className="px-6 py-4">{record.clinic}</td>
+                <td className="px-6 py-4">
+                  {record.patientFirstName} {record.patientLastName}
+                </td>
+                <td className="px-6 py-4 text-slate-400">{record.birthday}</td>
+                <td className="px-6 py-4 text-slate-400">{record.reservationDate}</td>
+                <td className="px-6 py-4">{record.doctor}</td>
+                <td className="px-6 py-4">{record.procedure}</td>
+                <td className="px-6 py-4">
+                  <span
+                    className={clsx(
+                      'inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
+                      statusBadgeClass(record.status)
+                    )}
+                  >
+                    {t(caseStatusLabels[record.status])}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
+                  >
+                    {t('View details')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    if (status === 'Delayed') return 'bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30';
+    if (status === 'Departed') return 'bg-sky-500/10 text-sky-300 ring-1 ring-sky-400/30';
+    return 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30';
+  };
+
+  const getCategoryTrendText = (trend: string) => {
+    if (trend === 'up') return 'Rising demand';
+    if (trend === 'down') return 'Slight dip · review scheduling';
+    return 'Holding steady';
+  };
+
+  const renderActiveSectionContent = () => {
+    if (activeSection === 'case-search') {
+      return (
+        <div className="space-y-8">
+          {/* Case Search Content will be rendered here by the parent component */}
+        </div>
+      );
+    }
+
+    if (activeSection !== 'dashboard') {
+      return (
+        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center text-slate-400">
+          <h2 className="text-2xl font-semibold text-white">
+            {laboratorySubNavigation.find((section) => section.id === activeSection)?.label ?? 'Coming soon'}
+          </h2>
+          <p className="mt-3 text-sm">
+            This workspace is on our roadmap. Let the product team know what workflows you&apos;d like to streamline here.
+          </p>
+          <p className="mt-6 text-xs uppercase tracking-[0.4em] text-primary-200/70">Module in discovery</p>
+        </div>
+      );
+    }
+
+    return null; // Dashboard content will be rendered inline
+  };
+
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const results = caseSearchRecords.filter((record) => {
-      if (searchForm.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
-        return false;
-      }
-
-      if (searchForm.lab && record.lab !== searchForm.lab) {
-        return false;
-      }
-
-      if (searchForm.clinic && record.clinic !== searchForm.clinic) {
-        return false;
-      }
-
-      if (
-        searchForm.patientFirstName &&
-        !record.patientFirstName.toLowerCase().includes(searchForm.patientFirstName.toLowerCase())
-      ) {
-        return false;
-      }
-
-      if (
-        searchForm.patientLastName &&
-        !record.patientLastName.toLowerCase().includes(searchForm.patientLastName.toLowerCase())
-      ) {
-        return false;
-      }
-
-      if (searchForm.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
-        return false;
-      }
-
-      if (searchForm.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
-        return false;
-      }
-
-      if (searchForm.status && record.status !== searchForm.status) {
-        return false;
-      }
-
-      return true;
-    });
+    const results = caseSearchRecords.filter(matchesSearchCriteria);
 
     updateResults(results);
   };
@@ -787,7 +912,7 @@ export default function LaboratoryPage() {
             </section>
 
             <section className="mt-12">
-              {activeSection === 'dashboard' ? (
+              {activeSection === 'dashboard' && (
                 <div className="space-y-10">
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     {highlightMetrics.map((metric) => (
@@ -835,12 +960,7 @@ export default function LaboratoryPage() {
                                 />
                               </div>
                               <p className="text-xs text-slate-500">
-                                Trend:{' '}
-                                {category.trend === 'up'
-                                  ? 'Rising demand'
-                                  : category.trend === 'down'
-                                  ? 'Slight dip · review scheduling'
-                                  : 'Holding steady'}
+                                Trend: {getCategoryTrendText(category.trend)}
                               </p>
                             </div>
                           );
@@ -866,11 +986,7 @@ export default function LaboratoryPage() {
                               <span
                                 className={clsx(
                                   'rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
-                                  route.status === 'Delayed'
-                                    ? 'bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30'
-                                    : route.status === 'Departed'
-                                    ? 'bg-sky-500/10 text-sky-300 ring-1 ring-sky-400/30'
-                                    : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30'
+                                  getStatusBadgeClass(route.status)
                                 )}
                               >
                                 {route.status}
@@ -972,11 +1088,13 @@ export default function LaboratoryPage() {
                     </div>
                   </div>
                 </div>
-              ) : activeSection === 'case-search' ? (
+              )}
+
+              {activeSection === 'case-search' && (
                 <div className="space-y-8">
                   <div className="rounded-3xl border border-white/5 bg-white/[0.03] p-8 shadow-lg shadow-black/20 backdrop-blur">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">{t('Laboratory Lookup')}</p>
                         <h2 className="mt-2 text-2xl font-semibold text-white">{t('Case Search')}</h2>
                         <p className="mt-2 max-w-2xl text-sm text-slate-400">
@@ -985,16 +1103,27 @@ export default function LaboratoryPage() {
                           )}
                         </p>
                       </div>
-                      <span
-                        className={clsx(
-                          'inline-flex rounded-xl border px-4 py-3 text-xs font-semibold uppercase tracking-wide',
-                          hasSearched && searchResults.length > 0
-                            ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
-                            : 'border-rose-400/40 bg-rose-500/10 text-rose-200'
-                        )}
-                      >
-                        {searchFeedback}
-                      </span>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
+                        <button
+                          onClick={() => setShowCreateModal(true)}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-primary-400 whitespace-nowrap"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          {t('Create Case')}
+                        </button>
+                        <span
+                          className={clsx(
+                            'inline-flex items-center justify-center rounded-xl border px-4 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap',
+                            hasSearched && searchResults.length > 0
+                              ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+                              : 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+                          )}
+                        >
+                          {searchFeedback}
+                        </span>
+                      </div>
                     </div>
 
                     <form onSubmit={handleSearch} className="mt-8 space-y-6">
@@ -1124,71 +1253,12 @@ export default function LaboratoryPage() {
                   </div>
 
                   <div className="rounded-3xl border border-white/5 bg-white/[0.02] shadow-lg shadow-black/10 backdrop-blur">
-                    {hasSearched ? (
-                      searchResults.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-white/5">
-                            <thead>
-                              <tr className="text-left text-xs uppercase tracking-[0.35em] text-slate-400">
-                                <th className="px-6 py-4">{t('Case ID')}</th>
-                                <th className="px-6 py-4">{t('Lab')}</th>
-                                <th className="px-6 py-4">{t('Clinic')}</th>
-                                <th className="px-6 py-4">{t('Patient')}</th>
-                                <th className="px-6 py-4">{t('Birthdate')}</th>
-                                <th className="px-6 py-4">{t('Reservation')}</th>
-                                <th className="px-6 py-4">{t('Doctor')}</th>
-                                <th className="px-6 py-4">{t('Procedure')}</th>
-                                <th className="px-6 py-4">{t('Status')}</th>
-                                <th className="px-6 py-4 text-center">{t('Action')}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5 text-sm text-slate-200">
-                              {searchResults.map((record) => (
-                                <tr key={record.caseId} className="hover:bg-white/5">
-                                  <td className="px-6 py-4 font-semibold text-white">{record.caseId}</td>
-                                  <td className="px-6 py-4">{record.lab}</td>
-                                  <td className="px-6 py-4">{record.clinic}</td>
-                                  <td className="px-6 py-4">
-                                    {record.patientFirstName} {record.patientLastName}
-                                  </td>
-                                  <td className="px-6 py-4 text-slate-400">{record.birthday}</td>
-                                  <td className="px-6 py-4 text-slate-400">{record.reservationDate}</td>
-                                  <td className="px-6 py-4">{record.doctor}</td>
-                                  <td className="px-6 py-4">{record.procedure}</td>
-                                  <td className="px-6 py-4">
-                                    <span
-                                      className={clsx(
-                                        'inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
-                                        statusBadgeClass(record.status)
-                                      )}
-                                    >
-                                      {t(caseStatusLabels[record.status])}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-center">
-                                    <button
-                                      type="button"
-                                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
-                                    >
-                                      {t('View details')}
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="px-8 py-16 text-center text-sm text-slate-400">
-                          {searchFeedback}
-                        </div>
-                      )
-                    ) : (
-                      <div className="px-8 py-16 text-center text-sm text-slate-400">{t('Select a filter and press "Search" to display results.')}</div>
-                    )}
+                    {renderSearchResults()}
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {activeSection !== 'dashboard' && activeSection !== 'case-search' && (
                 <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center text-slate-400">
                   <h2 className="text-2xl font-semibold text-white">
                     {laboratorySubNavigation.find((section) => section.id === activeSection)?.label ?? 'Coming soon'}
@@ -1203,6 +1273,264 @@ export default function LaboratoryPage() {
           </div>
         </main>
       </div>
+
+      {/* Create Case Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-slate-900/95 backdrop-blur-xl px-6 sm:px-8 py-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-semibold text-white">{t('Create New Lab Case')}</h2>
+                <p className="mt-1 text-xs sm:text-sm text-slate-400">{t('Fill in the details below to create a new laboratory case')}</p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-shrink-0 rounded-full p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const toothNumbersValue = formData.get('toothNumbers');
+                const toothNumbers = toothNumbersValue && typeof toothNumbersValue === 'string' 
+                  ? toothNumbersValue.split(',').map(t => t.trim()).filter(Boolean) 
+                  : [];
+                
+                createLabCase({
+                  variables: {
+                    input: {
+                      lab: formData.get('lab'),
+                      clinic: formData.get('clinic'),
+                      patientFirstName: formData.get('patientFirstName'),
+                      patientLastName: formData.get('patientLastName'),
+                      birthday: formData.get('birthday'),
+                      reservationDate: formData.get('reservationDate'),
+                      doctor: formData.get('doctor'),
+                      procedure: formData.get('procedure'),
+                      category: formData.get('category'),
+                      priority: formData.get('priority') || 'normal',
+                      shadeGuide: formData.get('shadeGuide') || undefined,
+                      materialType: formData.get('materialType') || undefined,
+                      notes: formData.get('notes') || undefined,
+                      toothNumbers: toothNumbers.length > 0 ? toothNumbers : undefined,
+                      estimatedCompletion: formData.get('estimatedCompletion') || undefined,
+                      technician: formData.get('technician') || undefined,
+                    },
+                  },
+                });
+              }}
+              className="p-6 sm:p-8 space-y-6"
+            >
+              {/* Patient Information */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Patient Information')}</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('First Name')} *</span>
+                    <input
+                      type="text"
+                      name="patientFirstName"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="John"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Last Name')} *</span>
+                    <input
+                      type="text"
+                      name="patientLastName"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Doe"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Birthday')} *</span>
+                    <input
+                      type="date"
+                      name="birthday"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Reservation Date')} *</span>
+                    <input
+                      type="date"
+                      name="reservationDate"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Case Details */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Case Details')}</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Lab')} *</span>
+                    <input
+                      type="text"
+                      name="lab"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Complete Lab"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Clinic')} *</span>
+                    <input
+                      type="text"
+                      name="clinic"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Miller Dental - Coral Gables"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Doctor')} *</span>
+                    <input
+                      type="text"
+                      name="doctor"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Dr. Alexis Stone"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Procedure')} *</span>
+                    <input
+                      type="text"
+                      name="procedure"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Crown - Anterior"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Category')} *</span>
+                    <select
+                      name="category"
+                      required
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                    >
+                      <option value="">Select category...</option>
+                      <option value="Crowns & Bridges">Crowns & Bridges</option>
+                      <option value="Implant Restorations">Implant Restorations</option>
+                      <option value="Try-in / Wax Setups">Try-in / Wax Setups</option>
+                      <option value="Aligners & Ortho">Aligners & Ortho</option>
+                      <option value="Repairs & Adjustments">Repairs & Adjustments</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Priority')}</span>
+                    <select
+                      name="priority"
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="rush">Rush</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              {/* Technical Specifications */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Technical Specifications')}</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Shade Guide')}</span>
+                    <input
+                      type="text"
+                      name="shadeGuide"
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="A2, B1, etc."
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Material Type')}</span>
+                    <input
+                      type="text"
+                      name="materialType"
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Layered Zirconia, E-max, etc."
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Tooth Numbers')}</span>
+                    <input
+                      type="text"
+                      name="toothNumbers"
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="8, 9, 10 (comma separated)"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">{t('Estimated Completion')}</span>
+                    <input
+                      type="date"
+                      name="estimatedCompletion"
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <span className="text-sm font-medium text-slate-300">{t('Technician')}</span>
+                    <input
+                      type="text"
+                      name="technician"
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                      placeholder="Assigned technician name"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Additional Notes')}</h3>
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-300">{t('Notes')}</span>
+                  <textarea
+                    name="notes"
+                    rows={4}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none resize-none"
+                    placeholder="Any special instructions or notes..."
+                  />
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 sm:flex-none rounded-xl border border-white/10 px-6 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"
+                >
+                  {t('Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 sm:flex-none rounded-xl bg-primary-500 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                >
+                  {t('Create Case')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
