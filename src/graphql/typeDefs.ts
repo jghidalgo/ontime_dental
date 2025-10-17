@@ -252,6 +252,71 @@ const typeDefs = gql`
     documents: [DocumentRecordInput!]
   }
 
+  type LabCase {
+    id: ID!
+    caseId: String!
+    lab: String!
+    clinic: String!
+    patientFirstName: String!
+    patientLastName: String!
+    birthday: String!
+    reservationDate: String!
+    doctor: String!
+    procedure: String!
+    status: String!
+    category: String!
+    priority: String!
+    shadeGuide: String
+    materialType: String
+    notes: String
+    toothNumbers: [String!]
+    estimatedCompletion: String
+    actualCompletion: String
+    technician: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input LabCaseInput {
+    lab: String!
+    clinic: String!
+    patientFirstName: String!
+    patientLastName: String!
+    birthday: String!
+    reservationDate: String!
+    doctor: String!
+    procedure: String!
+    category: String!
+    priority: String
+    shadeGuide: String
+    materialType: String
+    notes: String
+    toothNumbers: [String!]
+    estimatedCompletion: String
+    technician: String
+  }
+
+  input LabCaseUpdateInput {
+    lab: String
+    clinic: String
+    patientFirstName: String
+    patientLastName: String
+    birthday: String
+    reservationDate: String
+    doctor: String
+    procedure: String
+    status: String
+    category: String
+    priority: String
+    shadeGuide: String
+    materialType: String
+    notes: String
+    toothNumbers: [String!]
+    estimatedCompletion: String
+    actualCompletion: String
+    technician: String
+  }
+
   type Query {
     health: String!
     
@@ -277,6 +342,11 @@ const typeDefs = gql`
     # Document queries
     documentEntities: [DocumentEntity!]!
     documentEntity(entityId: String!): DocumentEntity
+    
+    # Lab Case queries
+    labCases: [LabCase!]!
+    labCase(id: ID!): LabCase
+    labCaseByNumber(caseId: String!): LabCase
     
     # Dashboard query
     dashboardData: DashboardData!
@@ -343,6 +413,11 @@ const typeDefs = gql`
     addDocument(entityId: String!, groupId: String!, document: DocumentRecordInput!): DocumentEntity!
     updateDocument(entityId: String!, groupId: String!, documentId: String!, document: DocumentRecordInput!): DocumentEntity!
     deleteDocument(entityId: String!, groupId: String!, documentId: String!): DocumentEntity!
+    
+    # Lab Case mutations
+    createLabCase(input: LabCaseInput!): LabCase!
+    updateLabCase(id: ID!, input: LabCaseUpdateInput!): LabCase!
+    deleteLabCase(id: ID!): Boolean!
   }
 `;
 

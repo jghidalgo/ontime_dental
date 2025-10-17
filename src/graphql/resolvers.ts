@@ -8,6 +8,7 @@ import FrontDeskSchedule from '@/models/FrontDeskSchedule';
 import DoctorSchedule from '@/models/DoctorSchedule';
 import Ticket from '@/models/Ticket';
 import DocumentEntity from '@/models/Document';
+import LabCase from '@/models/LabCase';
 
 export const resolvers = {
   Query: {
@@ -177,6 +178,36 @@ export const resolvers = {
       return {
         ...entity,
         id: entity._id.toString()
+      };
+    },
+
+    // Lab Case Queries
+    labCases: async () => {
+      await connectToDatabase();
+      const cases = await LabCase.find().sort({ createdAt: -1 }).lean();
+      return cases.map((labCase: any) => ({
+        ...labCase,
+        id: labCase._id.toString()
+      }));
+    },
+
+    labCase: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const labCase: any = await LabCase.findById(id).lean();
+      if (!labCase) return null;
+      return {
+        ...labCase,
+        id: labCase._id.toString()
+      };
+    },
+
+    labCaseByNumber: async (_: unknown, { caseId }: { caseId: string }) => {
+      await connectToDatabase();
+      const labCase: any = await LabCase.findOne({ caseId }).lean();
+      if (!labCase) return null;
+      return {
+        ...labCase,
+        id: labCase._id.toString()
       };
     },
 
@@ -882,6 +913,54 @@ export const resolvers = {
         ...entity.toObject(),
         id: entity._id.toString()
       };
+    },
+
+    // Lab Case Mutations
+    createLabCase: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      
+      // Generate unique case ID
+      const count = await LabCase.countDocuments();
+      const caseId = `LAB-${String(count + 1).padStart(6, '0')}`;
+      
+      const labCase = new LabCase({
+        ...input,
+        caseId,
+        status: 'in-planning'
+      });
+      
+      await labCase.save();
+      
+      return {
+        ...labCase.toObject(),
+        id: labCase._id.toString()
+      };
+    },
+
+    updateLabCase: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      const labCase: any = await LabCase.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true, runValidators: true }
+      );
+      
+      if (!labCase) {
+        throw new Error('Lab case not found');
+      }
+      
+      return {
+        ...labCase.toObject(),
+        id: labCase._id.toString()
+      };
+    },
+
+    deleteLabCase: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      
+      const result = await LabCase.findByIdAndDelete(id);
+      return !!result;
     }
   }
 };

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_LAB_CASES } from '@/graphql/lab-queries';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 
@@ -480,6 +482,37 @@ const isSameDay = (a: Date, b: Date) =>
 
 const isSameMonth = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 
+// Helper function to convert lab cases to reservation format
+const labCaseToReservation = (labCase: any): ReservationCase => {
+  const statusMap: Record<string, ReservationStatus> = {
+    'in-production': 'En fabricación',
+    'in-transit': 'Listo para envío',
+    'completed': 'Entregado',
+    'in-planning': 'Programado'
+  };
+
+  const date = labCase.reservationDate ? new Date(labCase.reservationDate) : new Date();
+  const formattedDate = date.toISOString().split('T')[0];
+  
+  // Generate a random time for display (could be enhanced with actual time data)
+  const hour = 8 + Math.floor(Math.random() * 8); // Random hour between 8am and 4pm
+  const minute = Math.random() > 0.5 ? '00' : '30';
+  const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+
+  return {
+    id: labCase.caseId,
+    date: formattedDate,
+    time,
+    procedure: labCase.procedure,
+    doctor: labCase.doctor,
+    clinic: labCase.clinic,
+    patient: `${labCase.patientFirstName} ${labCase.patientLastName}`,
+    chair: labCase.toothNumbers?.join(', ') || 'N/A',
+    durationMinutes: 60, // Default duration
+    status: statusMap[labCase.status] || 'Programado'
+  };
+};
+
 export default function LaboratoryReservationsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -489,7 +522,19 @@ export default function LaboratoryReservationsPage() {
   const [focusedMonth, setFocusedMonth] = useState<Date>(new Date(2025, 9, 1));
   const [monthSelector, setMonthSelector] = useState<string>('2025-10-01');
   const { t, language } = useTranslations();
-  const [cases, setCases] = useState<ReservationCase[]>(initialReservationCases);
+  
+  // Fetch lab cases from GraphQL
+  const { data: labCasesData } = useQuery(GET_LAB_CASES);
+  
+  // Transform lab cases to reservation format
+  const cases = useMemo(() => {
+    if (!labCasesData?.labCases) return initialReservationCases;
+    
+    const transformedCases = labCasesData.labCases.map(labCaseToReservation);
+    // Combine with initial cases for demo purposes (or return just transformedCases)
+    return [...transformedCases, ...initialReservationCases];
+  }, [labCasesData]);
+  
   const [activeProcedure, setActiveProcedure] = useState<{ date: Date; procedure: string } | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const defaultProcedureLabel = initialReservationCases[0]?.procedure ?? 'New laboratory case';
@@ -509,7 +554,6 @@ export default function LaboratoryReservationsPage() {
     []
   );
 
-  const weekdayFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'long' }), [locale]);
   const monthFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }),
     [locale]
@@ -810,16 +854,18 @@ export default function LaboratoryReservationsPage() {
         status: createForm.status
       };
 
-      setCases((previous) => {
-        const next = [...previous, newCase];
-        next.sort((a, b) => {
-          if (a.date === b.date) {
-            return a.time.localeCompare(b.time);
-          }
-          return a.date.localeCompare(b.date);
-        });
-        return next;
-      });
+      // TODO: Implement GraphQL mutation to create lab case
+      // For now, this will only update the form state
+      // setCases((previous) => {
+      //   const next = [...previous, newCase];
+      //   next.sort((a, b) => {
+      //     if (a.date === b.date) {
+      //       return a.time.localeCompare(b.time);
+      //     }
+      //     return a.date.localeCompare(b.date);
+      //   });
+      //   return next;
+      // });
 
       const monthStart = new Date(activeProcedure.date.getFullYear(), activeProcedure.date.getMonth(), 1);
       setFocusedMonth(monthStart);
