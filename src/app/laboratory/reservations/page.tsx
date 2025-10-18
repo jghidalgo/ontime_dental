@@ -541,6 +541,7 @@ export default function LaboratoryReservationsPage() {
   const [createForm, setCreateForm] = useState<CreateCaseFormState>(() =>
     createInitialFormState(defaultProcedureLabel)
   );
+  const [createStep, setCreateStep] = useState(0);
   const [creationStatus, setCreationStatus] = useState<'idle' | 'saving' | 'success'>('idle');
   const [createError, setCreateError] = useState<string | null>(null);
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -550,9 +551,36 @@ export default function LaboratoryReservationsPage() {
       setCreateForm(createInitialFormState(procedure));
       setCreationStatus('idle');
       setCreateError(null);
+      setCreateStep(0);
     },
     []
   );
+
+  const createWizardSteps = useMemo(
+    () => [t('Case details'), t('Scheduling'), t('Review & notes')],
+    [t]
+  );
+  const totalWizardSteps = createWizardSteps.length;
+
+  const handleNextStep = useCallback(() => {
+    if (createStep === 0 && !createForm.procedure.trim()) {
+      setCreateError(t('Please add a procedure description.'));
+      return;
+    }
+
+    if (createStep === 1 && !createForm.time) {
+      setCreateError(t('Please select a start time.'));
+      return;
+    }
+
+    setCreateError(null);
+    setCreateStep((previous) => Math.min(previous + 1, totalWizardSteps - 1));
+  }, [createForm.procedure, createForm.time, createStep, t, totalWizardSteps]);
+
+  const handlePreviousStep = useCallback(() => {
+    setCreateError(null);
+    setCreateStep((previous) => Math.max(0, previous - 1));
+  }, []);
 
   const monthFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }),
@@ -1442,199 +1470,302 @@ export default function LaboratoryReservationsPage() {
                       </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Procedure name')}
-                        </label>
-                        <input
-                          type="text"
-                          value={createForm.procedure}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, procedure: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          placeholder={t('e.g. Crown zirconia #14')}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Case phase')}
-                        </label>
-                        <select
-                          value={createForm.phase}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, phase: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {phaseOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Product type')}
-                        </label>
-                        <select
-                          value={createForm.productType}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, productType: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {productTypeOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Shade / color')}
-                        </label>
-                        <select
-                          value={createForm.shade}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, shade: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {shadeOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Patient')}
-                        </label>
-                        <select
-                          value={createForm.patient}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, patient: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {patientOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Doctor')}
-                        </label>
-                        <select
-                          value={createForm.doctor}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, doctor: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {doctorOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Clinic')}
-                        </label>
-                        <select
-                          value={createForm.clinic}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, clinic: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {clinicOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Status')}
-                        </label>
-                        <select
-                          value={createForm.status}
-                          onChange={(event) =>
-                            setCreateForm((previous) => ({ ...previous, status: event.target.value as ReservationStatus }))
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {statusOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {statusLabelMap[option]}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Production bay')}
-                        </label>
-                        <select
-                          value={createForm.chair}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, chair: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {chairOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Start time')}
-                        </label>
-                        <input
-                          type="time"
-                          value={createForm.time}
-                          onChange={(event) => setCreateForm((previous) => ({ ...previous, time: event.target.value }))}
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                          {t('Duration (minutes)')}
-                        </label>
-                        <select
-                          value={createForm.durationMinutes}
-                          onChange={(event) =>
-                            setCreateForm((previous) => ({ ...previous, durationMinutes: Number(event.target.value) }))
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        >
-                          {durationOptions.map((option) => (
-                            <option key={option} value={option} className="bg-slate-900 text-white">
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="rounded-2xl border border-primary-400/30 bg-primary-500/5 px-4 py-4 sm:px-6">
+                      <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        {createWizardSteps.map((label, index) => {
+                          const status =
+                            index === createStep ? 'current' : index < createStep ? 'complete' : 'upcoming';
+
+                          return (
+                            <li key={label} className="flex items-center gap-3">
+                              <span
+                                className={clsx(
+                                  'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition',
+                                  {
+                                    'border-primary-400 bg-primary-500 text-slate-950 shadow-lg shadow-primary-900/40':
+                                      status === 'current',
+                                    'border-primary-400/70 bg-primary-500/20 text-primary-100': status === 'complete',
+                                    'border-white/10 bg-white/5 text-slate-400': status === 'upcoming'
+                                  }
+                                )}
+                              >
+                                {index + 1}
+                              </span>
+                              <div className="text-left">
+                                <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">
+                                  {t('Step {current} of {total}', {
+                                    current: index + 1,
+                                    total: totalWizardSteps
+                                  })}
+                                </p>
+                                <p className="text-sm font-semibold text-white">{label}</p>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                        {t('Instructions for the lab')}
-                      </label>
-                      <textarea
-                        value={createForm.notes}
-                        onChange={(event) => setCreateForm((previous) => ({ ...previous, notes: event.target.value }))}
-                        rows={3}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                        placeholder={t('Add finishing preferences, delivery expectations or internal notes...')}
-                      />
-                    </div>
+                    {createStep === 0 && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Procedure name')}
+                          </label>
+                          <input
+                            type="text"
+                            value={createForm.procedure}
+                            onChange={(event) =>
+                              setCreateForm((previous) => ({ ...previous, procedure: event.target.value }))
+                            }
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                            placeholder={t('e.g. Crown zirconia #14')}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Case phase')}
+                          </label>
+                          <select
+                            value={createForm.phase}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, phase: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {phaseOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Product type')}
+                          </label>
+                          <select
+                            value={createForm.productType}
+                            onChange={(event) =>
+                              setCreateForm((previous) => ({ ...previous, productType: event.target.value }))
+                            }
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {productTypeOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Shade / color')}
+                          </label>
+                          <select
+                            value={createForm.shade}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, shade: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {shadeOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-primary-100">
-                      <p>
-                        {t('Preview')}: {createForm.phase} · {createForm.productType} · {t('Shade')} {createForm.shade}
-                      </p>
-                      <p>{t('Estimated chair time')}: {createForm.durationMinutes} {t('minutes')}</p>
-                    </div>
+                    {createStep === 1 && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Patient')}
+                          </label>
+                          <select
+                            value={createForm.patient}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, patient: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {patientOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Doctor')}
+                          </label>
+                          <select
+                            value={createForm.doctor}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, doctor: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {doctorOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Clinic')}
+                          </label>
+                          <select
+                            value={createForm.clinic}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, clinic: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {clinicOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Status')}
+                          </label>
+                          <select
+                            value={createForm.status}
+                            onChange={(event) =>
+                              setCreateForm((previous) => ({
+                                ...previous,
+                                status: event.target.value as ReservationStatus
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {statusOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {statusLabelMap[option]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Production bay')}
+                          </label>
+                          <select
+                            value={createForm.chair}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, chair: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {chairOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Start time')}
+                          </label>
+                          <input
+                            type="time"
+                            value={createForm.time}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, time: event.target.value }))}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Duration (minutes)')}
+                          </label>
+                          <select
+                            value={createForm.durationMinutes}
+                            onChange={(event) =>
+                              setCreateForm((previous) => ({ ...previous, durationMinutes: Number(event.target.value) }))
+                            }
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                          >
+                            {durationOptions.map((option) => (
+                              <option key={option} value={option} className="bg-slate-900 text-white">
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {createStep === 2 && (
+                      <div className="space-y-5">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                          <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Summary')}</p>
+                          <div className="mt-4 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Procedure')}</p>
+                              <p className="mt-1 font-semibold text-white">
+                                {createForm.procedure.trim() || t('Not specified')}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Case phase')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.phase}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Product type')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.productType}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Shade / color')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.shade}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.patient}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Doctor')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.doctor}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Clinic')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.clinic}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Production bay')}</p>
+                              <p className="mt-1 text-slate-200">{createForm.chair}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Schedule')}</p>
+                              <p className="mt-1 text-slate-200">
+                                {createForm.time || t('Not specified')} · {createForm.durationMinutes} {t('minutes')}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Status')}</p>
+                              <p className="mt-1 text-slate-200">{statusLabelMap[createForm.status]}</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-primary-100">
+                            <p>
+                              {t('Preview')}: {createForm.phase} · {createForm.productType} · {t('Shade')} {createForm.shade}
+                            </p>
+                            <p>{t('Estimated chair time')}: {createForm.durationMinutes} {t('minutes')}</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
+                            {t('Instructions for the lab')}
+                          </label>
+                          <textarea
+                            value={createForm.notes}
+                            onChange={(event) => setCreateForm((previous) => ({ ...previous, notes: event.target.value }))}
+                            rows={3}
+                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
+                            placeholder={t('Add finishing preferences, delivery expectations or internal notes...')}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {createError && (
                       <div className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -1642,7 +1773,7 @@ export default function LaboratoryReservationsPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-end gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <button
                         type="button"
                         onClick={() => {
@@ -1653,13 +1784,34 @@ export default function LaboratoryReservationsPage() {
                       >
                         {t('Cancel')}
                       </button>
-                      <button
-                        type="submit"
-                        disabled={creationStatus === 'saving'}
-                        className="rounded-2xl bg-primary-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400 disabled:opacity-50"
-                      >
-                        {creationStatus === 'saving' ? t('Inserting...') : t('Insert case')}
-                      </button>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {createStep > 0 && (
+                          <button
+                            type="button"
+                            onClick={handlePreviousStep}
+                            className="rounded-2xl border border-white/10 bg-white/10 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-primary-400/40 hover:text-white"
+                          >
+                            {t('Back')}
+                          </button>
+                        )}
+                        {createStep < totalWizardSteps - 1 ? (
+                          <button
+                            type="button"
+                            onClick={handleNextStep}
+                            className="rounded-2xl bg-primary-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
+                          >
+                            {t('Continue')}
+                          </button>
+                        ) : (
+                          <button
+                            type="submit"
+                            disabled={creationStatus === 'saving'}
+                            className="rounded-2xl bg-primary-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400 disabled:opacity-50"
+                          >
+                            {creationStatus === 'saving' ? t('Inserting...') : t('Insert case')}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </form>
                 ) : (
