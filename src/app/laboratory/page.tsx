@@ -1277,7 +1277,7 @@ export default function LaboratoryPage() {
       {/* Create Case Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
+          <div className="relative w-full max-w-6xl max-h-[80vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-slate-900/95 backdrop-blur-xl px-6 sm:px-8 py-6">
               <div>
                 <h2 className="text-xl sm:text-2xl font-semibold text-white">{t('Create New Lab Case')}</h2>
