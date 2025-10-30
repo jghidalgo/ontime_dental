@@ -3,15 +3,314 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark light;
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply bg-slate-950 text-slate-100 antialiased transition-colors duration-300 ease-out;
+  background-image: radial-gradient(circle at top, rgba(59, 130, 246, 0.08), rgba(15, 23, 42, 0.94));
 }
 
 body.light {
-  @apply bg-slate-50 text-slate-900;
+  --light-background: #f4f7ff;
+  --light-surface: #ffffff;
+  --light-surface-muted: rgba(255, 255, 255, 0.82);
+  --light-surface-soft: rgba(244, 247, 255, 0.68);
+  --light-surface-strong: rgba(255, 255, 255, 0.92);
+  --light-border: #d8e4ff;
+  --light-border-strong: #c3d4f7;
+  --light-text: #0f172a;
+  --light-text-soft: #1f2a44;
+  --light-text-muted: #4c5d7a;
+  --light-overlay: rgba(37, 99, 235, 0.08);
+  --light-overlay-strong: rgba(37, 99, 235, 0.12);
+  color-scheme: light;
+  background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.12), rgba(244, 247, 255, 0.96));
+  color: var(--light-text);
+  background-color: var(--light-background);
+}
+
+body.light .bg-slate-950 {
+  background-color: var(--light-background) !important;
+}
+
+body.light .bg-slate-950\/95 {
+  background-color: rgba(244, 247, 255, 0.94) !important;
+}
+
+body.light .bg-slate-950\/90 {
+  background-color: rgba(244, 247, 255, 0.9) !important;
+}
+
+body.light .bg-slate-950\/80 {
+  background-color: rgba(15, 23, 42, 0.18) !important;
+}
+
+body.light .bg-slate-950\/70 {
+  background-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+body.light .bg-slate-950\/60 {
+  background-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+body.light .bg-slate-950\/40 {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+body.light .bg-slate-950\/30 {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+body.light .bg-slate-950\/20 {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+body.light .bg-slate-950\/10 {
+  background-color: rgba(15, 23, 42, 0.03) !important;
+}
+
+body.light .bg-slate-900 {
+  background-color: var(--light-surface) !important;
+}
+
+body.light .bg-slate-900\/95 {
+  background-color: var(--light-surface) !important;
+}
+
+body.light .bg-slate-900\/80,
+body.light .bg-slate-900\/70,
+body.light .bg-slate-900\/60 {
+  background-color: var(--light-surface-strong) !important;
+}
+
+body.light .bg-slate-900\/50,
+body.light .bg-slate-900\/40 {
+  background-color: var(--light-surface-muted) !important;
+}
+
+body.light .bg-slate-900\/30,
+body.light .bg-slate-900\/20,
+body.light .bg-slate-900\/10 {
+  background-color: var(--light-surface-soft) !important;
+}
+
+body.light .bg-slate-900\/5 {
+  background-color: rgba(244, 247, 255, 0.45) !important;
+}
+
+body.light .bg-slate-800 {
+  background-color: rgba(227, 235, 255, 0.75) !important;
+}
+
+body.light .bg-slate-800\/60,
+body.light .bg-slate-800\/70 {
+  background-color: rgba(227, 235, 255, 0.64) !important;
+}
+
+body.light .border-slate-900,
+body.light .border-slate-800 {
+  border-color: var(--light-border) !important;
+}
+
+body.light .border-slate-700,
+body.light .border-slate-700\/70,
+body.light .border-slate-600,
+body.light .border-slate-500 {
+  border-color: var(--light-border-strong) !important;
+}
+
+body.light .border-white\/10,
+body.light .border-white\/5,
+body.light .border-white\/20 {
+  border-color: var(--light-border) !important;
+}
+
+body.light .text-slate-100 {
+  color: var(--light-text) !important;
+}
+
+body.light .text-slate-200 {
+  color: var(--light-text) !important;
+}
+
+body.light .text-slate-300 {
+  color: var(--light-text-soft) !important;
+}
+
+body.light .text-slate-400,
+body.light .text-white\/80 {
+  color: var(--light-text-muted) !important;
+}
+
+body.light .text-slate-500,
+body.light .text-slate-500\/80,
+body.light .text-white\/60 {
+  color: #566789 !important;
+}
+
+body.light .text-slate-600,
+body.light .text-slate-700,
+body.light .text-white\/50 {
+  color: #64739a !important;
+}
+
+body.light .text-primary-100 {
+  color: #1d4ed8 !important;
+}
+
+body.light .bg-white\/5,
+body.light .bg-white\/10,
+body.light .bg-white\/[0.02],
+body.light .bg-white\/[0.03],
+body.light .bg-white\/[0.04],
+body.light .bg-white\/[0.05] {
+  background-color: var(--light-overlay) !important;
+}
+
+body.light .bg-white\/20,
+body.light .bg-white\/40 {
+  background-color: var(--light-overlay-strong) !important;
+}
+
+body.light .bg-primary-500\/20,
+body.light .bg-primary-500\/15,
+body.light .bg-primary-500\/10 {
+  background-color: rgba(37, 99, 235, 0.14) !important;
+}
+
+body.light .text-primary-200,
+body.light .text-primary-300 {
+  color: #1e3a8a !important;
+}
+
+body.light .bg-blue-500\/10 {
+  background-color: rgba(191, 219, 254, 0.7) !important;
+}
+
+body.light .text-blue-300 {
+  color: #1d4ed8 !important;
+}
+
+body.light .bg-amber-500\/10 {
+  background-color: rgba(254, 243, 199, 0.85) !important;
+}
+
+body.light .text-amber-200,
+body.light .text-amber-300 {
+  color: #b45309 !important;
+}
+
+body.light .bg-purple-500\/10,
+body.light .bg-fuchsia-500\/10 {
+  background-color: rgba(237, 233, 254, 0.85) !important;
+}
+
+body.light .text-purple-200,
+body.light .text-purple-300,
+body.light .text-fuchsia-300 {
+  color: #6d28d9 !important;
+}
+
+body.light .bg-emerald-500\/10 {
+  background-color: rgba(209, 250, 229, 0.85) !important;
+}
+
+body.light .text-emerald-100,
+body.light .text-emerald-200,
+body.light .text-emerald-300 {
+  color: #047857 !important;
+}
+
+body.light .bg-cyan-500\/10 {
+  background-color: rgba(207, 250, 254, 0.85) !important;
+}
+
+body.light .text-cyan-300 {
+  color: #0e7490 !important;
+}
+
+body.light .bg-indigo-500\/10 {
+  background-color: rgba(224, 231, 255, 0.85) !important;
+}
+
+body.light .text-indigo-200 {
+  color: #4338ca !important;
+}
+
+body.light .bg-pink-500\/10 {
+  background-color: rgba(252, 231, 243, 0.85) !important;
+}
+
+body.light .text-pink-200 {
+  color: #be185d !important;
+}
+
+body.light .bg-orange-500\/10 {
+  background-color: rgba(255, 237, 213, 0.85) !important;
+}
+
+body.light .text-orange-300 {
+  color: #c2410c !important;
+}
+
+body.light .bg-rose-500\/10 {
+  background-color: rgba(254, 205, 211, 0.85) !important;
+}
+
+body.light .text-rose-100,
+body.light .text-rose-200 {
+  color: #b91c1c !important;
+}
+
+body.light .bg-red-500\/10 {
+  background-color: rgba(254, 226, 226, 0.85) !important;
+}
+
+body.light .text-red-100,
+body.light .text-red-200 {
+  color: #b91c1c !important;
+}
+
+body.light .bg-green-950\/90 {
+  background-color: rgba(209, 250, 229, 0.92) !important;
+}
+
+body.light .bg-red-950\/90 {
+  background-color: rgba(254, 202, 202, 0.92) !important;
+}
+
+body.light .shadow-slate-950\/40,
+body.light .shadow-slate-950\/50,
+body.light .shadow-primary-900\/40 {
+  box-shadow: 0 20px 45px rgba(30, 64, 175, 0.18) !important;
+}
+
+body.light .bg-gradient-to-br.from-slate-900.via-slate-950.to-slate-900,
+body.light .bg-gradient-to-br.from-slate-900.via-slate-950,
+body.light .bg-gradient-to-br.from-slate-950,
+body.light .bg-gradient-to-br.from-slate-900.to-slate-900 {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(226, 232, 255, 0.9), rgba(212, 233, 255, 0.9)) !important;
+}
+
+body.light .bg-\[radial-gradient\(circle_at_top,_var\(--tw-gradient-stops\)\)\] {
+  background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.18), rgba(255, 255, 255, 0.95), rgba(244, 247, 255, 0.98)) !important;
+}
+
+body.light .via-slate-950,
+body.light .to-slate-950,
+body.light .to-slate-900,
+body.light .via-slate-900,
+body.light .from-slate-900 {
+  --tw-gradient-from: rgba(255, 255, 255, 0.96) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), rgba(215, 227, 255, 0.92), rgba(192, 210, 255, 0.88) !important;
+  --tw-gradient-to: rgba(216, 228, 255, 0.85) !important;
+}
+
+body.light input,
+body.light textarea,
+body.light select {
+  @apply bg-white text-slate-800;
 }
 
 input, button {
