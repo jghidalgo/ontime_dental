@@ -8,7 +8,6 @@ import { useTranslations } from '@/lib/i18n';
 import { GET_TICKETS } from '@/graphql/ticket-queries';
 import { CREATE_TICKET, UPDATE_TICKET, DELETE_TICKET } from '@/graphql/ticket-mutations';
 import TopNavigation from '@/components/TopNavigation';
-import { Navigation } from '@/components/navigation';
 
 type TicketStatus = 'new' | 'in_progress' | 'waiting' | 'resolved';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
