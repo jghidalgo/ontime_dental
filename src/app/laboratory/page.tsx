@@ -786,29 +786,29 @@ export default function LaboratoryPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
+        <div className="border-b border-slate-800 bg-slate-900/60">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Laboratory</p>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">Operations Command Center</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                Monitor the production floor, shipping timelines and clinic satisfaction at a glance. The dashboard surfaces key actions for the fabrication team and keeps leadership aligned with today&apos;s volume.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
+              <p className="text-xs uppercase tracking-wider text-slate-400">Today</p>
+              <p className="text-3xl font-semibold text-primary-300">
+                {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date())}
+              </p>
+              <p className="text-xs text-slate-500">Dispatch 2:00 PM - 6:00 PM</p>
+            </div>
+          </div>
+
+          <TopNavigation />
+        </div>
+
         <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
-            <header className="flex flex-col gap-4 border-b border-white/5 pb-8">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">Laboratory</p>
-                  <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">Operations Command Center</h1>
-                </div>
-                <div className="rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-right text-xs text-primary-100">
-                  <p className="font-semibold uppercase tracking-[0.35em]">Today</p>
-                  <p className="mt-1 text-sm font-medium text-primary-50">
-                    {new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).format(new Date())}
-                  </p>
-                  <p className="text-[11px] text-primary-200/70">Dispatch window 2:00 PM - 6:00 PM</p>
-                </div>
-              </div>
-              <p className="max-w-3xl text-sm text-slate-400">
-                Monitor the production floor, shipping timelines and clinic satisfaction at a glance. The dashboard surfaces key
-                actions for the fabrication team and keeps leadership aligned with today&apos;s volume.
-              </p>
-            </header>
-
-            <TopNavigation />
 
             <section className="mt-10">
               <div className="flex flex-wrap gap-3">

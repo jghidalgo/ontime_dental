@@ -274,41 +274,38 @@ export default function HREmployeesPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <div className="flex-1">
-          <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
-            <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('HR')}</p>
-                  <h1 className="text-2xl font-semibold text-slate-50">{t('Employee directory')}</h1>
-                  <p className="text-sm text-slate-400">{t('Welcome back, {name}.', { name: userName || t('team') })}</p>
-                </div>
+        <section className="border-b border-slate-800 bg-slate-900/60">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
+            <header>
+              <p className="text-sm uppercase tracking-widest text-primary-300">{t('HR')}</p>
+              <h1 className="mt-1 text-3xl font-bold text-slate-50">{t('Employee directory')}</h1>
+              <p className="mt-1 text-slate-300">{t('Welcome back, {name}.', { name: userName || t('team') })}</p>
+            </header>
+
+            <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-4">
+              <div className="space-y-2">
+                <label htmlFor="employee-search" className="block text-xs font-semibold uppercase tracking-wider text-primary-300">
+                  {t('Search employees')}
+                </label>
+                <input
+                  id="employee-search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={t('Search by name, role, or location')}
+                  className="w-64 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/40 focus:outline-none"
+                />
               </div>
 
-              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                <div className="relative w-full sm:w-64">
-                  <label htmlFor="employee-search" className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                    {t('Search employees')}
-                  </label>
-                  <input
-                    id="employee-search"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder={t('Search by name, role, or location')}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/40 focus:outline-none"
-                  />
-                </div>
-
-                <button className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400">
-                  {t('Add employee')}
-                </button>
-              </div>
+              <button className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-primary-400">
+                {t('Add employee')}
+              </button>
             </div>
-          </header>
+          </div>
 
           <TopNavigation />
+        </section>
 
-          <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
+          <main className="overflow-y-auto px-6 py-10 sm:px-10">
             <HrSubNavigation />
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
@@ -436,7 +433,6 @@ export default function HREmployeesPage() {
               </div>
             </section>
           </main>
-        </div>
       </div>
     </div>
   );

@@ -55,32 +55,33 @@ export default function DashboardPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Dashboard')}</p>
-                <h1 className="text-2xl font-semibold text-slate-50">{t('Welcome back, {name}.', { name: userName || t('team') })}</h1>
-              </div>
+        <div className="border-b border-slate-800 bg-slate-900/60">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('Dashboard')}</p>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('Welcome back, {name}.', { name: userName || t('team') })}</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                {t('Dashboard summary')}
+              </p>
             </div>
-
-            <div className="flex items-center gap-3 self-end lg:self-auto">
-              <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
+              <p className="text-xs uppercase tracking-wider text-slate-400">Quick Actions</p>
+              <button className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
                 {t('Generate Report')}
               </button>
               <button
                 onClick={handleLogout}
-                className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
+                className="mt-2 block w-full text-xs text-slate-500 hover:text-slate-300 transition"
               >
                 {t('Logout')}
               </button>
             </div>
           </div>
-        </header>
 
-        <TopNavigation />
+          <TopNavigation />
+        </div>
 
-        <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
+        <main className="overflow-y-auto px-6 py-10 sm:px-10">
             {data ? (
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">

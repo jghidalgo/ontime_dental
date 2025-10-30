@@ -191,7 +191,7 @@ export default function InsurancesPage() {
 
           <TopNavigation />
 
-          <main className="mx-auto max-w-5xl px-6 py-12 lg:px-10">
+          <main className="overflow-y-auto px-6 py-10 sm:px-10">
             <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
               <section className="space-y-8">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">

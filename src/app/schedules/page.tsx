@@ -398,18 +398,26 @@ export default function SchedulesPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <main className="overflow-y-auto px-6 py-10 sm:px-10">
-          <header className="flex flex-col justify-between gap-4 border-b border-white/10 pb-6 text-slate-100 lg:flex-row lg:items-center">
+        <div className="border-b border-slate-800 bg-slate-900/60">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Operations</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">Schedules</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-400">
+              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Operations</p>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">Schedules</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
                 Review staffing coverage for front desk and chair-side teams. Drag names between clinics and days to simulate deployment changes before publishing to the organization.
               </p>
             </div>
-          </header>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
+              <p className="text-xs uppercase tracking-wider text-slate-400">Drag & Drop</p>
+              <p className="text-3xl font-semibold text-primary-300">Enabled</p>
+              <p className="text-xs text-slate-500">Click to edit assignments</p>
+            </div>
+          </div>
 
           <TopNavigation />
+        </div>
+
+        <main className="overflow-y-auto px-6 py-10 sm:px-10">
 
           <section className="mt-8 space-y-12">
             <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">

@@ -216,70 +216,67 @@ export default function ContactsPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <header className="flex flex-col gap-8 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
-            <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Contacts hub</p>
-                <h1 className="text-3xl font-semibold text-slate-50">Reach every OnTime team instantly</h1>
-                <p className="max-w-2xl text-sm text-slate-400">
-                  Browse location extensions, clinic reception desks, and support center directories. Use the filters below to quickly surface the numbers you need.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 self-end lg:self-auto">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-                  Signed in as <span className="font-semibold text-slate-100">{userName || 'team'}</span>
-                </div>
-                <button
-                  onClick={() => {
-                    window.localStorage.removeItem('ontime.authToken');
-                    router.push('/login');
-                  }}
-                  className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
-                >
-                  Logout
-                </button>
-              </div>
+        <div className="border-b border-slate-800 bg-slate-900/60">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Contacts hub</p>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">Reach every OnTime team instantly</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                Browse location extensions, clinic reception desks, and support center directories. Use the filters below to quickly surface the numbers you need.
+              </p>
             </div>
-
-            <nav className="flex flex-wrap gap-3 border-t border-white/5 pt-6">
-              {contactSections.map((section) => {
-                const isLocationsLink = section.id === 'locations-search';
-                const isActive = !isLocationsLink && activeSection === section.id;
-
-                if (isLocationsLink) {
-                  return (
-                    <Link
-                      key={section.id}
-                      href="/contacts/locations-search"
-                      className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-400/40 hover:text-white"
-                    >
-                      {section.label}
-                    </Link>
-                  );
-                }
-
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => setActiveSection(section.id)}
-                    className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                      isActive
-                        ? 'bg-primary-500/90 text-slate-900 shadow-lg shadow-primary-900/40'
-                        : 'border border-white/10 bg-white/5 text-slate-300 hover:border-primary-400/40 hover:text-white'
-                    }`}
-                  >
-                    {section.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </header>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
+              <p className="text-xs uppercase tracking-wider text-slate-400">Signed in as</p>
+              <p className="text-3xl font-semibold text-primary-300">{userName || 'Team'}</p>
+              <button
+                onClick={() => {
+                  window.localStorage.removeItem('ontime.authToken');
+                  router.push('/login');
+                }}
+                className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
 
           <TopNavigation />
+        </div>
 
-          <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
+        <main className="overflow-y-auto px-6 py-10 sm:px-10">
+          <nav className="mb-8 flex flex-wrap gap-3">
+            {contactSections.map((section) => {
+              const isLocationsLink = section.id === 'locations-search';
+              const isActive = !isLocationsLink && activeSection === section.id;
+
+              if (isLocationsLink) {
+                return (
+                  <Link
+                    key={section.id}
+                    href="/contacts/locations-search"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-400/40 hover:text-white"
+                  >
+                    {section.label}
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                    isActive
+                      ? 'bg-primary-500/90 text-slate-900 shadow-lg shadow-primary-900/40'
+                      : 'border border-white/10 bg-white/5 text-slate-300 hover:border-primary-400/40 hover:text-white'
+                  }`}
+                >
+                  {section.label}
+                </button>
+              );
+            })}
+          </nav>
             {isExtensionsSection ? (
               <div className="space-y-10">
                 <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
