@@ -216,6 +216,17 @@ export default function TicketsPage() {
   const [form, setForm] = useState<TicketFormState>(defaultFormState);
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
   const [search, setSearch] = useState('');
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ show: false, message: '', type: 'success' });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const metrics = useMemo(() => {
     const openTickets = tickets.filter((ticket) => ticket.status !== 'resolved');
@@ -262,6 +273,25 @@ export default function TicketsPage() {
     });
   }, [tickets, statusFilter, search]);
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const paginatedTickets = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredTickets.slice(startIndex, endIndex);
+  }, [filteredTickets, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = useCallback((newFilter: 'all' | TicketStatus) => {
+    setStatusFilter(newFilter);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSearchChange = useCallback((newSearch: string) => {
+    setSearch(newSearch);
+    setCurrentPage(1);
+  }, []);
+
   const statusBreakdown = useMemo(() => {
     return ticketStatuses.map((status) => {
       const count = tickets.filter((ticket) => ticket.status === status).length;
@@ -271,10 +301,19 @@ export default function TicketsPage() {
     });
   }, [tickets]);
 
+  // Show snackbar with auto-hide
+  const showSnackbar = useCallback((message: string, type: 'success' | 'error') => {
+    setSnackbar({ show: true, message, type });
+    setTimeout(() => {
+      setSnackbar({ show: false, message: '', type: 'success' });
+    }, 4000); // Auto-hide after 4 seconds
+  }, []);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!form.subject || !form.requester || !form.location || !form.description) {
+      showSnackbar(t('Please fill in all required fields'), 'error');
       return;
     }
 
@@ -307,9 +346,11 @@ export default function TicketsPage() {
 
       await refetch();
       setForm(defaultFormState);
+      setCurrentPage(1); // Reset to first page to see the new ticket
+      showSnackbar(t('Ticket created successfully!'), 'success');
     } catch (error) {
       console.error('Error creating ticket:', error);
-      alert('Failed to create ticket. Please try again.');
+      showSnackbar(t('Failed to create ticket. Please try again.'), 'error');
     }
   };
 
@@ -426,58 +467,104 @@ export default function TicketsPage() {
                   {t('No tickets found. Try adjusting your filters or creating a new ticket below.')}
                 </div>
               ) : (
-                filteredTickets.map((ticket) => (
-                  <article
-                    key={ticket.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 transition hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-900/10"
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-slate-800 px-3 py-1 text-xs font-semibold text-slate-400">
-                            {ticket.id}
-                          </span>
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[ticket.status]}`}>
-                            {statusLabels[ticket.status]}
-                          </span>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${priorityStyles[ticket.priority]}`}
-                          >
-                            {t('Priority')} · {priorityLabels[ticket.priority]}
-                          </span>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              categoryPalettes[ticket.category] ?? 'bg-slate-500/10 text-slate-200'
-                            }`}
-                          >
-                            {categoryLabels[ticket.category] ?? ticket.category}
-                          </span>
+                <>
+                  {paginatedTickets.map((ticket) => (
+                    <article
+                      key={ticket.id}
+                      className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 transition hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-900/10"
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-slate-800 px-3 py-1 text-xs font-semibold text-slate-400">
+                              {ticket.id}
+                            </span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[ticket.status]}`}>
+                              {statusLabels[ticket.status]}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${priorityStyles[ticket.priority]}`}
+                            >
+                              {t('Priority')} · {priorityLabels[ticket.priority]}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                categoryPalettes[ticket.category] ?? 'bg-slate-500/10 text-slate-200'
+                              }`}
+                            >
+                              {categoryLabels[ticket.category] ?? ticket.category}
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-semibold text-white">{ticket.subject}</h3>
+                          <p className="text-sm text-slate-400">{ticket.description}</p>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
+                            <span>{t('Requester: {requester}', { requester: ticket.requester })}</span>
+                            <span>{t('Clinic: {clinic}', { clinic: ticket.location })}</span>
+                            <span>{t('Channel: {channel}', { channel: ticket.channel })}</span>
+                          </div>
                         </div>
-                        <h3 className="text-lg font-semibold text-white">{ticket.subject}</h3>
-                        <p className="text-sm text-slate-400">{ticket.description}</p>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
-                          <span>{t('Requester: {requester}', { requester: ticket.requester })}</span>
-                          <span>{t('Clinic: {clinic}', { clinic: ticket.location })}</span>
-                          <span>{t('Channel: {channel}', { channel: ticket.channel })}</span>
+                        <div className="flex flex-col items-end justify-between text-right text-xs text-slate-400">
+                          <div>
+                            <p className="font-semibold text-slate-200">{t('Created')}</p>
+                            <p>{formatDate(ticket.createdAt)}</p>
+                          </div>
+                          <div className="mt-3">
+                            <p className="font-semibold text-slate-200">{t('Target Resolution')}</p>
+                            <p>{formatDate(ticket.dueDate)}</p>
+                          </div>
+                          <div className="mt-3">
+                            <p className="font-semibold text-slate-200">{t('Updates')}</p>
+                            <p>{t('{count} touchpoints logged', { count: ticket.updates.length.toString() })}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end justify-between text-right text-xs text-slate-400">
-                        <div>
-                          <p className="font-semibold text-slate-200">{t('Created')}</p>
-                          <p>{formatDate(ticket.createdAt)}</p>
+                    </article>
+                  ))}
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+                      <div className="text-sm text-slate-400">
+                        {t('Showing {start} to {end} of {total} tickets', {
+                          start: ((currentPage - 1) * itemsPerPage + 1).toString(),
+                          end: Math.min(currentPage * itemsPerPage, filteredTickets.length).toString(),
+                          total: filteredTickets.length.toString()
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-500/60 hover:text-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('Previous')}
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`h-10 w-10 rounded-lg text-sm font-semibold transition ${
+                                currentPage === page
+                                  ? 'bg-primary-500 text-slate-950'
+                                  : 'border border-slate-700 bg-slate-950/70 text-slate-300 hover:border-primary-500/60 hover:text-primary-300'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
                         </div>
-                        <div className="mt-3">
-                          <p className="font-semibold text-slate-200">{t('Target Resolution')}</p>
-                          <p>{formatDate(ticket.dueDate)}</p>
-                        </div>
-                        <div className="mt-3">
-                          <p className="font-semibold text-slate-200">{t('Updates')}</p>
-                          <p>{t('{count} touchpoints logged', { count: ticket.updates.length.toString() })}</p>
-                        </div>
+                        <button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-500/60 hover:text-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('Next')}
+                        </button>
                       </div>
                     </div>
-                  </article>
-                ))
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -634,6 +721,30 @@ export default function TicketsPage() {
           </div>
         </aside>
       </div>
+
+      {/* Snackbar Notification */}
+      {snackbar.show && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 animate-slide-in-up rounded-xl border px-6 py-4 shadow-2xl transition-all ${
+            snackbar.type === 'success'
+              ? 'border-green-500/50 bg-green-950/90 text-green-100'
+              : 'border-red-500/50 bg-red-950/90 text-red-100'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {snackbar.type === 'success' ? (
+              <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+            <p className="text-sm font-semibold">{snackbar.message}</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

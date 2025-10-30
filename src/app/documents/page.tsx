@@ -1,24 +1,106 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/i18n';
+import { useQuery, useMutation, gql } from '@apollo/client';
+import TopNavigation from '@/components/TopNavigation';
 
-const navigationItems = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
-];
+// GraphQL Queries and Mutations
+const GET_DOCUMENT_ENTITIES = gql`
+  query GetDocumentEntities {
+    documentEntities {
+      id
+      entityId
+      name
+      groups {
+        id
+        name
+        documents {
+          id
+          title
+          version
+          date
+          description
+          url
+          fileName
+        }
+      }
+    }
+  }
+`;
+
+const ADD_DOCUMENT = gql`
+  mutation AddDocument($entityId: String!, $groupId: String!, $document: DocumentRecordInput!) {
+    addDocument(entityId: $entityId, groupId: $groupId, document: $document) {
+      id
+      entityId
+      name
+      groups {
+        id
+        name
+        documents {
+          id
+          title
+          version
+          date
+          description
+          url
+          fileName
+        }
+      }
+    }
+  }
+`;
+
+const UPDATE_DOCUMENT = gql`
+  mutation UpdateDocument(
+    $entityId: String!
+    $groupId: String!
+    $documentId: String!
+    $document: DocumentRecordInput!
+  ) {
+    updateDocument(
+      entityId: $entityId
+      groupId: $groupId
+      documentId: $documentId
+      document: $document
+    ) {
+      id
+      entityId
+      name
+      groups {
+        id
+        name
+        documents {
+          id
+          title
+          version
+          date
+          description
+          url
+          fileName
+        }
+      }
+    }
+  }
+`;
+
+const DELETE_DOCUMENT = gql`
+  mutation DeleteDocument($entityId: String!, $groupId: String!, $documentId: String!) {
+    deleteDocument(entityId: $entityId, groupId: $groupId, documentId: $documentId) {
+      id
+      entityId
+      groups {
+        id
+        documents {
+          id
+          title
+        }
+      }
+    }
+  }
+`;
 
 type DocumentRecord = {
   id: string;
@@ -42,159 +124,22 @@ type DocumentEntity = {
   groups: DocumentGroup[];
 };
 
-const initialDocumentCatalog: DocumentEntity[] = [
-  {
-    id: 'blanco-amos-dental-group',
-    name: 'Blanco Amos Dental Group',
-    groups: [
-      {
-        id: 'front-desk-forms',
-        name: 'Front Desk Forms',
-        documents: [
-          {
-            id: 'FD-142',
-            title: 'Patient Welcome Packet (English)',
-            version: '2.3',
-            date: '05/14/2024',
-            description: 'Updated intake checklist and consent signatures.',
-            url: '#'
-          },
-          {
-            id: 'FD-143',
-            title: 'Patient Welcome Packet (Spanish)',
-            version: '2.3',
-            date: '05/14/2024',
-            description: 'Translated materials for bilingual offices.',
-            url: '#'
-          }
-        ]
-      },
-      {
-        id: 'hr-forms',
-        name: 'Human Resources Forms',
-        documents: [
-          {
-            id: 'HR-209',
-            title: 'Time-Off Request Policy',
-            version: '1.4',
-            date: '01/09/2024',
-            description: 'Submission deadlines and approval routing details.',
-            url: '#'
-          },
-          {
-            id: 'HR-214',
-            title: 'Employee Acknowledgement Form',
-            version: '1.0',
-            date: '11/22/2023',
-            description: 'Signature form for new handbook policies.',
-            url: '#'
-          }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'complete-dental-lab',
-    name: 'Complete Dental Lab',
-    groups: [
-      {
-        id: 'front-desk-forms',
-        name: 'Front Desk Forms',
-        documents: [
-          {
-            id: '747',
-            title: 'CCL Package',
-            version: '1.0',
-            date: '06/25/2020',
-            description: 'Compliance checklist for customer onboarding.',
-            url: '#'
-          },
-          {
-            id: '940',
-            title: 'Visit Records',
-            version: '1.0',
-            date: '10/20/2019',
-            description: 'Template for documenting lab visit outcomes.',
-            url: '#'
-          }
-        ]
-      },
-      {
-        id: 'compliance',
-        name: 'Compliance',
-        documents: [
-          {
-            id: 'CMP-301',
-            title: 'OSHA Readiness Binder',
-            version: '3.1',
-            date: '02/18/2024',
-            description: 'Emergency response, sanitation and exposure protocols.',
-            url: '#'
-          }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'complete-dental-supplies',
-    name: 'Complete Dental Supplies',
-    groups: [
-      {
-        id: 'operations',
-        name: 'Operations',
-        documents: [
-          {
-            id: 'OPS-410',
-            title: 'Vendor Ordering Guide',
-            version: '4.6',
-            date: '03/02/2024',
-            description: 'Quarterly catalog with pricing tiers and freight notes.',
-            url: '#'
-          },
-          {
-            id: 'OPS-414',
-            title: 'Inventory Count Template',
-            version: '2.0',
-            date: '08/15/2023',
-            description: 'Excel template for cycle counts and variance tracking.',
-            url: '#'
-          }
-        ]
-      },
-      {
-        id: 'hr-forms',
-        name: 'Human Resources Forms',
-        documents: [
-          {
-            id: 'HR-512',
-            title: 'Safety Training Sign-Off',
-            version: '1.8',
-            date: '04/04/2024',
-            description: 'Required acknowledgement for annual safety seminar.',
-            url: '#'
-          }
-        ]
-      }
-    ]
-  }
-];
-
-const cloneDocumentCatalog = (catalog: DocumentEntity[]): DocumentEntity[] =>
-  catalog.map((entity) => ({
-    ...entity,
-    groups: entity.groups.map((group) => ({
-      ...group,
-      documents: group.documents.map((document) => ({ ...document }))
-    }))
-  }));
-
 export default function DocumentsPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const { t } = useTranslations();
 
-  const [userName, setUserName] = useState<string>('');
-  const [documents, setDocuments] = useState<DocumentEntity[]>(() => cloneDocumentCatalog(initialDocumentCatalog));
+  // GraphQL hooks
+  const { data, loading, error, refetch } = useQuery(GET_DOCUMENT_ENTITIES);
+  const [addDocument] = useMutation(ADD_DOCUMENT, {
+    refetchQueries: ['GetDocumentEntities']
+  });
+  const [updateDocument] = useMutation(UPDATE_DOCUMENT, {
+    refetchQueries: ['GetDocumentEntities']
+  });
+  const [deleteDocument] = useMutation(DELETE_DOCUMENT, {
+    refetchQueries: ['GetDocumentEntities']
+  });
+
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [appliedSelection, setAppliedSelection] = useState<{
@@ -206,6 +151,22 @@ export default function DocumentsPage() {
     groupId: string;
     documentId: string;
   } | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState<{
+    title: string;
+    version: string;
+    date: string;
+    description: string;
+    fileName: string;
+    fileUrl: string;
+  }>({
+    title: '',
+    version: '',
+    date: '',
+    description: '',
+    fileName: '',
+    fileUrl: ''
+  });
   const [editForm, setEditForm] = useState<{
     title: string;
     version: string;
@@ -213,17 +174,26 @@ export default function DocumentsPage() {
     description: string;
     fileName: string;
     fileUrl: string;
-    fileChanged: boolean;
   }>({
     title: '',
     version: '',
     date: '',
     description: '',
     fileName: '',
-    fileUrl: '',
-    fileChanged: false
+    fileUrl: ''
   });
+  const [snackbar, setSnackbar] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
+
   const objectUrlsRef = useRef<string[]>([]);
+  
   const resetEditForm = () =>
     setEditForm({
       title: '',
@@ -231,19 +201,43 @@ export default function DocumentsPage() {
       date: '',
       description: '',
       fileName: '',
-      fileUrl: '',
-      fileChanged: false
+      fileUrl: ''
     });
 
+  const resetCreateForm = () =>
+    setCreateForm({
+      title: '',
+      version: '',
+      date: '',
+      description: '',
+      fileName: '',
+      fileUrl: ''
+    });
+
+  const showSnackbar = (message: string, type: 'success' | 'error') => {
+    setSnackbar({ show: true, message, type });
+    setTimeout(() => {
+      setSnackbar({ show: false, message: '', type: 'success' });
+    }, 4000);
+  };
+
+  // Get documents from GraphQL data
+  const documents = useMemo(() => {
+    if (!data?.documentEntities) return [];
+    return data.documentEntities.map((entity: any) => ({
+      id: entity.entityId,
+      name: entity.name,
+      groups: entity.groups
+    }));
+  }, [data]);
+
   useEffect(() => {
-    const token = window.localStorage.getItem('ontime.authToken');
+    const token = globalThis.localStorage.getItem('ontime.authToken');
 
     if (!token) {
       router.push('/login');
       return;
     }
-
-    setUserName('Dr. Carter');
   }, [router]);
 
   useEffect(() => {
@@ -254,31 +248,134 @@ export default function DocumentsPage() {
     const objectUrls = objectUrlsRef.current;
 
     return () => {
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      for (const url of objectUrls) {
+        URL.revokeObjectURL(url);
+      }
     };
   }, []);
 
+  // Handler for creating a new document
+  const handleCreateDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appliedSelection) return;
+
+    try {
+      const docId = `DOC-${Date.now()}`;
+      await addDocument({
+        variables: {
+          entityId: appliedSelection.entityId,
+          groupId: appliedSelection.groupId,
+          document: {
+            id: docId,
+            title: createForm.title,
+            version: createForm.version,
+            date: createForm.date,
+            description: createForm.description,
+            url: createForm.fileUrl || '#',
+            fileName: createForm.fileName || undefined
+          }
+        }
+      });
+
+      showSnackbar('Document created successfully!', 'success');
+      resetCreateForm();
+      setShowCreateForm(false);
+    } catch (error: any) {
+      showSnackbar(`Failed to create document: ${error.message}`, 'error');
+    }
+  };
+
+  // Handler for updating an existing document
+  const handleUpdateDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTarget) return;
+
+    try {
+      await updateDocument({
+        variables: {
+          entityId: editingTarget.entityId,
+          groupId: editingTarget.groupId,
+          documentId: editingTarget.documentId,
+          document: {
+            id: editingTarget.documentId,
+            title: editForm.title,
+            version: editForm.version,
+            date: editForm.date,
+            description: editForm.description,
+            url: editForm.fileUrl,
+            fileName: editForm.fileName || undefined
+          }
+        }
+      });
+
+      showSnackbar('Document updated successfully!', 'success');
+      setEditingTarget(null);
+      resetEditForm();
+    } catch (error: any) {
+      showSnackbar(`Failed to update document: ${error.message}`, 'error');
+    }
+  };
+
+  // Handler for deleting a document
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!appliedSelection) return;
+    if (!confirm('Are you sure you want to delete this document?')) return;
+
+    try {
+      await deleteDocument({
+        variables: {
+          entityId: appliedSelection.entityId,
+          groupId: appliedSelection.groupId,
+          documentId
+        }
+      });
+
+      showSnackbar('Document deleted successfully!', 'success');
+    } catch (error: any) {
+      showSnackbar(`Failed to delete document: ${error.message}`, 'error');
+    }
+  };
+
+  // Handler for downloading a document
+  const handleDownloadDocument = (doc: DocumentRecord) => {
+    if (doc.url === '#' || !doc.url) {
+      showSnackbar('No download URL available for this document', 'error');
+      return;
+    }
+
+    // If it's a blob URL, trigger download
+    if (doc.url.startsWith('blob:')) {
+      const link = document.createElement('a');
+      link.href = doc.url;
+      link.download = doc.fileName || `${doc.title}.pdf`;
+      link.click();
+    } else {
+      // Open external URL in new tab
+      window.open(doc.url, '_blank');
+    }
+  };
+
   const availableGroups = useMemo(() => {
-    const entity = documents.find((item) => item.id === selectedEntityId);
+    const entity = documents.find((item: DocumentEntity) => item.id === selectedEntityId);
     return entity?.groups ?? [];
   }, [documents, selectedEntityId]);
 
   const appliedDocuments = useMemo(() => {
     if (!appliedSelection) return [];
 
-    const entity = documents.find((item) => item.id === appliedSelection.entityId);
-    const group = entity?.groups.find((item) => item.id === appliedSelection.groupId);
+    const entity = documents.find((item: DocumentEntity) => item.id === appliedSelection.entityId);
+    const group = entity?.groups.find((item: DocumentGroup) => item.id === appliedSelection.groupId);
 
     return group?.documents ?? [];
   }, [appliedSelection, documents]);
 
   const appliedEntityName = appliedSelection
-    ? documents.find((entity) => entity.id === appliedSelection.entityId)?.name ?? '—'
+    ? documents.find((entity: DocumentEntity) => entity.id === appliedSelection.entityId)?.name ?? '—'
     : '—';
   const appliedGroupName = appliedSelection
     ? documents
-        .find((entity) => entity.id === appliedSelection.entityId)
-        ?.groups.find((group) => group.id === appliedSelection.groupId)?.name ?? '—'
+        .find((entity: DocumentEntity) => entity.id === appliedSelection.entityId)
+        ?.groups.find((group: DocumentGroup) => group.id === appliedSelection.groupId)?.name ?? '—'
     : '—';
   const appliedSummary = appliedSelection
     ? t('Showing {count} {items} for {entity} · {group}', {
@@ -299,71 +396,26 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
-      <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
-
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
+    <main className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="border-b border-slate-800 bg-slate-900/60">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
           <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <nav className="mt-10 space-y-1">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center rounded-xl px-3 py-2 text-sm font-medium transition ${pathname === item.href ? 'bg-primary-500/15 text-primary-100 ring-1 ring-primary-400/30' : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'}`}
-                >
-                  <span>{t(item.label)}</span>
-                </Link>
-              ))}
-            </nav>
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('Document Library')}</p>
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('Documents')}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300">
+              {t('Access and manage forms, policies, and resources across all OnTime Dental entities.')}
+            </p>
           </div>
+        </div>
+        <TopNavigation />
+      </div>
 
-          <div className="mt-auto space-y-1 text-sm text-slate-400">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Signed in as')}</p>
-            <p className="font-medium text-slate-200">{userName || t('Loading...')}</p>
-            <button
-              type="button"
-              onClick={() => {
-                window.localStorage.removeItem('ontime.authToken');
-                router.push('/login');
-              }}
-              className="text-left text-xs font-medium text-slate-500 transition hover:text-primary-200"
-            >
-              {t('Log out')}
-            </button>
-          </div>
-        </aside>
-
-        <main className="flex-1 overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
-          <div className="mx-auto w-full max-w-5xl">
-            <header className="flex flex-col gap-3 border-b border-white/5 pb-8">
-              <div className="flex items-center justify-between">
-                <h1 className="text-4xl font-semibold tracking-tight text-white">{t('Documents')}</h1>
-                <span className="hidden text-sm text-slate-400 sm:inline-flex">
-                  {t('Select an entity and group to view downloadable resources.')}
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 sm:hidden">
-                {t('Select an entity and group to view downloadable resources.')}
-              </p>
-            </header>
-
-            <section className="mt-10 rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
-              <h2 className="text-lg font-semibold text-white">{t('Filter library')}</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                {t('Choose the business entity followed by the document group. Apply the selection to refresh the available files.')}
-              </p>
+      <div className="mx-auto max-w-7xl px-6 py-10">
+        <section className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
+          <h2 className="text-lg font-semibold text-white">{t('Filter library')}</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            {t('Choose the business entity followed by the document group. Apply the selection to refresh the available files.')}
+          </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                 <label className="flex flex-col gap-2 text-sm text-slate-300">
@@ -374,7 +426,7 @@ export default function DocumentsPage() {
                     className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
                   >
                     <option value="">{t('Select entity...')}</option>
-                    {documents.map((entity) => (
+                    {documents.map((entity: DocumentEntity) => (
                       <option key={entity.id} value={entity.id}>
                         {entity.name}
                       </option>
@@ -391,7 +443,7 @@ export default function DocumentsPage() {
                     className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <option value="">{selectedEntityId ? t('Select group...') : t('Select entity first')}</option>
-                    {availableGroups.map((group) => (
+                    {availableGroups.map((group: DocumentGroup) => (
                       <option key={group.id} value={group.id}>
                         {group.name}
                       </option>
@@ -418,6 +470,15 @@ export default function DocumentsPage() {
                   <h2 className="text-lg font-semibold text-white">{t('Available documents')}</h2>
                   <p className="text-sm text-slate-400">{appliedSummary}</p>
                 </div>
+                {appliedSelection && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(true)}
+                    className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                  >
+                    {t('Add Document')}
+                  </button>
+                )}
               </div>
 
               <div className="overflow-hidden">
@@ -436,7 +497,7 @@ export default function DocumentsPage() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {appliedDocuments.length > 0 ? (
-                        appliedDocuments.map((document) => (
+                        appliedDocuments.map((document: DocumentRecord) => (
                           <tr key={document.id} className="transition hover:bg-white/5">
                             <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-slate-400">{document.id}</td>
                             <td className="max-w-xs px-6 py-4 text-sm text-white">{t(document.title)}</td>
@@ -444,38 +505,47 @@ export default function DocumentsPage() {
                             <td className="whitespace-nowrap px-6 py-4 text-xs text-slate-400">{document.date}</td>
                             <td className="px-6 py-4 text-sm text-slate-300">{t(document.description)}</td>
                             <td className="px-6 py-4">
-                              <a
-                                href={document.url}
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadDocument(document)}
                                 className="inline-flex items-center rounded-lg border border-primary-500/40 bg-primary-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/60 hover:bg-primary-500/20"
                               >
                                 {document.fileName ? document.fileName : t('Download')}
-                              </a>
+                              </button>
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!appliedSelection) return;
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!appliedSelection) return;
 
-                                  setEditingTarget({
-                                    entityId: appliedSelection.entityId,
-                                    groupId: appliedSelection.groupId,
-                                    documentId: document.id
-                                  });
-                                  setEditForm({
-                                    title: document.title,
-                                    version: document.version,
-                                    date: document.date,
-                                    description: document.description,
-                                    fileName: document.fileName ?? '',
-                                    fileUrl: document.url,
-                                    fileChanged: false
-                                  });
-                                }}
-                                className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-                              >
-                                {t('Edit')}
-                              </button>
+                                    setEditingTarget({
+                                      entityId: appliedSelection.entityId,
+                                      groupId: appliedSelection.groupId,
+                                      documentId: document.id
+                                    });
+                                    setEditForm({
+                                      title: document.title,
+                                      version: document.version,
+                                      date: document.date,
+                                      description: document.description,
+                                      fileName: document.fileName ?? '',
+                                      fileUrl: document.url
+                                    });
+                                  }}
+                                  className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
+                                >
+                                  {t('Edit')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDocument(document.id)}
+                                  className="inline-flex items-center rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-200 transition hover:border-red-400/60 hover:bg-red-500/20"
+                                >
+                                  {t('Delete')}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -506,9 +576,6 @@ export default function DocumentsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (editForm.fileChanged && editForm.fileUrl) {
-                        URL.revokeObjectURL(editForm.fileUrl);
-                      }
                       setEditingTarget(null);
                       resetEditForm();
                     }}
@@ -520,47 +587,7 @@ export default function DocumentsPage() {
 
                 <form
                   className="mt-6 grid gap-4 sm:grid-cols-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!editingTarget) return;
-
-                    setDocuments((prev) =>
-                      prev.map((entity) => {
-                        if (entity.id !== editingTarget.entityId) return entity;
-
-                        return {
-                          ...entity,
-                          groups: entity.groups.map((group) => {
-                            if (group.id !== editingTarget.groupId) return group;
-
-                            return {
-                              ...group,
-                              documents: group.documents.map((doc) => {
-                                if (doc.id !== editingTarget.documentId) return doc;
-
-                                if (editForm.fileChanged && doc.url.startsWith('blob:')) {
-                                  URL.revokeObjectURL(doc.url);
-                                }
-
-                                return {
-                                  ...doc,
-                                  title: editForm.title,
-                                  version: editForm.version,
-                                  date: editForm.date,
-                                  description: editForm.description,
-                                  url: editForm.fileChanged ? editForm.fileUrl : doc.url,
-                                  fileName: editForm.fileChanged ? editForm.fileName : doc.fileName
-                                };
-                              })
-                            };
-                          })
-                        };
-                      })
-                    );
-
-                    setEditingTarget(null);
-                    resetEditForm();
-                  }}
+                  onSubmit={handleUpdateDocument}
                 >
                   <label className="flex flex-col gap-2 text-sm text-slate-300">
                     <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Title')}</span>
@@ -642,9 +669,137 @@ export default function DocumentsPage() {
                 </form>
               </section>
             )}
+
+            {showCreateForm && appliedSelection && (
+              <section className="mt-10 rounded-3xl border border-green-500/30 bg-green-500/5 p-6 backdrop-blur">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{t('Add New Document')}</h2>
+                    <p className="text-sm text-slate-300">
+                      {t('Fill in the document details and optionally upload a file.')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      resetCreateForm();
+                    }}
+                    className="rounded-lg border border-transparent px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-white/20 hover:text-white"
+                  >
+                    {t('Cancel')}
+                  </button>
+                </div>
+
+                <form
+                  className="mt-6 grid gap-4 sm:grid-cols-2"
+                  onSubmit={handleCreateDocument}
+                >
+                  <label className="flex flex-col gap-2 text-sm text-slate-300">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Title')}</span>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.title}
+                      onChange={(event) => setCreateForm((prev) => ({ ...prev, title: event.target.value }))}
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Version')}</span>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.version}
+                      onChange={(event) => setCreateForm((prev) => ({ ...prev, version: event.target.value }))}
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Date')}</span>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.date}
+                      onChange={(event) => setCreateForm((prev) => ({ ...prev, date: event.target.value }))}
+                      placeholder="MM/DD/YYYY"
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300 sm:col-span-2">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Description')}</span>
+                    <textarea
+                      required
+                      value={createForm.description}
+                      onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
+                      className="min-h-[6rem] w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm text-slate-300 sm:col-span-2">
+                    <span className="font-medium uppercase tracking-wide text-xs text-slate-400">{t('Upload file (optional)')}</span>
+                    <input
+                      type="file"
+                      accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+
+                        const newUrl = URL.createObjectURL(file);
+                        objectUrlsRef.current.push(newUrl);
+
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          fileName: file.name,
+                          fileUrl: newUrl
+                        }));
+                      }}
+                      className="w-full cursor-pointer rounded-xl border border-dashed border-white/20 bg-slate-900/60 px-3 py-3 text-sm text-slate-300 shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-950 file:transition file:hover:bg-primary-400"
+                    />
+                    {createForm.fileName && (
+                      <p className="text-xs text-primary-100">{t('Selected file')}: {createForm.fileName}</p>
+                    )}
+                  </label>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center rounded-xl bg-primary-500 px-6 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                    >
+                      {t('Create Document')}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            )}
           </div>
-        </main>
-      </div>
-    </div>
+
+      {/* Snackbar Notification */}
+      {snackbar.show && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 animate-slide-in-up rounded-xl border px-6 py-4 shadow-2xl transition-all ${
+            snackbar.type === 'success'
+              ? 'border-green-500/50 bg-green-950/90 text-green-100'
+              : 'border-red-500/50 bg-red-950/90 text-red-100'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {snackbar.type === 'success' ? (
+              <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+            <p className="text-sm font-semibold">{snackbar.message}</p>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

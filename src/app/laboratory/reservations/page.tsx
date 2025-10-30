@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
+import TopNavigation from '@/components/TopNavigation';
 
 type NavigationItem = {
   label: string;
@@ -109,21 +109,6 @@ const statusOptions: ReservationStatus[] = [
   'Listo para envío',
   'Entregado',
   'Pendiente confirmación'
-];
-
-const navigationItems: NavigationItem[] = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
 ];
 
 const createInitialFormState = (procedure: string): CreateCaseFormState => ({
