@@ -50,8 +50,8 @@ export const resolvers = {
 
       return {
         id: (entity as MongoDocument)._id.toString(),
-        entityId: entity.entityId,
-        name: entity.name,
+        entityId: (entity as any).entityId,
+        name: (entity as any).name,
         corporate: allEntries
           .filter((e: any) => e.group === 'corporate')
           .map((e: any) => ({ ...e, id: e._id.toString() })),

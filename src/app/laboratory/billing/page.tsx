@@ -292,7 +292,6 @@ const defaultFilters = {
 
 export default function LaboratoryBillingPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
 
