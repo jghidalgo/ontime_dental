@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Navigation, MobileNavigation } from '@/components/navigation';
 import TopNavigation from '@/components/TopNavigation';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
@@ -274,34 +273,7 @@ export default function HREmployeesPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
-          <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <Navigation className="mt-10 space-y-1" />
-          </div>
-
-          <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-300 shadow-2xl shadow-slate-950/40">
-            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-primary-200/70">{t('Need help?')}</p>
-            <p className="mt-3 text-base font-semibold text-slate-50">{t('HR playbook update')}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              {t('Download the refreshed HR operations guide for clinic administrators and team leads.')}
-            </p>
-            <button className="mt-4 w-full rounded-2xl border border-primary-400/30 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-50 transition hover:bg-primary-400/30">
-              {t('Download brief')}
-            </button>
-          </div>
-        </aside>
-
+      <div className="relative mx-auto w-full max-w-[120rem]">
         <div className="flex-1">
           <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
             <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
@@ -311,8 +283,6 @@ export default function HREmployeesPage() {
                   <h1 className="text-2xl font-semibold text-slate-50">{t('Employee directory')}</h1>
                   <p className="text-sm text-slate-400">{t('Welcome back, {name}.', { name: userName || t('team') })}</p>
                 </div>
-
-                <MobileNavigation className="flex gap-2 overflow-x-auto pb-1 lg:hidden" />
               </div>
 
               <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
