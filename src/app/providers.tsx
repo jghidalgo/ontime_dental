@@ -4,6 +4,8 @@ import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@ap
 import { setContext } from '@apollo/client/link/context';
 import { LanguageProvider } from '@/lib/i18n';
 import { LanguageToggle } from '@/components/language-toggle';
+import { ThemeProvider } from '@/lib/theme';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const httpLink = createHttpLink({
   uri: '/api/graphql',
@@ -82,10 +84,13 @@ const client = new ApolloClient({
 export default function AppProviders({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ApolloProvider client={client}>
-      <LanguageProvider>
-        <LanguageToggle />
-        {children}
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <ThemeToggle />
+          <LanguageToggle />
+          {children}
+        </LanguageProvider>
+      </ThemeProvider>
     </ApolloProvider>
   );
 }

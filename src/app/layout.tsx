@@ -18,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={clsx(inter.className, 'min-h-screen bg-slate-950 text-slate-100')}>
+      <body className={clsx(inter.className, 'min-h-screen bg-slate-950 text-slate-100 transition-colors duration-300')}>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
