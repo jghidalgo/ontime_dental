@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Navigation, MobileNavigation } from '@/components/navigation';
+import { MobileNavigation } from '@/components/navigation';
 import TopNavigation from '@/components/TopNavigation';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
@@ -15,9 +15,26 @@ type EmployeeRecord = {
   phone: string;
   position: string;
   location: string;
+  email?: string;
+  department?: string;
+  username?: string;
 };
 
-const employees: EmployeeRecord[] = [
+type EmployeeFormData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  position: string;
+  location: string;
+  department: string;
+  joined: string;
+  dateOfBirth: string;
+  username: string;
+  password: string;
+};
+
+const initialEmployees: EmployeeRecord[] = [
   {
     id: 'EMP-001',
     name: 'Ariel Gonzalez',
@@ -211,6 +228,38 @@ const employees: EmployeeRecord[] = [
 
 const pageSizeOptions = [10, 15, 25, 50];
 
+const createDefaultFormData = (): EmployeeFormData => ({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  position: '',
+  location: '',
+  department: '',
+  joined: '',
+  dateOfBirth: '',
+  username: '',
+  password: ''
+});
+
+const formatDate = (value: string) => {
+  if (!value) {
+    return '';
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  }).format(parsedDate);
+};
+
 export default function HREmployeesPage() {
   const router = useRouter();
   const { t } = useTranslations();
@@ -218,6 +267,15 @@ export default function HREmployeesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(pageSizeOptions[0]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [employeeList, setEmployeeList] = useState(initialEmployees);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState<EmployeeFormData>(createDefaultFormData);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof EmployeeFormData, string>>>({});
+
+  const getInputClasses = (hasError: boolean) =>
+    `w-full rounded-2xl border ${
+      hasError ? 'border-red-500/60 focus:border-red-400/60' : 'border-white/10 focus:border-primary-400/40'
+    } bg-white/[0.03] px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none`;
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -236,18 +294,113 @@ export default function HREmployeesPage() {
 
   const filteredEmployees = useMemo(() => {
     if (!searchTerm) {
-      return employees;
+      return employeeList;
     }
 
     const normalizedTerm = searchTerm.toLowerCase();
 
-    return employees.filter((employee) =>
+    return employeeList.filter((employee) =>
       [employee.id, employee.name, employee.position, employee.location, employee.phone]
         .join(' ')
         .toLowerCase()
         .includes(normalizedTerm)
     );
-  }, [searchTerm]);
+  }, [employeeList, searchTerm]);
+
+  const handleInputChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = event.target;
+    const fieldName = name as keyof EmployeeFormData;
+
+    setFormData((previous) => ({
+      ...previous,
+      [fieldName]: value
+    }));
+
+    if (formErrors[fieldName]) {
+      setFormErrors((previous) => {
+        const next = { ...previous };
+        delete next[fieldName];
+        return next;
+      });
+    }
+  };
+
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setFormErrors({});
+    setFormData(createDefaultFormData());
+  };
+
+  const handleAddEmployee = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const requiredFields: (keyof EmployeeFormData)[] = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'position',
+      'location',
+      'department',
+      'joined',
+      'dateOfBirth',
+      'username',
+      'password'
+    ];
+
+    const newErrors: Partial<Record<keyof EmployeeFormData, string>> = {};
+
+    requiredFields.forEach((field) => {
+      const value = formData[field];
+
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        newErrors[field] = t('This field is required');
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setFormErrors(newErrors);
+      return;
+    }
+
+    const nextIdNumber =
+      employeeList.reduce((maxValue, employee) => {
+        const numericPart = parseInt(employee.id.replace(/\D/g, ''), 10);
+
+        if (Number.isNaN(numericPart)) {
+          return maxValue;
+        }
+
+        return Math.max(maxValue, numericPart);
+      }, 0) + 1;
+
+    const trimmedFirstName = formData.firstName.trim();
+    const trimmedLastName = formData.lastName.trim();
+
+    const newEmployee: EmployeeRecord = {
+      id: `EMP-${String(nextIdNumber).padStart(3, '0')}`,
+      name: `${trimmedFirstName} ${trimmedLastName}`.trim(),
+      joined: formatDate(formData.joined),
+      dateOfBirth: formatDate(formData.dateOfBirth),
+      phone: formData.phone.trim(),
+      position: formData.position.trim(),
+      location: formData.location.trim(),
+      email: formData.email.trim(),
+      department: formData.department.trim() || undefined,
+      username: formData.username.trim()
+    };
+
+    setEmployeeList((previous) => [newEmployee, ...previous]);
+    setIsModalOpen(false);
+    setFormData(createDefaultFormData());
+    setFormErrors({});
+    setCurrentPage(1);
+    setSearchTerm('');
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
   const clampedPage = Math.min(currentPage, totalPages);
@@ -271,38 +424,225 @@ export default function HREmployeesPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-employee-title"
+        >
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={handleCloseModal} />
+          <div className="relative z-10 w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-950/95 p-6 shadow-2xl shadow-slate-950/60">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-primary-200/70">{t('Add employee')}</p>
+                <h2 id="add-employee-title" className="mt-2 text-2xl font-semibold text-slate-50">
+                  {t('Personal information')}
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  {t('Capture core details to onboard a new team member into the directory.')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:border-primary-400/40 hover:text-white"
+                aria-label={t('Close add employee form')}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleAddEmployee} className="mt-6 space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('First name')}
+                  </span>
+                  <input
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    placeholder={t('Enter first name')}
+                    className={getInputClasses(Boolean(formErrors.firstName))}
+                    autoComplete="given-name"
+                  />
+                  {formErrors.firstName && <p className="text-xs text-red-400">{formErrors.firstName}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Last name')}
+                  </span>
+                  <input
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    placeholder={t('Enter last name')}
+                    className={getInputClasses(Boolean(formErrors.lastName))}
+                    autoComplete="family-name"
+                  />
+                  {formErrors.lastName && <p className="text-xs text-red-400">{formErrors.lastName}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Email')}
+                  </span>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder={t('name@example.com')}
+                    className={getInputClasses(Boolean(formErrors.email))}
+                    autoComplete="email"
+                  />
+                  {formErrors.email && <p className="text-xs text-red-400">{formErrors.email}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Phone number')}
+                  </span>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder={t('(000) 000-0000')}
+                    className={getInputClasses(Boolean(formErrors.phone))}
+                    autoComplete="tel"
+                  />
+                  {formErrors.phone && <p className="text-xs text-red-400">{formErrors.phone}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Department')}
+                  </span>
+                  <input
+                    name="department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    placeholder={t('Select department')}
+                    className={getInputClasses(Boolean(formErrors.department))}
+                  />
+                  {formErrors.department && <p className="text-xs text-red-400">{formErrors.department}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Position')}
+                  </span>
+                  <input
+                    name="position"
+                    value={formData.position}
+                    onChange={handleInputChange}
+                    placeholder={t('Select position')}
+                    className={getInputClasses(Boolean(formErrors.position))}
+                  />
+                  {formErrors.position && <p className="text-xs text-red-400">{formErrors.position}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Location')}
+                  </span>
+                  <input
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    placeholder={t('Clinic or office location')}
+                    className={getInputClasses(Boolean(formErrors.location))}
+                  />
+                  {formErrors.location && <p className="text-xs text-red-400">{formErrors.location}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Start date')}
+                  </span>
+                  <input
+                    type="date"
+                    name="joined"
+                    value={formData.joined}
+                    onChange={handleInputChange}
+                    className={getInputClasses(Boolean(formErrors.joined))}
+                  />
+                  {formErrors.joined && <p className="text-xs text-red-400">{formErrors.joined}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Date of birth')}
+                  </span>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleInputChange}
+                    className={getInputClasses(Boolean(formErrors.dateOfBirth))}
+                  />
+                  {formErrors.dateOfBirth && <p className="text-xs text-red-400">{formErrors.dateOfBirth}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Username')}
+                  </span>
+                  <input
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    placeholder={t('Assign username')}
+                    className={getInputClasses(Boolean(formErrors.username))}
+                    autoComplete="username"
+                  />
+                  {formErrors.username && <p className="text-xs text-red-400">{formErrors.username}</p>}
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/70">
+                    {t('Temporary password')}
+                  </span>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder={t('Set temporary password')}
+                    className={getInputClasses(Boolean(formErrors.password))}
+                    autoComplete="new-password"
+                  />
+                  {formErrors.password && <p className="text-xs text-red-400">{formErrors.password}</p>}
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="w-full rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-primary-400/40 hover:text-white sm:w-auto"
+                >
+                  {t('Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400 sm:w-auto"
+                >
+                  {t('Save employee')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
-          <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <Navigation className="mt-10 space-y-1" />
-          </div>
-
-          <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-300 shadow-2xl shadow-slate-950/40">
-            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-primary-200/70">{t('Need help?')}</p>
-            <p className="mt-3 text-base font-semibold text-slate-50">{t('HR playbook update')}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              {t('Download the refreshed HR operations guide for clinic administrators and team leads.')}
-            </p>
-            <button className="mt-4 w-full rounded-2xl border border-primary-400/30 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-50 transition hover:bg-primary-400/30">
-              {t('Download brief')}
-            </button>
-          </div>
-        </aside>
-
-        <div className="flex-1">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem] flex-col">
           <header className="border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
             <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
               <div className="space-y-4">
@@ -329,7 +669,11 @@ export default function HREmployeesPage() {
                   />
                 </div>
 
-                <button className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400">
+                <button
+                  type="button"
+                  onClick={handleOpenModal}
+                  className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
+                >
                   {t('Add employee')}
                 </button>
               </div>
@@ -466,7 +810,6 @@ export default function HREmployeesPage() {
               </div>
             </section>
           </main>
-        </div>
       </div>
     </div>
   );
