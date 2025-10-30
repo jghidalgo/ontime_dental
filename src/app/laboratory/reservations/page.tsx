@@ -8,11 +8,6 @@ import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
 
-type NavigationItem = {
-  label: string;
-  href: string;
-};
-
 type ReservationStatus =
   | 'Programado'
   | 'En fabricación'
@@ -500,7 +495,6 @@ const labCaseToReservation = (labCase: any): ReservationCase => {
 
 export default function LaboratoryReservationsPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2025, 9, 15));
@@ -634,16 +628,6 @@ export default function LaboratoryReservationsPage() {
   useEffect(() => {
     setFocusedMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
   }, [selectedDate]);
-
-  const navigation = useMemo(
-    () =>
-      navigationItems.map((item) => ({
-        ...item,
-        label: t(item.label),
-        isActive: pathname === item.href
-      })),
-    [pathname, t]
-  );
 
   const casesByDate = useMemo(() => {
     const map = new Map<string, ReservationCase[]>();
@@ -905,77 +889,53 @@ export default function LaboratoryReservationsPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
-          <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <nav className="mt-10 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={clsx(
-                    'group flex items-center rounded-xl px-3 py-2 text-sm font-medium transition',
-                    item.isActive
-                      ? 'bg-primary-500/15 text-primary-100 ring-1 ring-primary-400/30'
-                      : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
-                  )}
-                >
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="mt-auto space-y-1 text-sm text-slate-400">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Signed in as')}</p>
-            <p className="font-medium text-slate-200">{userName || t('Loading...')}</p>
-            <button
-              type="button"
-              onClick={() => {
-                window.localStorage.removeItem('ontime.authToken');
-                router.push('/login');
-              }}
-              className="text-left text-xs font-medium text-slate-500 transition hover:text-primary-200"
-            >
-              {t('Log out')}
-            </button>
-          </div>
-        </aside>
-
-        <main className="flex-1 overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
-          <div className="mx-auto w-full max-w-6xl">
-            <header className="flex flex-col gap-4 border-b border-white/5 pb-8">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">{t('Laboratory')}</p>
-                  <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">{t('Reservations Control Center')}</h1>
-                </div>
-                <div className="rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-right text-xs text-primary-100">
-                  <p className="font-semibold uppercase tracking-[0.35em]">{t('View')}</p>
-                  <p className="mt-1 text-sm font-medium text-primary-50">
-                    {viewMode === 'month' && monthFormatter.format(focusedMonth)}
-                    {viewMode === 'week' && weekLabel}
-                    {viewMode === 'day' && dayFormatter.format(selectedDate)}
-                  </p>
-                  <p className="text-[11px] text-primary-200/70">{t('Updated at {time}', { time: '07:45' })}</p>
-                </div>
-              </div>
-              <p className="max-w-3xl text-sm text-slate-400">
+      <div className="relative mx-auto w-full max-w-[120rem]">
+        <header className="flex flex-col gap-6 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">{t('Laboratory')}</p>
+              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">{t('Reservations Control Center')}</h1>
+              <p className="mt-3 max-w-3xl text-sm text-slate-400">
                 {t(
                   'Coordinate laboratory production and deliveries with an integrated view of active cases. Switch between monthly, weekly, and daily modes to anticipate workload by procedure.'
                 )}
               </p>
-            </header>
+            </div>
+
+            <div className="space-y-4 text-right">
+              <div className="rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-xs text-primary-100">
+                <p className="font-semibold uppercase tracking-[0.35em]">{t('View')}</p>
+                <p className="mt-1 text-sm font-medium text-primary-50">
+                  {viewMode === 'month' && monthFormatter.format(focusedMonth)}
+                  {viewMode === 'week' && weekLabel}
+                  {viewMode === 'day' && dayFormatter.format(selectedDate)}
+                </p>
+                <p className="text-[11px] text-primary-200/70">{t('Updated at {time}', { time: '07:45' })}</p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-slate-400">
+                <span className="font-medium text-slate-200">
+                  {t('Signed in as')} {userName || t('Loading...')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.localStorage.removeItem('ontime.authToken');
+                    router.push('/login');
+                  }}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold text-slate-200 transition hover:border-primary-400/40 hover:text-white"
+                >
+                  {t('Log out')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <TopNavigation />
+
+        <main className="px-6 py-12 sm:px-10 lg:px-16">
+          <div className="mx-auto w-full max-w-6xl">
 
             <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-5">
