@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import TopNavigation from '@/components/TopNavigation';
+import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
 
 type DepartmentShare = {
@@ -317,6 +318,7 @@ export default function HRDashboardPage() {
           <TopNavigation />
 
           <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
+            <HrSubNavigation />
             <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
               <div className="space-y-6">
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
