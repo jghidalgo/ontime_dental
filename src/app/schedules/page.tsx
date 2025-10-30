@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import type { ChangeEvent, DragEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_FRONT_DESK_SCHEDULES, GET_DOCTOR_SCHEDULES } from '@/graphql/schedule-queries';
 import { 
@@ -12,21 +11,7 @@ import {
   SWAP_FRONT_DESK_ASSIGNMENTS,
   SWAP_DOCTOR_ASSIGNMENTS 
 } from '@/graphql/schedule-mutations';
-
-const navigationItems = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
-];
+import TopNavigation from '@/components/TopNavigation';
 
 const clinics = [
   { id: 'ce', name: 'CE' },
@@ -102,7 +87,6 @@ type DragPayload =
 
 export default function SchedulesPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
@@ -162,11 +146,6 @@ export default function SchedulesPage() {
 
     setUserName('Dr. Carter');
   }, [router]);
-
-  const selectedNavigation = useMemo(
-    () => navigationItems.map((item) => ({ ...item, isActive: pathname === item.href })),
-    [pathname]
-  );
 
   const handleLogout = () => {
     window.localStorage.removeItem('ontime.authToken');
@@ -418,53 +397,8 @@ export default function SchedulesPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
-          <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <nav className="mt-12 space-y-1">
-              {selectedNavigation.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={
-                    item.isActive
-                      ? 'flex items-center justify-between rounded-xl bg-primary-500/10 px-4 py-2 text-sm font-semibold text-primary-100 shadow-lg shadow-primary-900/40 ring-1 ring-primary-400/40'
-                      : 'flex items-center justify-between rounded-xl px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/[0.04] hover:text-white'
-                  }
-                >
-                  <span>{item.label}</span>
-                  {item.isActive && <span className="text-[10px] uppercase tracking-[0.35em] text-primary-100">Active</span>}
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="mt-auto rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] p-6 text-slate-200 ring-1 ring-white/10">
-            <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Welcome</p>
-            <p className="mt-1 text-lg font-semibold text-white">{userName}</p>
-            <p className="mt-4 text-sm text-slate-400">
-              Manage clinic coverage by dragging team members across the network. Changes are saved locally for rapid planning.
-            </p>
-            <button
-              onClick={handleLogout}
-              className="mt-6 w-full rounded-xl bg-primary-500/80 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
-            >
-              Log out
-            </button>
-          </div>
-        </aside>
-
-        <main className="flex-1 overflow-y-auto px-6 py-10 sm:px-10">
+      <div className="relative mx-auto w-full max-w-[120rem]">
+        <main className="overflow-y-auto px-6 py-10 sm:px-10">
           <header className="flex flex-col justify-between gap-4 border-b border-white/10 pb-6 text-slate-100 lg:flex-row lg:items-center">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Operations</p>
@@ -474,6 +408,8 @@ export default function SchedulesPage() {
               </p>
             </div>
           </header>
+
+          <TopNavigation />
 
           <section className="mt-8 space-y-12">
             <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">

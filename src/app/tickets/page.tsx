@@ -7,6 +7,8 @@ import { useQuery, useMutation } from '@apollo/client';
 import { useTranslations } from '@/lib/i18n';
 import { GET_TICKETS } from '@/graphql/ticket-queries';
 import { CREATE_TICKET, UPDATE_TICKET, DELETE_TICKET } from '@/graphql/ticket-mutations';
+import TopNavigation from '@/components/TopNavigation';
+import { Navigation } from '@/components/navigation';
 
 type TicketStatus = 'new' | 'in_progress' | 'waiting' | 'resolved';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -41,21 +43,6 @@ type TicketFormState = {
   priority: TicketPriority;
   description: string;
 };
-
-const navigationItems = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
-];
 
 const statusStyles: Record<TicketStatus, string> = {
   new: 'bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40',
@@ -373,24 +360,8 @@ export default function TicketsPage() {
             <p className="text-xs text-slate-500">{t('Based on last 30 closed tickets')}</p>
           </div>
         </div>
-        <nav className="mt-6 border-t border-slate-800">
-          <ul className="mx-auto flex max-w-7xl flex-wrap gap-2 px-6 py-4 text-sm text-slate-300">
-            {navigationItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 transition ${
-                    item.href === '/tickets'
-                      ? 'bg-primary-500/20 text-primary-200'
-                      : 'hover:bg-slate-800/80 hover:text-white'
-                  }`}
-                >
-                  {t(item.label)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+
+        <TopNavigation />
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 lg:grid-cols-4">

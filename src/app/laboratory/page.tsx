@@ -1,13 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Language, useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
 import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
+import TopNavigation from '@/components/TopNavigation';
 
 type NavigationItem = {
   label: string;
@@ -109,21 +109,6 @@ type LocalizedCaseSearchRecord = {
   procedure: LocalizedField;
   status: CaseStatus;
 };
-
-const navigationItems: NavigationItem[] = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
-];
 
 const laboratorySubNavigation: SubNavigationItem[] = [
   {
@@ -463,7 +448,6 @@ type CaseSearchForm = {
 
 export default function LaboratoryPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const { t, language } = useTranslations();
   const [userName, setUserName] = useState<string>('');
   const [activeSection, setActiveSection] = useState<SubSectionId>('dashboard');
@@ -801,54 +785,8 @@ export default function LaboratoryPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
-          <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <nav className="mt-10 space-y-1">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={clsx(
-                    'group flex items-center rounded-xl px-3 py-2 text-sm font-medium transition',
-                    pathname === item.href
-                      ? 'bg-primary-500/15 text-primary-100 ring-1 ring-primary-400/30'
-                      : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
-                  )}
-                >
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="mt-auto space-y-1 text-sm text-slate-400">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Signed in as</p>
-            <p className="font-medium text-slate-200">{userName || 'Loading...'}</p>
-            <button
-              type="button"
-              onClick={() => {
-                window.localStorage.removeItem('ontime.authToken');
-                router.push('/login');
-              }}
-              className="text-left text-xs font-medium text-slate-500 transition hover:text-primary-200"
-            >
-              Log out
-            </button>
-          </div>
-        </aside>
-
-        <main className="flex-1 overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
+      <div className="relative mx-auto w-full max-w-[120rem]">
+        <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
             <header className="flex flex-col gap-4 border-b border-white/5 pb-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -869,6 +807,8 @@ export default function LaboratoryPage() {
                 actions for the fabrication team and keeps leadership aligned with today&apos;s volume.
               </p>
             </header>
+
+            <TopNavigation />
 
             <section className="mt-10">
               <div className="flex flex-wrap gap-3">

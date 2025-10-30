@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_ALL_DIRECTORY_DATA } from '@/graphql/queries';
 import { UPDATE_DIRECTORY_ENTRY, DELETE_DIRECTORY_ENTRY } from '@/graphql/mutations';
+import TopNavigation from '@/components/TopNavigation';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -28,21 +29,6 @@ type DirectoryEntityWithEntries = {
   offices: DirectoryEntry[];
 };
 
-const navigationItems = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Patients', href: '/patients' },
-  { label: 'Laboratory', href: '/laboratory' },
-  { label: 'Documents', href: '/documents' },
-  { label: 'Contacts', href: '/contacts' },
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Insurances', href: '/insurances' },
-  { label: 'Complaints', href: '/complaints' },
-  { label: 'Licenses', href: '/licenses' },
-  { label: 'Medication', href: '/medication' },
-  { label: 'HR', href: '/hr' },
-  { label: 'Tickets', href: '/tickets' }
-];
-
 const contactSections = [
   { id: 'extensions', label: 'Extensions' },
   { id: 'medical-centers', label: 'Medical Centers' },
@@ -60,7 +46,6 @@ const groupLabels: Record<GroupKey, string> = {
 
 export default function ContactsPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const [userName, setUserName] = useState<string>('');
   const [activeSection, setActiveSection] = useState<ContactSectionId>('extensions');
   const [formEntityId, setFormEntityId] = useState<string>('');
@@ -190,11 +175,6 @@ export default function ContactsPage() {
     }
   }, [formEntityId, formGroupId, directory]);
 
-  const navigationWithState = useMemo(
-    () => navigationItems.map((item) => ({ ...item, isActive: pathname === item.href })),
-    [pathname]
-  );
-
   const selectedEntity = useMemo(
     () => directory.find((item) => item.entityId === activeSelection.entityId) ?? directory[0],
     [activeSelection.entityId, directory]
@@ -235,53 +215,8 @@ export default function ContactsPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[120rem]">
-        <aside className="hidden w-72 flex-col border-r border-white/5 bg-white/[0.02] px-6 py-10 backdrop-blur-2xl lg:flex">
-          <div>
-            <div className="flex items-center gap-3 text-slate-100">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/15 text-sm font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-400/30">
-                OD
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.45em] text-primary-200/70">OnTime</p>
-                <p className="text-base font-semibold text-slate-50">Dental OS</p>
-              </div>
-            </div>
-
-            <nav className="mt-12 space-y-1">
-              {navigationWithState.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                    item.isActive
-                      ? 'border-primary-400/60 bg-primary-500/15 text-white shadow-lg shadow-primary-900/30'
-                      : 'border-white/5 text-slate-300 hover:border-primary-400/40 hover:bg-white/[0.06] hover:text-white'
-                  }`}
-                >
-                  <span>{item.label}</span>
-                  <span className={`text-xs font-semibold uppercase tracking-[0.3em] ${item.isActive ? 'text-primary-200' : 'text-slate-500'}`}>
-                    {item.isActive ? '•' : '→'}
-                  </span>
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-300 shadow-2xl shadow-slate-950/40">
-            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-primary-200/70">Directory tip</p>
-            <p className="mt-3 text-base font-semibold text-slate-50">Keep contacts current</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              Ensure reception and operations teams know the fastest way to reach every location. Update extensions whenever new team members onboard.
-            </p>
-            <button className="mt-4 w-full rounded-2xl border border-primary-400/30 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-50 transition hover:bg-primary-400/30">
-              Submit update
-            </button>
-          </div>
-        </aside>
-
-        <div className="flex-1">
-          <header className="flex flex-col gap-8 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
+      <div className="relative mx-auto w-full max-w-[120rem]">
+        <header className="flex flex-col gap-8 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
             <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Contacts hub</p>
@@ -341,6 +276,8 @@ export default function ContactsPage() {
               })}
             </nav>
           </header>
+
+          <TopNavigation />
 
           <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
             {isExtensionsSection ? (
@@ -486,8 +423,9 @@ export default function ContactsPage() {
               </section>
             )}
           </main>
+
+          <TopNavigation />
         </div>
-      </div>
 
       {/* Edit Modal */}
       {editingEntry && (

@@ -6,6 +6,7 @@ import { useTranslations } from '@/lib/i18n';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_DATA } from '@/graphql/dashboard-queries';
 import { Navigation, MobileNavigation } from '@/components/navigation';
+import TopNavigation from '@/components/TopNavigation';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -107,6 +108,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </header>
+
+          <TopNavigation />
 
           <main className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
             {data ? (
