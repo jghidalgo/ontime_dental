@@ -2,211 +2,25 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_EMPLOYEES } from '@/graphql/employee-queries';
 import TopNavigation from '@/components/TopNavigation';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
 
 type EmployeeRecord = {
   id: string;
+  employeeId: string;
   name: string;
   joined: string;
   dateOfBirth: string;
   phone: string;
   position: string;
   location: string;
+  email?: string;
+  department?: string;
+  status: string;
 };
-
-const employees: EmployeeRecord[] = [
-  {
-    id: 'EMP-001',
-    name: 'Ariel Gonzalez',
-    joined: '02/15/2019',
-    dateOfBirth: '09/22/1988',
-    phone: '(786) 712-2643',
-    position: 'Hygienist',
-    location: 'Little Havana'
-  },
-  {
-    id: 'EMP-002',
-    name: 'Dania Rojas',
-    joined: '11/03/2021',
-    dateOfBirth: '08/07/1990',
-    phone: '(786) 723-5386',
-    position: '3D Milling',
-    location: 'Pembroke Pines'
-  },
-  {
-    id: 'EMP-003',
-    name: 'Dulce Mejia',
-    joined: '07/18/2022',
-    dateOfBirth: '05/03/1994',
-    phone: '(786) 620-7683',
-    position: 'Lab Tech',
-    location: 'Tamami'
-  },
-  {
-    id: 'EMP-004',
-    name: 'Jaime Fernandez',
-    joined: '04/02/2020',
-    dateOfBirth: '11/09/1987',
-    phone: '(786) 712-4421',
-    position: 'Front Desk',
-    location: 'Tamami'
-  },
-  {
-    id: 'EMP-005',
-    name: 'Maria Flores',
-    joined: '12/11/2023',
-    dateOfBirth: '01/27/1996',
-    phone: '(786) 731-9823',
-    position: 'Billing Specialist',
-    location: 'Pembroke Pines'
-  },
-  {
-    id: 'EMP-006',
-    name: 'Isabel Rodriguez',
-    joined: '03/25/2018',
-    dateOfBirth: '06/17/1984',
-    phone: '(305) 442-7612',
-    position: 'Practice Manager',
-    location: 'Little Havana'
-  },
-  {
-    id: 'EMP-007',
-    name: 'Marco Salazar',
-    joined: '10/09/2017',
-    dateOfBirth: '09/03/1980',
-    phone: '(305) 456-2134',
-    position: 'Operations Director',
-    location: 'Corporate'
-  },
-  {
-    id: 'EMP-008',
-    name: 'Naira Gutierrez',
-    joined: '05/14/2020',
-    dateOfBirth: '04/19/1992',
-    phone: '(786) 745-3312',
-    position: 'Dental Assistant',
-    location: 'Pembroke Pines'
-  },
-  {
-    id: 'EMP-009',
-    name: 'Marina Perez',
-    joined: '01/05/2016',
-    dateOfBirth: '12/31/1985',
-    phone: '(305) 890-3321',
-    position: 'Office Manager',
-    location: 'Tamami'
-  },
-  {
-    id: 'EMP-010',
-    name: 'Nelson Ochoa',
-    joined: '08/12/2015',
-    dateOfBirth: '03/22/1978',
-    phone: '(786) 321-7763',
-    position: 'Lead Technician',
-    location: 'Lab'
-  },
-  {
-    id: 'EMP-011',
-    name: 'Mayra Santos',
-    joined: '06/23/2022',
-    dateOfBirth: '07/01/1993',
-    phone: '(954) 221-4563',
-    position: 'Recruiter',
-    location: 'Corporate'
-  },
-  {
-    id: 'EMP-012',
-    name: 'Antonio Vega',
-    joined: '09/02/2020',
-    dateOfBirth: '11/04/1989',
-    phone: '(786) 621-0043',
-    position: 'Supply Coordinator',
-    location: 'Little Havana'
-  },
-  {
-    id: 'EMP-013',
-    name: 'Camila Duarte',
-    joined: '02/18/2021',
-    dateOfBirth: '10/11/1991',
-    phone: '(305) 442-1098',
-    position: 'Benefits Specialist',
-    location: 'Corporate'
-  },
-  {
-    id: 'EMP-014',
-    name: 'Jorge Castillo',
-    joined: '03/10/2014',
-    dateOfBirth: '01/09/1975',
-    phone: '(786) 773-2109',
-    position: 'Facilities Manager',
-    location: 'Tamami'
-  },
-  {
-    id: 'EMP-015',
-    name: 'Liliana Paredes',
-    joined: '11/28/2018',
-    dateOfBirth: '02/12/1986',
-    phone: '(954) 833-9987',
-    position: 'Insurance Coordinator',
-    location: 'Pembroke Pines'
-  },
-  {
-    id: 'EMP-016',
-    name: 'Orlando Peres',
-    joined: '09/09/2019',
-    dateOfBirth: '06/21/1982',
-    phone: '(786) 665-0987',
-    position: 'Finance Analyst',
-    location: 'Corporate'
-  },
-  {
-    id: 'EMP-017',
-    name: 'Patricia Lewis',
-    joined: '07/30/2016',
-    dateOfBirth: '04/30/1984',
-    phone: '(305) 214-1121',
-    position: 'Compliance Lead',
-    location: 'Corporate'
-  },
-  {
-    id: 'EMP-018',
-    name: 'Quincy Howard',
-    joined: '05/04/2023',
-    dateOfBirth: '05/29/1995',
-    phone: '(786) 454-3345',
-    position: 'Front Desk',
-    location: 'Little Havana'
-  },
-  {
-    id: 'EMP-019',
-    name: 'Rocio Navarro',
-    joined: '10/22/2019',
-    dateOfBirth: '09/13/1987',
-    phone: '(786) 201-9764',
-    position: 'Hygienist',
-    location: 'Pembroke Pines'
-  },
-  {
-    id: 'EMP-020',
-    name: 'Santiago Alvarez',
-    joined: '01/18/2015',
-    dateOfBirth: '07/02/1981',
-    phone: '(305) 890-7765',
-    position: 'Lab Supervisor',
-    location: 'Lab'
-  },
-  {
-    id: 'EMP-021',
-    name: 'Tatiana Ortiz',
-    joined: '12/07/2021',
-    dateOfBirth: '10/18/1992',
-    phone: '(786) 478-0921',
-    position: 'Dental Assistant',
-    location: 'Tamami'
-  }
-];
 
 const pageSizeOptions = [10, 15, 25, 50];
 
@@ -217,6 +31,17 @@ export default function HREmployeesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(pageSizeOptions[0]);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch employees from GraphQL
+  const { data, loading, error } = useQuery(GET_EMPLOYEES, {
+    variables: {
+      search: searchTerm || undefined,
+      limit: 1000 // Get all employees, we'll handle pagination on the client
+    },
+    pollInterval: 30000 // Refresh every 30 seconds
+  });
+
+  const employees: EmployeeRecord[] = data?.employees || [];
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -233,20 +58,8 @@ export default function HREmployeesPage() {
     setCurrentPage(1);
   }, [searchTerm, pageSize]);
 
-  const filteredEmployees = useMemo(() => {
-    if (!searchTerm) {
-      return employees;
-    }
-
-    const normalizedTerm = searchTerm.toLowerCase();
-
-    return employees.filter((employee) =>
-      [employee.id, employee.name, employee.position, employee.location, employee.phone]
-        .join(' ')
-        .toLowerCase()
-        .includes(normalizedTerm)
-    );
-  }, [searchTerm]);
+  // Since we're filtering on the server via GraphQL, we use employees directly
+  const filteredEmployees = employees;
 
   const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
   const clampedPage = Math.min(currentPage, totalPages);
@@ -282,23 +95,10 @@ export default function HREmployeesPage() {
               <p className="mt-1 text-slate-300">{t('Welcome back, {name}.', { name: userName || t('team') })}</p>
             </header>
 
-            <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-4">
-              <div className="space-y-2">
-                <label htmlFor="employee-search" className="block text-xs font-semibold uppercase tracking-wider text-primary-300">
-                  {t('Search employees')}
-                </label>
-                <input
-                  id="employee-search"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder={t('Search by name, role, or location')}
-                  className="w-64 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/40 focus:outline-none"
-                />
-              </div>
-
-              <button className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-primary-400">
-                {t('Add employee')}
-              </button>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
+              <p className="text-xs uppercase tracking-wider text-slate-400">{t('Total Employees')}</p>
+              <p className="text-3xl font-semibold text-primary-300">{employees.length}</p>
+              <p className="text-xs text-slate-500">{t('Active records')}</p>
             </div>
           </div>
 
@@ -306,7 +106,28 @@ export default function HREmployeesPage() {
         </section>
 
           <main className="overflow-y-auto px-6 py-10 sm:px-10">
-            <HrSubNavigation />
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+              <HrSubNavigation />
+              
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="employee-search" className="block text-xs font-semibold uppercase tracking-wider text-primary-300">
+                    {t('Search employees')}
+                  </label>
+                  <input
+                    id="employee-search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder={t('Search by name, role, or location')}
+                    className="w-64 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/40 focus:outline-none"
+                  />
+                </div>
+
+                <button className="mt-5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-primary-400">
+                  {t('Add employee')}
+                </button>
+              </div>
+            </div>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -353,7 +174,22 @@ export default function HREmployeesPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-sm">
-                      {paginatedEmployees.length === 0 ? (
+                      {loading ? (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-400 border-t-transparent"></div>
+                              <span>{t('Loading employees...')}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : error ? (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-6 text-center text-red-400">
+                            {t('Error loading employees. Please try again.')}
+                          </td>
+                        </tr>
+                      ) : paginatedEmployees.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
                             {t('No employees found. Try adjusting your search.')}
@@ -362,7 +198,7 @@ export default function HREmployeesPage() {
                       ) : (
                         paginatedEmployees.map((employee) => (
                           <tr key={employee.id} className="hover:bg-white/[0.03]">
-                            <td className="px-4 py-3 font-medium text-slate-100">{employee.id}</td>
+                            <td className="px-4 py-3 font-medium text-slate-100">{employee.employeeId}</td>
                             <td className="px-4 py-3 text-slate-100">{employee.name}</td>
                             <td className="px-4 py-3 text-slate-300">{employee.joined}</td>
                             <td className="px-4 py-3 text-slate-300">{employee.dateOfBirth}</td>

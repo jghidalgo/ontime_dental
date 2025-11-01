@@ -67,7 +67,30 @@ const typeDefs = gql`
     clinics: [Clinic!]!
   }
 
+  type EmergencyContact {
+    name: String!
+    relationship: String!
+    phone: String!
+  }
+
   type Employee {
+    id: ID!
+    employeeId: String!
+    name: String!
+    joined: String!
+    dateOfBirth: String!
+    phone: String!
+    position: String!
+    location: String!
+    email: String
+    department: String
+    status: String!
+    emergencyContact: EmergencyContact
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type EmployeeBasic {
     id: String!
     name: String!
   }
@@ -76,7 +99,7 @@ const typeDefs = gql`
     id: ID!
     positionId: String!
     clinicId: String!
-    employee: Employee
+    employee: EmployeeBasic
   }
 
   type DoctorAssignment {
@@ -175,6 +198,39 @@ const typeDefs = gql`
     revenueTrend: [RevenueTrendPoint!]!
     teamActivity: [DashboardActivity!]!
     announcements: [DashboardAnnouncement!]!
+  }
+
+  input EmergencyContactInput {
+    name: String!
+    relationship: String!
+    phone: String!
+  }
+
+  input EmployeeCreateInput {
+    employeeId: String!
+    name: String!
+    joined: String!
+    dateOfBirth: String!
+    phone: String!
+    position: String!
+    location: String!
+    email: String
+    department: String
+    status: String
+    emergencyContact: EmergencyContactInput
+  }
+
+  input EmployeeUpdateInput {
+    name: String
+    joined: String
+    dateOfBirth: String
+    phone: String
+    position: String
+    location: String
+    email: String
+    department: String
+    status: String
+    emergencyContact: EmergencyContactInput
   }
 
   input CoordinatesInput {
@@ -348,6 +404,18 @@ const typeDefs = gql`
     labCase(id: ID!): LabCase
     labCaseByNumber(caseId: String!): LabCase
     
+    # Employee queries
+    employees(
+      search: String
+      location: String
+      position: String
+      status: String
+      limit: Int
+      offset: Int
+    ): [Employee!]!
+    employee(id: ID!): Employee
+    employeeByEmployeeId(employeeId: String!): Employee
+    
     # Dashboard query
     dashboardData: DashboardData!
   }
@@ -418,6 +486,11 @@ const typeDefs = gql`
     createLabCase(input: LabCaseInput!): LabCase!
     updateLabCase(id: ID!, input: LabCaseUpdateInput!): LabCase!
     deleteLabCase(id: ID!): Boolean!
+    
+    # Employee mutations
+    createEmployee(input: EmployeeCreateInput!): Employee!
+    updateEmployee(id: ID!, input: EmployeeUpdateInput!): Employee!
+    deleteEmployee(id: ID!): Boolean!
   }
 `;
 

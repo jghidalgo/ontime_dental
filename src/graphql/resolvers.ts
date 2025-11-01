@@ -9,6 +9,7 @@ import DoctorSchedule from '@/models/DoctorSchedule';
 import Ticket from '@/models/Ticket';
 import DocumentEntity from '@/models/Document';
 import LabCase from '@/models/LabCase';
+import Employee from '@/models/Employee';
 
 export const resolvers = {
   Query: {
@@ -208,6 +209,90 @@ export const resolvers = {
       return {
         ...labCase,
         id: labCase._id.toString()
+      };
+    },
+
+    // Employee Queries
+    employees: async (
+      _: unknown,
+      {
+        search,
+        location,
+        position,
+        status,
+        limit = 100,
+        offset = 0
+      }: {
+        search?: string;
+        location?: string;
+        position?: string;
+        status?: string;
+        limit?: number;
+        offset?: number;
+      }
+    ) => {
+      await connectToDatabase();
+      
+      const filter: any = {};
+      
+      // Text search across name, position, and location
+      if (search) {
+        filter.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { position: { $regex: search, $options: 'i' } },
+          { location: { $regex: search, $options: 'i' } },
+          { employeeId: { $regex: search, $options: 'i' } },
+          { phone: { $regex: search, $options: 'i' } }
+        ];
+      }
+      
+      if (location) {
+        filter.location = location;
+      }
+      
+      if (position) {
+        filter.position = position;
+      }
+      
+      if (status) {
+        filter.status = status;
+      }
+      
+      const employees = await Employee.find(filter)
+        .sort({ name: 1 })
+        .limit(limit)
+        .skip(offset)
+        .lean();
+        
+      return employees.map((employee: any) => ({
+        ...employee,
+        id: employee._id.toString(),
+        createdAt: employee.createdAt.toISOString(),
+        updatedAt: employee.updatedAt.toISOString()
+      }));
+    },
+
+    employee: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const employee: any = await Employee.findById(id).lean();
+      if (!employee) return null;
+      return {
+        ...employee,
+        id: employee._id.toString(),
+        createdAt: employee.createdAt.toISOString(),
+        updatedAt: employee.updatedAt.toISOString()
+      };
+    },
+
+    employeeByEmployeeId: async (_: unknown, { employeeId }: { employeeId: string }) => {
+      await connectToDatabase();
+      const employee: any = await Employee.findOne({ employeeId }).lean();
+      if (!employee) return null;
+      return {
+        ...employee,
+        id: employee._id.toString(),
+        createdAt: employee.createdAt.toISOString(),
+        updatedAt: employee.updatedAt.toISOString()
       };
     },
 
@@ -960,6 +1045,57 @@ export const resolvers = {
       await connectToDatabase();
       
       const result = await LabCase.findByIdAndDelete(id);
+      return !!result;
+    },
+
+    // Employee Mutations
+    createEmployee: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      
+      // Check if employeeId already exists
+      const existing = await Employee.findOne({ employeeId: input.employeeId });
+      if (existing) {
+        throw new Error(`Employee with ID ${input.employeeId} already exists`);
+      }
+      
+      const employee = await Employee.create({
+        ...input,
+        status: input.status || 'active'
+      });
+      
+      return {
+        ...employee.toObject(),
+        id: employee._id.toString(),
+        createdAt: employee.createdAt.toISOString(),
+        updatedAt: employee.updatedAt.toISOString()
+      };
+    },
+
+    updateEmployee: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      const employee: any = await Employee.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true, runValidators: true }
+      ).lean();
+      
+      if (!employee) {
+        throw new Error('Employee not found');
+      }
+      
+      return {
+        ...employee,
+        id: employee._id.toString(),
+        createdAt: employee.createdAt.toISOString(),
+        updatedAt: employee.updatedAt.toISOString()
+      };
+    },
+
+    deleteEmployee: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      
+      const result = await Employee.findByIdAndDelete(id);
       return !!result;
     }
   }
