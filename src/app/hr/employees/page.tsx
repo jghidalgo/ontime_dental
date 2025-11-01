@@ -6,6 +6,7 @@ import { useQuery } from '@apollo/client';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
 import TopNavigation from '@/components/TopNavigation';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
+import AddEmployeeModal from '@/components/hr/AddEmployeeModal';
 import { useTranslations } from '@/lib/i18n';
 
 type EmployeeRecord = {
@@ -31,6 +32,7 @@ export default function HREmployeesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(pageSizeOptions[0]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Fetch employees from GraphQL
   const { data, loading, error } = useQuery(GET_EMPLOYEES, {
@@ -123,7 +125,10 @@ export default function HREmployeesPage() {
                   />
                 </div>
 
-                <button className="mt-5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-primary-400">
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="mt-5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-primary-400"
+                >
                   {t('Add employee')}
                 </button>
               </div>
@@ -269,6 +274,7 @@ export default function HREmployeesPage() {
               </div>
             </section>
           </main>
+        <AddEmployeeModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       </div>
     </div>
   );
