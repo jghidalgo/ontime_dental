@@ -12,20 +12,20 @@ body {
 }
 
 body.light {
-  --light-background: #f4f7ff;
+  --light-background: #f5f7fa;
   --light-surface: #ffffff;
-  --light-surface-muted: rgba(255, 255, 255, 0.82);
-  --light-surface-soft: rgba(244, 247, 255, 0.68);
-  --light-surface-strong: rgba(255, 255, 255, 0.92);
-  --light-border: #d8e4ff;
-  --light-border-strong: #c3d4f7;
+  --light-surface-muted: #f0f4fa;
+  --light-surface-soft: #eef2f8;
+  --light-surface-strong: #ffffff;
+  --light-border: #d4dde9;
+  --light-border-strong: #c2ccdb;
   --light-text: #0f172a;
   --light-text-soft: #1f2a44;
-  --light-text-muted: #4c5d7a;
-  --light-overlay: rgba(37, 99, 235, 0.08);
-  --light-overlay-strong: rgba(37, 99, 235, 0.12);
+  --light-text-muted: #475569;
+  --light-overlay: rgba(37, 99, 235, 0.06);
+  --light-overlay-strong: rgba(37, 99, 235, 0.1);
   color-scheme: light;
-  background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.12), rgba(244, 247, 255, 0.96));
+  background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.08), rgba(245, 247, 250, 0.98));
   color: var(--light-text);
   background-color: var(--light-background);
 }
@@ -39,27 +39,27 @@ body.light .bg-slate-950\/95 {
 }
 
 body.light .bg-slate-950\/90 {
-  background-color: rgba(244, 247, 255, 0.9) !important;
+  background-color: rgba(241, 245, 249, 0.92) !important;
 }
 
 body.light .bg-slate-950\/80 {
-  background-color: rgba(15, 23, 42, 0.18) !important;
-}
-
-body.light .bg-slate-950\/70 {
   background-color: rgba(15, 23, 42, 0.14) !important;
 }
 
-body.light .bg-slate-950\/60 {
+body.light .bg-slate-950\/70 {
   background-color: rgba(15, 23, 42, 0.1) !important;
 }
 
-body.light .bg-slate-950\/40 {
+body.light .bg-slate-950\/60 {
   background-color: rgba(15, 23, 42, 0.08) !important;
 }
 
-body.light .bg-slate-950\/30 {
+body.light .bg-slate-950\/40 {
   background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+body.light .bg-slate-950\/30 {
+  background-color: rgba(15, 23, 42, 0.05) !important;
 }
 
 body.light .bg-slate-950\/20 {
@@ -81,18 +81,18 @@ body.light .bg-slate-900\/95 {
 body.light .bg-slate-900\/80,
 body.light .bg-slate-900\/70,
 body.light .bg-slate-900\/60 {
-  background-color: var(--light-surface-strong) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
 }
 
 body.light .bg-slate-900\/50,
 body.light .bg-slate-900\/40 {
-  background-color: var(--light-surface-muted) !important;
+  background-color: rgba(240, 244, 250, 0.94) !important;
 }
 
 body.light .bg-slate-900\/30,
 body.light .bg-slate-900\/20,
 body.light .bg-slate-900\/10 {
-  background-color: var(--light-surface-soft) !important;
+  background-color: rgba(238, 242, 248, 0.9) !important;
 }
 
 body.light .bg-slate-900\/5 {
@@ -135,7 +135,7 @@ body.light .text-slate-200 {
 }
 
 body.light .text-slate-300 {
-  color: var(--light-text-soft) !important;
+  color: #334155 !important;
 }
 
 body.light .text-slate-400,
@@ -146,13 +146,13 @@ body.light .text-white\/80 {
 body.light .text-slate-500,
 body.light .text-slate-500\/80,
 body.light .text-white\/60 {
-  color: #566789 !important;
+  color: #52607b !important;
 }
 
 body.light .text-slate-600,
 body.light .text-slate-700,
 body.light .text-white\/50 {
-  color: #64739a !important;
+  color: #6b7b95 !important;
 }
 
 body.light .text-primary-100 {
@@ -283,18 +283,18 @@ body.light .bg-red-950\/90 {
 body.light .shadow-slate-950\/40,
 body.light .shadow-slate-950\/50,
 body.light .shadow-primary-900\/40 {
-  box-shadow: 0 20px 45px rgba(30, 64, 175, 0.18) !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12) !important;
 }
 
 body.light .bg-gradient-to-br.from-slate-900.via-slate-950.to-slate-900,
 body.light .bg-gradient-to-br.from-slate-900.via-slate-950,
 body.light .bg-gradient-to-br.from-slate-950,
 body.light .bg-gradient-to-br.from-slate-900.to-slate-900 {
-  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(226, 232, 255, 0.9), rgba(212, 233, 255, 0.9)) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(236, 241, 250, 0.94), rgba(223, 230, 245, 0.92)) !important;
 }
 
 body.light .bg-\[radial-gradient\(circle_at_top,_var\(--tw-gradient-stops\)\)\] {
-  background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.18), rgba(255, 255, 255, 0.95), rgba(244, 247, 255, 0.98)) !important;
+  background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.12), rgba(250, 252, 255, 0.97), rgba(239, 244, 252, 0.99)) !important;
 }
 
 body.light .via-slate-950,
