@@ -6,6 +6,7 @@ import { useTranslations } from '@/lib/i18n';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_DATA } from '@/graphql/dashboard-queries';
 import TopNavigation from '@/components/TopNavigation';
+import LogoutButton from '@/components/LogoutButton';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -44,17 +45,14 @@ export default function DashboardPage() {
     return 'text-slate-400';
   };
 
-  const handleLogout = () => {
-    window.localStorage.removeItem('ontime.authToken');
-    router.push('/login');
-  };
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
+        <LogoutButton />
+        
         <div className="border-b border-slate-800 bg-slate-900/60">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
             <div>
@@ -68,12 +66,6 @@ export default function DashboardPage() {
               <p className="text-xs uppercase tracking-wider text-slate-400">Quick Actions</p>
               <button className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
                 {t('Generate Report')}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="mt-2 block w-full text-xs text-slate-500 hover:text-slate-300 transition"
-              >
-                {t('Logout')}
               </button>
             </div>
           </div>

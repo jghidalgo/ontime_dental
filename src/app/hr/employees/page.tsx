@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
 import TopNavigation from '@/components/TopNavigation';
+import LogoutButton from '@/components/LogoutButton';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import AddEmployeeModal from '@/components/hr/AddEmployeeModal';
 import { useTranslations } from '@/lib/i18n';
@@ -89,6 +90,8 @@ export default function HREmployeesPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
+        <LogoutButton />
+        
         <section className="border-b border-slate-800 bg-slate-900/60">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
             <header>

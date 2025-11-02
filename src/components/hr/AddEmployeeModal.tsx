@@ -1,7 +1,10 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
+import { useMutation } from '@apollo/client';
 import { useTranslations } from '@/lib/i18n';
+import { CREATE_EMPLOYEE } from '@/graphql/employee-mutations';
+import { GET_EMPLOYEES } from '@/graphql/employee-queries';
 
 type AddEmployeeModalProps = {
   isOpen: boolean;
@@ -9,6 +12,7 @@ type AddEmployeeModalProps = {
 };
 
 type EmployeeFormState = {
+  employeeId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -21,11 +25,12 @@ type EmployeeFormState = {
   startYear: string;
   department: string;
   position: string;
-  username: string;
-  password: string;
+  location: string;
+  status: string;
 };
 
 const initialState: EmployeeFormState = {
+  employeeId: '',
   firstName: '',
   lastName: '',
   email: '',
@@ -38,8 +43,8 @@ const initialState: EmployeeFormState = {
   startYear: '',
   department: '',
   position: '',
-  username: '',
-  password: ''
+  location: '',
+  status: 'active'
 };
 
 const monthOptions = [
@@ -58,32 +63,68 @@ const monthOptions = [
 ];
 
 const departmentOptions = [
-  'Billing',
-  'Bird Road',
-  'Coral Gables',
-  'Coral Way',
-  'Homestead',
-  'Little Havana',
-  'Miami Lakes',
-  'Miracle Mile',
-  'Accounting',
+  'Clinical',
+  'Laboratory',
   'Operations',
+  'Finance',
+  'HR',
+  'Management',
+  'Compliance',
+  'Billing',
+  'Accounting',
   'Customer Service'
 ];
 
 const positionOptions = [
   'Dental Assistant',
+  'Dentist',
+  'Dental Hygienist',
   'Doctor',
   'Front Desk',
   'Hygienist',
   'Office Manager',
-  'Operations',
-  'Treatment Coordinator'
+  'Operations Manager',
+  'Treatment Coordinator',
+  'Lab Technician',
+  'Billing Specialist',
+  'HR Manager',
+  'Compliance Officer'
+];
+
+const locationOptions = [
+  'Little Havana',
+  'Pembroke Pines',
+  'Tamami',
+  'Coral Gables',
+  'Coral Way',
+  'Homestead',
+  'Miami Lakes',
+  'Miracle Mile',
+  'Bird Road',
+  'Lab',
+  'Corporate'
+];
+
+const statusOptions = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'on-leave', label: 'On Leave' }
 ];
 
 export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalProps) {
   const { t } = useTranslations();
   const [formState, setFormState] = useState<EmployeeFormState>(initialState);
+
+  const [createEmployee, { loading, error }] = useMutation(CREATE_EMPLOYEE, {
+    refetchQueries: [{ query: GET_EMPLOYEES, variables: { limit: 1000 } }],
+    onCompleted: () => {
+      setFormState(initialState);
+      onClose();
+    },
+    onError: (err) => {
+      console.error('Error creating employee:', err);
+    }
+  });
 
   const days = useMemo(() => Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, '0')), []);
   const years = useMemo(() => {
@@ -98,11 +139,38 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
     }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const formatDateString = (month: string, day: string, year: string): string => {
+    if (!month || !day || !year) return '';
+    const monthIndex = monthOptions.indexOf(month) + 1;
+    return `${monthIndex.toString().padStart(2, '0')}/${day}/${year}`;
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // TODO: Hook into mutation once backend is ready
-    onClose();
-    setFormState(initialState);
+
+    const dateOfBirth = formatDateString(formState.birthMonth, formState.birthDay, formState.birthYear);
+    const joined = formatDateString(formState.startMonth, formState.startDay, formState.startYear);
+
+    try {
+      await createEmployee({
+        variables: {
+          input: {
+            employeeId: formState.employeeId,
+            name: `${formState.firstName} ${formState.lastName}`,
+            email: formState.email,
+            phone: formState.phone,
+            dateOfBirth,
+            joined,
+            department: formState.department,
+            position: formState.position,
+            location: formState.location,
+            status: formState.status
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Failed to create employee:', err);
+    }
   };
 
   if (!isOpen) {
@@ -110,21 +178,28 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-10">
-      <div className="relative w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-10">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm dark:bg-slate-950/90"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-3xl rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-6 top-6 text-slate-400 transition hover:text-slate-600"
+          className="absolute right-6 top-6 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
           aria-label={t('Close')}
         >
           <span className="text-2xl leading-none">&times;</span>
         </button>
 
         <form onSubmit={handleSubmit} className="p-8">
-          <header className="mb-8 border-b border-slate-200 pb-6">
+          <header className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 text-primary-600">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -135,30 +210,32 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 </svg>
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">{t('Add employee')}</h2>
-                <p className="mt-1 text-sm font-medium uppercase tracking-[0.35em] text-slate-400">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t('Add employee')}</h2>
+                <p className="mt-1 text-sm font-medium uppercase tracking-[0.35em] text-slate-400 dark:text-slate-500">
                   {t('Personal Information')}
                 </p>
               </div>
             </div>
           </header>
 
-          <div className="grid grid-cols-1 gap-6 text-sm text-slate-700 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 text-sm text-slate-700 dark:text-slate-300 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="first-name">
-                {t('Name')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="employee-id">
+                {t('Employee ID')} <span className="text-red-500">*</span>
               </label>
               <input
-                id="first-name"
-                name="first-name"
-                value={formState.firstName}
-                onChange={handleChange('firstName')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                id="employee-id"
+                name="employee-id"
+                required
+                value={formState.employeeId}
+                onChange={handleChange('employeeId')}
+                placeholder="EMP-001"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="email">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="email">
                 {t('Email')}
               </label>
               <input
@@ -167,47 +244,89 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 type="email"
                 value={formState.email}
                 onChange={handleChange('email')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                placeholder="john.doe@ontimedental.com"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="last-name">
-                {t('Last Name')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="first-name">
+                {t('Name')} <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="first-name"
+                name="first-name"
+                required
+                value={formState.firstName}
+                onChange={handleChange('firstName')}
+                placeholder="John"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="last-name">
+                {t('Last Name')} <span className="text-red-500">*</span>
               </label>
               <input
                 id="last-name"
                 name="last-name"
+                required
                 value={formState.lastName}
                 onChange={handleChange('lastName')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                placeholder="Doe"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="phone">
-                {t('Phone Number')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="phone">
+                {t('Phone Number')} <span className="text-red-500">*</span>
               </label>
               <input
                 id="phone"
                 name="phone"
-                placeholder="000-000-0000"
+                required
+                placeholder="(305) 555-1234"
                 value={formState.phone}
                 onChange={handleChange('phone')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
               />
             </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="location">
+                {t('Location')} <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="location"
+                required
+                value={formState.location}
+                onChange={handleChange('location')}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
+              >
+                <option value="" disabled>
+                  {t('Select Location')}
+                </option>
+                {locationOptions.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t('Date of Birth')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t('Date of Birth')} <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <select
                   aria-label={t('Birth Month')}
+                  required
                   value={formState.birthMonth}
                   onChange={handleChange('birthMonth')}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
                   <option value="" disabled>
                     {t('Month')}
@@ -220,9 +339,10 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 </select>
                 <select
                   aria-label={t('Birth Day')}
+                  required
                   value={formState.birthDay}
                   onChange={handleChange('birthDay')}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
                   <option value="" disabled>
                     {t('Day')}
@@ -235,9 +355,10 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 </select>
                 <select
                   aria-label={t('Birth Year')}
+                  required
                   value={formState.birthYear}
                   onChange={handleChange('birthYear')}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
                   <option value="" disabled>
                     {t('Year')}
@@ -252,15 +373,16 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t('Start Date')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t('Start Date')} <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <select
                   aria-label={t('Start Month')}
+                  required
                   value={formState.startMonth}
                   onChange={handleChange('startMonth')}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
                   <option value="" disabled>
                     {t('Month')}
@@ -273,9 +395,10 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 </select>
                 <select
                   aria-label={t('Start Day')}
+                  required
                   value={formState.startDay}
                   onChange={handleChange('startDay')}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
                   <option value="" disabled>
                     {t('Day')}
@@ -288,9 +411,10 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 </select>
                 <select
                   aria-label={t('Start Year')}
+                  required
                   value={formState.startYear}
                   onChange={handleChange('startYear')}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
                 >
                   <option value="" disabled>
                     {t('Year')}
@@ -305,14 +429,14 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="department">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="department">
                 {t('Department')}
               </label>
               <select
                 id="department"
                 value={formState.department}
                 onChange={handleChange('department')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
               >
                 <option value="" disabled>
                   {t('Select Department')}
@@ -326,17 +450,18 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="position">
-                {t('Position')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="position">
+                {t('Position')} <span className="text-red-500">*</span>
               </label>
               <select
                 id="position"
+                required
                 value={formState.position}
                 onChange={handleChange('position')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
               >
                 <option value="" disabled>
-                  {t('Select Job')}
+                  {t('Select Position')}
                 </option>
                 {positionOptions.map((position) => (
                   <option key={position} value={position}>
@@ -347,39 +472,50 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="username">
-                {t('User')}
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="status">
+                {t('Status')} <span className="text-red-500">*</span>
               </label>
-              <input
-                id="username"
-                name="username"
-                value={formState.username}
-                onChange={handleChange('username')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="password">
-                {t('Password')}
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={formState.password}
-                onChange={handleChange('password')}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
-              />
+              <select
+                id="status"
+                required
+                value={formState.status}
+                onChange={handleChange('status')}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
+              >
+                {statusOptions.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {t(status.label)}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div className="mt-10 flex justify-center">
+          {/* Error Message */}
+          {error && (
+            <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400">
+              {error.message || t('Failed to create employee. Please try again.')}
+            </div>
+          )}
+
+          <div className="mt-10 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="rounded-xl border border-slate-300 bg-white px-8 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              {t('Cancel')}
+            </button>
             <button
               type="submit"
-              className="rounded-xl bg-primary-500 px-10 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-900 shadow-lg transition hover:bg-primary-400"
+              disabled={loading}
+              className="flex items-center gap-2 rounded-xl bg-primary-500 px-10 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-900 shadow-lg transition hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-primary-600"
             >
-              {t('Save')}
+              {loading && (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              )}
+              {loading ? t('Saving...') : t('Save')}
             </button>
           </div>
         </form>

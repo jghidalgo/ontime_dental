@@ -7,6 +7,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_ALL_DIRECTORY_DATA } from '@/graphql/queries';
 import { UPDATE_DIRECTORY_ENTRY, DELETE_DIRECTORY_ENTRY } from '@/graphql/mutations';
 import TopNavigation from '@/components/TopNavigation';
+import LogoutButton from '@/components/LogoutButton';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -216,6 +217,8 @@ export default function ContactsPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
+        <LogoutButton />
+        
         <div className="border-b border-slate-800 bg-slate-900/60">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
             <div>
@@ -228,15 +231,6 @@ export default function ContactsPage() {
             <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
               <p className="text-xs uppercase tracking-wider text-slate-400">Signed in as</p>
               <p className="text-3xl font-semibold text-primary-300">{userName || 'Team'}</p>
-              <button
-                onClick={() => {
-                  window.localStorage.removeItem('ontime.authToken');
-                  router.push('/login');
-                }}
-                className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition"
-              >
-                Logout
-              </button>
             </div>
           </div>
 
