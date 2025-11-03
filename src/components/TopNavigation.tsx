@@ -26,7 +26,7 @@ export default function TopNavigation() {
 
   return (
     <nav className="border-t border-slate-200 bg-white/70 backdrop-blur dark:border-slate-800 dark:bg-transparent">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-4">
+      <div className="mx-auto max-w-7xl px-6 py-4">
         <ul className="flex flex-wrap gap-2 text-sm text-slate-600 transition-colors dark:text-slate-300">
           {navigationItems.map((item) => (
             <li key={item.href}>

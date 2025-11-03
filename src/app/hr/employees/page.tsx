@@ -5,9 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
 import TopNavigation from '@/components/TopNavigation';
-import LogoutButton from '@/components/LogoutButton';
+import PageHeader from '@/components/PageHeader';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import AddEmployeeModal from '@/components/hr/AddEmployeeModal';
+import AddPTOModal from '@/components/hr/AddPTOModal';
+import ViewPTOModal from '@/components/hr/ViewPTOModal';
+import EditEmployeeModal from '@/components/hr/EditEmployeeModal';
+import ToggleEmployeeStatusModal from '@/components/hr/ToggleEmployeeStatusModal';
+import DeleteEmployeeModal from '@/components/hr/DeleteEmployeeModal';
 import { useTranslations } from '@/lib/i18n';
 
 type EmployeeRecord = {
@@ -29,15 +34,23 @@ const pageSizeOptions = [10, 15, 25, 50];
 export default function HREmployeesPage() {
   const router = useRouter();
   const { t } = useTranslations();
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userName, setUserName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(pageSizeOptions[0]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPTOModalOpen, setIsPTOModalOpen] = useState(false);
+  const [isViewPTOModalOpen, setIsViewPTOModalOpen] = useState(false);
+  const [isEditEmployeeModalOpen, setIsEditEmployeeModalOpen] = useState(false);
+  const [isToggleStatusModalOpen, setIsToggleStatusModalOpen] = useState(false);
+  const [isDeleteEmployeeModalOpen, setIsDeleteEmployeeModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
 
   // Fetch employees from GraphQL
   const { data, loading, error } = useQuery(GET_EMPLOYEES, {
     variables: {
+      companyId: selectedEntityId || undefined,
       search: searchTerm || undefined,
       limit: 1000 // Get all employees, we'll handle pagination on the client
     },
@@ -81,6 +94,56 @@ export default function HREmployeesPage() {
     setCurrentPage(Math.min(Math.max(page, 1), totalPages));
   };
 
+  const handleOpenPTOModal = (employee: EmployeeRecord) => {
+    setSelectedEmployee(employee);
+    setIsPTOModalOpen(true);
+  };
+
+  const handleClosePTOModal = () => {
+    setIsPTOModalOpen(false);
+    setSelectedEmployee(null);
+  };
+
+  const handleOpenViewPTOModal = (employee: EmployeeRecord) => {
+    setSelectedEmployee(employee);
+    setIsViewPTOModalOpen(true);
+  };
+
+  const handleCloseViewPTOModal = () => {
+    setIsViewPTOModalOpen(false);
+    setSelectedEmployee(null);
+  };
+
+  const handleOpenEditEmployeeModal = (employee: EmployeeRecord) => {
+    setSelectedEmployee(employee);
+    setIsEditEmployeeModalOpen(true);
+  };
+
+  const handleCloseEditEmployeeModal = () => {
+    setIsEditEmployeeModalOpen(false);
+    setSelectedEmployee(null);
+  };
+
+  const handleOpenToggleStatusModal = (employee: EmployeeRecord) => {
+    setSelectedEmployee(employee);
+    setIsToggleStatusModalOpen(true);
+  };
+
+  const handleCloseToggleStatusModal = () => {
+    setIsToggleStatusModalOpen(false);
+    setSelectedEmployee(null);
+  };
+
+  const handleOpenDeleteEmployeeModal = (employee: EmployeeRecord) => {
+    setSelectedEmployee(employee);
+    setIsDeleteEmployeeModalOpen(true);
+  };
+
+  const handleCloseDeleteEmployeeModal = () => {
+    setIsDeleteEmployeeModalOpen(false);
+    setSelectedEmployee(null);
+  };
+
   const rangeStart = filteredEmployees.length === 0 ? 0 : (clampedPage - 1) * pageSize + 1;
   const rangeEnd = Math.min(clampedPage * pageSize, filteredEmployees.length);
 
@@ -90,22 +153,18 @@ export default function HREmployeesPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <LogoutButton />
-        
         <section className="border-b border-slate-800 bg-slate-900/60">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-            <header>
-              <p className="text-sm uppercase tracking-widest text-primary-300">{t('HR')}</p>
-              <h1 className="mt-1 text-3xl font-bold text-slate-50">{t('Employee directory')}</h1>
-              <p className="mt-1 text-slate-300">{t('Welcome back, {name}.', { name: userName || t('team') })}</p>
-            </header>
-
-            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-400">{t('Total Employees')}</p>
-              <p className="text-3xl font-semibold text-primary-300">{employees.length}</p>
-              <p className="text-xs text-slate-500">{t('Active records')}</p>
-            </div>
-          </div>
+          <PageHeader
+            category={t('HR')}
+            title={t('Employee directory')}
+            subtitle={t('Manage employees.')}
+       
+            statSubtext={t('Active records')}
+            showEntitySelector={true}
+            entityLabel="Entity"
+            selectedEntityId={selectedEntityId}
+            onEntityChange={(id) => setSelectedEntityId(id)}
+          />
 
           <TopNavigation />
         </section>
@@ -205,8 +264,20 @@ export default function HREmployeesPage() {
                         </tr>
                       ) : (
                         paginatedEmployees.map((employee) => (
-                          <tr key={employee.id} className="hover:bg-white/[0.03]">
-                            <td className="px-4 py-3 font-medium text-slate-100">{employee.employeeId}</td>
+                          <tr 
+                            key={employee.id} 
+                            className={`hover:bg-white/[0.03] ${
+                              employee.status === 'inactive' ? 'opacity-60 bg-red-500/5' : ''
+                            }`}
+                          >
+                            <td className="px-4 py-3 font-medium text-slate-100">
+                              {employee.employeeId}
+                              {employee.status === 'inactive' && (
+                                <span className="ml-2 inline-flex items-center rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-400">
+                                  {t('Disabled')}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-slate-100">{employee.name}</td>
                             <td className="px-4 py-3 text-slate-300">{employee.joined}</td>
                             <td className="px-4 py-3 text-slate-300">{employee.dateOfBirth}</td>
@@ -214,12 +285,70 @@ export default function HREmployeesPage() {
                             <td className="px-4 py-3 text-slate-300">{employee.position}</td>
                             <td className="px-4 py-3 text-slate-300">{employee.location}</td>
                             <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-2">
-                                <button className="rounded-xl border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-white">
-                                  {t('View')}
+                              <div className="flex justify-end gap-1">
+                                {/* PTO - View time off */}
+                                <button 
+                                  onClick={() => handleOpenViewPTOModal(employee)}
+                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800/50 hover:text-blue-400"
+                                  title={t('View PTO')}
+                                >
+                                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
                                 </button>
-                                <button className="rounded-xl border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-white">
-                                  {t('Edit')}
+                                
+                                {/* Add PTO */}
+                                <button 
+                                  onClick={() => handleOpenPTOModal(employee)}
+                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800/50 hover:text-green-400"
+                                  title={t('Add PTO')}
+                                >
+                                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </button>
+                                
+                                {/* Edit Employee */}
+                                <button 
+                                  onClick={() => handleOpenEditEmployeeModal(employee)}
+                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800/50 hover:text-primary-400"
+                                  title={t('Edit Employee')}
+                                >
+                                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                
+                                {/* Disable/Enable Employee */}
+                                <button 
+                                  onClick={() => handleOpenToggleStatusModal(employee)}
+                                  className={`rounded-lg p-2 transition ${
+                                    employee.status === 'active'
+                                      ? 'text-slate-400 hover:bg-slate-800/50 hover:text-yellow-400'
+                                      : 'text-green-400 hover:bg-slate-800/50 hover:text-green-300'
+                                  }`}
+                                  title={employee.status === 'active' ? t('Disable Employee') : t('Enable Employee')}
+                                >
+                                  {employee.status === 'active' ? (
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  )}
+                                </button>
+                                
+                                {/* Delete Employee */}
+                                <button 
+                                  onClick={() => handleOpenDeleteEmployeeModal(employee)}
+                                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800/50 hover:text-red-400"
+                                  title={t('Delete Employee')}
+                                >
+                                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
                                 </button>
                               </div>
                             </td>
@@ -278,6 +407,31 @@ export default function HREmployeesPage() {
             </section>
           </main>
         <AddEmployeeModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+        <AddPTOModal 
+          isOpen={isPTOModalOpen} 
+          onClose={handleClosePTOModal}
+          employee={selectedEmployee}
+        />
+        <ViewPTOModal 
+          isOpen={isViewPTOModalOpen} 
+          onClose={handleCloseViewPTOModal}
+          employee={selectedEmployee}
+        />
+        <EditEmployeeModal 
+          isOpen={isEditEmployeeModalOpen} 
+          onClose={handleCloseEditEmployeeModal}
+          employee={selectedEmployee}
+        />
+        <ToggleEmployeeStatusModal 
+          isOpen={isToggleStatusModalOpen} 
+          onClose={handleCloseToggleStatusModal}
+          employee={selectedEmployee}
+        />
+        <DeleteEmployeeModal 
+          isOpen={isDeleteEmployeeModalOpen} 
+          onClose={handleCloseDeleteEmployeeModal}
+          employee={selectedEmployee}
+        />
       </div>
     </div>
   );

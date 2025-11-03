@@ -2,6 +2,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IEmployee extends Document {
   employeeId: string;
+  userId?: string; // Reference to User
+  companyId?: string;
   name: string;
   joined: string;
   dateOfBirth: string;
@@ -16,6 +18,11 @@ export interface IEmployee extends Document {
     relationship: string;
     phone: string;
   };
+  // PTO Balance fields
+  ptoAllowance?: number; // Total PTO days per year (default: 15)
+  ptoUsed?: number; // Days consumed in current year
+  ptoAvailable?: number; // Remaining days (calculated: allowance - used)
+  ptoYear?: number; // Year for PTO tracking (resets annually)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +33,16 @@ const EmployeeSchema = new Schema<IEmployee>(
       type: String,
       required: true,
       unique: true,
+      index: true
+    },
+    userId: {
+      type: String,
+      required: false,
+      index: true
+    },
+    companyId: {
+      type: String,
+      required: false,
       index: true
     },
     name: {
@@ -74,6 +91,23 @@ const EmployeeSchema = new Schema<IEmployee>(
       name: String,
       relationship: String,
       phone: String
+    },
+    // PTO Balance fields
+    ptoAllowance: {
+      type: Number,
+      default: 15 // Default 15 days per year
+    },
+    ptoUsed: {
+      type: Number,
+      default: 0
+    },
+    ptoAvailable: {
+      type: Number,
+      default: 15
+    },
+    ptoYear: {
+      type: Number,
+      default: () => new Date().getFullYear()
     }
   },
   {
@@ -82,9 +116,10 @@ const EmployeeSchema = new Schema<IEmployee>(
 );
 
 // Create indexes
-EmployeeSchema.index({ name: 'text', position: 'text', location: 'text' });
-EmployeeSchema.index({ status: 1 });
-EmployeeSchema.index({ location: 1 });
-EmployeeSchema.index({ position: 1 });
+EmployeeSchema.index({ companyId: 1 });
+EmployeeSchema.index({ companyId: 1, name: 'text', position: 'text', location: 'text' });
+EmployeeSchema.index({ companyId: 1, status: 1 });
+EmployeeSchema.index({ companyId: 1, location: 1 });
+EmployeeSchema.index({ companyId: 1, position: 1 });
 
 export default mongoose.models.Employee || mongoose.model<IEmployee>('Employee', EmployeeSchema);

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 
 // GraphQL Queries and Mutations
 const GET_DOCUMENT_ENTITIES = gql`
@@ -140,6 +141,7 @@ export default function DocumentsPage() {
     refetchQueries: ['GetDocumentEntities']
   });
 
+  const [globalEntityId, setGlobalEntityId] = useState<string>('complete-dental-solutions');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [appliedSelection, setAppliedSelection] = useState<{
@@ -398,15 +400,15 @@ export default function DocumentsPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="border-b border-slate-800 bg-slate-900/60">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('Document Library')}</p>
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('Documents')}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-300">
-              {t('Access and manage forms, policies, and resources across all OnTime Dental entities.')}
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          category={t('Document Library')}
+          title={t('Documents')}
+          subtitle={t('Access and manage forms, policies, and resources across all OnTime Dental entities.')}
+          showEntitySelector={true}
+          entityLabel="Entity"
+          selectedEntityId={globalEntityId}
+          onEntityChange={(id) => setGlobalEntityId(id)}
+        />
         <TopNavigation />
       </div>
 

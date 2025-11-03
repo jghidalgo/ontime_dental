@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 
 const insurers = [
   {
@@ -134,6 +135,7 @@ const insurers = [
 
 export default function InsurancesPage() {
   const router = useRouter();
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [userName, setUserName] = useState<string>('');
   const [selectedInsurerId, setSelectedInsurerId] = useState<string>(insurers[0]?.id ?? '');
 
@@ -165,31 +167,19 @@ export default function InsurancesPage() {
 
       <div className="relative mx-auto w-full max-w-[120rem]">
         <div className="flex-1">
-          <header className="flex flex-col gap-8 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
-            <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Insurance hub</p>
-                <h1 className="text-3xl font-semibold text-slate-50">Manage payer documents</h1>
-                <p className="max-w-xl text-sm text-slate-400">
-                  Review carrier-specific documentation, credentialing requirements, and plan summaries. Switch between contracted insurers using the selector below.
-                </p>
-              </div>
+          <div className="border-b border-white/5 bg-white/[0.02] backdrop-blur-2xl">
+            <PageHeader
+              category="Insurance hub"
+              title="Manage payer documents"
+              subtitle="Review carrier-specific documentation, credentialing requirements, and plan summaries."
+              showEntitySelector={true}
+              entityLabel="Entity"
+              selectedEntityId={selectedEntityId}
+              onEntityChange={(id) => setSelectedEntityId(id)}
+            />
 
-              <div className="flex items-center gap-3 self-end lg:self-auto">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-                  Signed in as <span className="font-semibold text-slate-100">{userName || 'team'}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </header>
-
-          <TopNavigation />
+            <TopNavigation />
+          </div>
 
           <main className="overflow-y-auto px-6 py-10 sm:px-10">
             <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">

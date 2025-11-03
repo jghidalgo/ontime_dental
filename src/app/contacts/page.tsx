@@ -7,7 +7,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_ALL_DIRECTORY_DATA } from '@/graphql/queries';
 import { UPDATE_DIRECTORY_ENTRY, DELETE_DIRECTORY_ENTRY } from '@/graphql/mutations';
 import TopNavigation from '@/components/TopNavigation';
-import LogoutButton from '@/components/LogoutButton';
+import PageHeader from '@/components/PageHeader';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -48,6 +48,7 @@ const groupLabels: Record<GroupKey, string> = {
 export default function ContactsPage() {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [activeSection, setActiveSection] = useState<ContactSectionId>('extensions');
   const [formEntityId, setFormEntityId] = useState<string>('');
   const [formGroupId, setFormGroupId] = useState<GroupKey>('corporate');
@@ -217,22 +218,15 @@ export default function ContactsPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <LogoutButton />
-        
         <div className="border-b border-slate-800 bg-slate-900/60">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Contacts hub</p>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">Reach every OnTime team instantly</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">
-                Browse location extensions, clinic reception desks, and support center directories. Use the filters below to quickly surface the numbers you need.
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Signed in as</p>
-              <p className="text-3xl font-semibold text-primary-300">{userName || 'Team'}</p>
-            </div>
-          </div>
+          <PageHeader
+            category="Contacts hub"
+            title="Reach every team instantly"
+            subtitle="Browse location extensions, clinic reception desks, and support center directories."
+            showEntitySelector={true}
+            selectedEntityId={selectedEntityId}
+            onEntityChange={setSelectedEntityId}
+          />
 
           <TopNavigation />
         </div>

@@ -8,6 +8,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
 import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 
 type NavigationItem = {
   label: string;
@@ -449,6 +450,7 @@ type CaseSearchForm = {
 export default function LaboratoryPage() {
   const router = useRouter();
   const { t, language } = useTranslations();
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [userName, setUserName] = useState<string>('');
   const [activeSection, setActiveSection] = useState<SubSectionId>('dashboard');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -787,22 +789,15 @@ export default function LaboratoryPage() {
 
       <div className="relative mx-auto w-full max-w-[120rem]">
         <div className="border-b border-slate-800 bg-slate-900/60">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Laboratory</p>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">Operations Command Center</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">
-                Monitor the production floor, shipping timelines and clinic satisfaction at a glance. The dashboard surfaces key actions for the fabrication team and keeps leadership aligned with today&apos;s volume.
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Today</p>
-              <p className="text-3xl font-semibold text-primary-300">
-                {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date())}
-              </p>
-              <p className="text-xs text-slate-500">Dispatch 2:00 PM - 6:00 PM</p>
-            </div>
-          </div>
+          <PageHeader
+            category="Laboratory"
+            title="Operations Command Center"
+            subtitle="Monitor the production floor, shipping timelines and clinic satisfaction at a glance."
+            showEntitySelector={true}
+            entityLabel="Entity"
+            selectedEntityId={selectedEntityId}
+            onEntityChange={(id) => setSelectedEntityId(id)}
+          />
 
           <TopNavigation />
         </div>

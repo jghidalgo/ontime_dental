@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ILabCase extends Document {
   caseId: string;
+  companyId: string;
   lab: string;
   clinic: string;
   patientFirstName: string;
@@ -31,6 +32,11 @@ const LabCaseSchema: Schema = new Schema(
       required: true,
       unique: true,
       trim: true,
+    },
+    companyId: {
+      type: String,
+      required: true,
+      index: true,
     },
     lab: {
       type: String,
@@ -118,6 +124,9 @@ const LabCaseSchema: Schema = new Schema(
 
 // Create indexes for better query performance
 LabCaseSchema.index({ caseId: 1 });
+LabCaseSchema.index({ companyId: 1 });
+LabCaseSchema.index({ companyId: 1, status: 1 });
+LabCaseSchema.index({ companyId: 1, reservationDate: -1 });
 LabCaseSchema.index({ clinic: 1, status: 1 });
 LabCaseSchema.index({ doctor: 1 });
 LabCaseSchema.index({ status: 1, createdAt: -1 });

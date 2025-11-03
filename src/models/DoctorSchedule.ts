@@ -9,6 +9,7 @@ export interface IDoctorAssignment {
 export interface IDoctorSchedule extends Document {
   dayId: string;      // 'monday', 'tuesday', etc.
   clinicId: string;   // 'ce', 'miller'
+  companyId: string;
   doctor: IDoctorAssignment | null;
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +45,11 @@ const DoctorScheduleSchema = new Schema<IDoctorSchedule>(
       enum: ['ce', 'miller'],
       index: true
     },
+    companyId: {
+      type: String,
+      required: true,
+      index: true
+    },
     doctor: {
       type: DoctorAssignmentSchema,
       default: null
@@ -54,8 +60,9 @@ const DoctorScheduleSchema = new Schema<IDoctorSchedule>(
   }
 );
 
-// Compound index to ensure unique day-clinic combinations
-DoctorScheduleSchema.index({ dayId: 1, clinicId: 1 }, { unique: true });
+// Compound indexes to ensure unique day-clinic combinations per company
+DoctorScheduleSchema.index({ companyId: 1, dayId: 1, clinicId: 1 }, { unique: true });
+DoctorScheduleSchema.index({ companyId: 1 });
 
 const DoctorSchedule = mongoose.models.DoctorSchedule || 
   mongoose.model<IDoctorSchedule>('DoctorSchedule', DoctorScheduleSchema);

@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IDirectoryEntry extends Document {
   entityId: string;
+  companyId: string;
   group: 'corporate' | 'frontdesk' | 'offices';
   location: string;
   phone: string;
@@ -16,6 +17,11 @@ export interface IDirectoryEntry extends Document {
 const DirectoryEntrySchema = new Schema<IDirectoryEntry>(
   {
     entityId: {
+      type: String,
+      required: true,
+      index: true
+    },
+    companyId: {
       type: String,
       required: true,
       index: true
@@ -56,6 +62,10 @@ const DirectoryEntrySchema = new Schema<IDirectoryEntry>(
     collection: 'directory_entries'
   }
 );
+
+// Compound indexes for efficient queries
+DirectoryEntrySchema.index({ companyId: 1, entityId: 1 });
+DirectoryEntrySchema.index({ companyId: 1, group: 1 });
 
 // Compound index for efficient queries
 DirectoryEntrySchema.index({ entityId: 1, group: 1 });

@@ -12,6 +12,7 @@ import {
   SWAP_DOCTOR_ASSIGNMENTS 
 } from '@/graphql/schedule-mutations';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 
 const clinics = [
   { id: 'ce', name: 'CE' },
@@ -87,6 +88,7 @@ type DragPayload =
 
 export default function SchedulesPage() {
   const router = useRouter();
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [userName, setUserName] = useState<string>('');
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
@@ -399,20 +401,15 @@ export default function SchedulesPage() {
 
       <div className="relative mx-auto w-full max-w-[120rem]">
         <div className="border-b border-slate-800 bg-slate-900/60">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">Operations</p>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">Schedules</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">
-                Review staffing coverage for front desk and chair-side teams. Drag names between clinics and days to simulate deployment changes before publishing to the organization.
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Drag & Drop</p>
-              <p className="text-3xl font-semibold text-primary-300">Enabled</p>
-              <p className="text-xs text-slate-500">Click to edit assignments</p>
-            </div>
-          </div>
+          <PageHeader
+            category="Operations"
+            title="Schedules"
+            subtitle="Review staffing coverage for front desk and chair-side teams."
+            showEntitySelector={true}
+            entityLabel="Entity"
+            selectedEntityId={selectedEntityId}
+            onEntityChange={(id) => setSelectedEntityId(id)}
+          />
 
           <TopNavigation />
         </div>

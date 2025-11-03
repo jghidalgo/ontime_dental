@@ -6,11 +6,12 @@ import { useTranslations } from '@/lib/i18n';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_DATA } from '@/graphql/dashboard-queries';
 import TopNavigation from '@/components/TopNavigation';
-import LogoutButton from '@/components/LogoutButton';
+import PageHeader from '@/components/PageHeader';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const { t } = useTranslations();
   
   const { data } = useQuery(GET_DASHBOARD_DATA, {
@@ -51,24 +52,15 @@ export default function DashboardPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <LogoutButton />
-        
         <div className="border-b border-slate-800 bg-slate-900/60">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('Dashboard')}</p>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('Welcome back, {name}.', { name: userName || t('team') })}</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">
-                {t('Dashboard summary')}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-400">Quick Actions</p>
-              <button className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-slate-200 shadow-inner shadow-primary-900/20 transition hover:border-primary-400/30 hover:text-white">
-                {t('Generate Report')}
-              </button>
-            </div>
-          </div>
+          <PageHeader
+            category={t('Dashboard')}
+            title={t('Welcome back, {name}.', { name: userName || t('team') })}
+            subtitle={t('Dashboard summary')}
+            showEntitySelector={true}
+            selectedEntityId={selectedEntityId}
+            onEntityChange={setSelectedEntityId}
+          />
 
           <TopNavigation />
         </div>

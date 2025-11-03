@@ -6,6 +6,13 @@ const typeDefs = gql`
     name: String!
     email: String!
     role: String!
+    companyId: String
+    phone: String
+    position: String
+    department: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type AuthPayload {
@@ -17,11 +24,13 @@ const typeDefs = gql`
     id: ID!
     entityId: String!
     name: String!
+    companyId: String!
   }
 
   type DirectoryEntry {
     id: ID!
     entityId: String!
+    companyId: String!
     group: String!
     location: String!
     phone: String!
@@ -35,6 +44,7 @@ const typeDefs = gql`
     id: ID!
     entityId: String!
     name: String!
+    companyId: String!
     corporate: [DirectoryEntry!]!
     frontdesk: [DirectoryEntry!]!
     offices: [DirectoryEntry!]!
@@ -76,6 +86,8 @@ const typeDefs = gql`
   type Employee {
     id: ID!
     employeeId: String!
+    userId: String
+    companyId: String
     name: String!
     joined: String!
     dateOfBirth: String!
@@ -86,6 +98,10 @@ const typeDefs = gql`
     department: String
     status: String!
     emergencyContact: EmergencyContact
+    ptoAllowance: Int
+    ptoUsed: Int
+    ptoAvailable: Int
+    ptoYear: Int
     createdAt: String!
     updatedAt: String!
   }
@@ -95,10 +111,49 @@ const typeDefs = gql`
     name: String!
   }
 
+  type PTO {
+    id: ID!
+    employeeId: String!
+    companyId: String
+    leaveType: String!
+    startDate: String!
+    endDate: String!
+    requestedDays: Int!
+    status: String!
+    comment: String
+    requestedBy: String!
+    reviewedBy: String
+    reviewedAt: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input PTOCreateInput {
+    employeeId: String!
+    companyId: String
+    leaveType: String!
+    startDate: String!
+    endDate: String!
+    requestedDays: Int!
+    comment: String
+    requestedBy: String!
+  }
+
+  input PTOUpdateInput {
+    leaveType: String
+    startDate: String
+    endDate: String
+    requestedDays: Int
+    status: String
+    comment: String
+    reviewedBy: String
+  }
+
   type FrontDeskSchedule {
     id: ID!
     positionId: String!
     clinicId: String!
+    companyId: String!
     employee: EmployeeBasic
   }
 
@@ -112,6 +167,7 @@ const typeDefs = gql`
     id: ID!
     dayId: String!
     clinicId: String!
+    companyId: String!
     doctor: DoctorAssignment
   }
 
@@ -126,6 +182,7 @@ const typeDefs = gql`
     subject: String!
     requester: String!
     location: String!
+    companyId: String!
     channel: String!
     category: String!
     description: String!
@@ -157,6 +214,7 @@ const typeDefs = gql`
     id: ID!
     entityId: String!
     name: String!
+    companyId: String!
     groups: [DocumentGroup!]!
   }
 
@@ -208,6 +266,7 @@ const typeDefs = gql`
 
   input EmployeeCreateInput {
     employeeId: String!
+    companyId: String!
     name: String!
     joined: String!
     dateOfBirth: String!
@@ -221,6 +280,7 @@ const typeDefs = gql`
   }
 
   input EmployeeUpdateInput {
+    companyId: String
     name: String
     joined: String
     dateOfBirth: String
@@ -252,6 +312,7 @@ const typeDefs = gql`
 
   input DirectoryEntryInput {
     entityId: String!
+    companyId: String!
     group: String!
     location: String!
     phone: String!
@@ -282,6 +343,7 @@ const typeDefs = gql`
     subject: String!
     requester: String!
     location: String!
+    companyId: String!
     channel: String!
     category: String!
     description: String!
@@ -311,6 +373,7 @@ const typeDefs = gql`
   type LabCase {
     id: ID!
     caseId: String!
+    companyId: String!
     lab: String!
     clinic: String!
     patientFirstName: String!
@@ -334,6 +397,7 @@ const typeDefs = gql`
   }
 
   input LabCaseInput {
+    companyId: String!
     lab: String!
     clinic: String!
     patientFirstName: String!
@@ -373,39 +437,106 @@ const typeDefs = gql`
     technician: String
   }
 
+  type Company {
+    id: ID!
+    name: String!
+    shortName: String!
+    location: String!
+    address: String
+    phone: String
+    email: String
+    taxId: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateCompanyInput {
+    name: String!
+    shortName: String!
+    location: String!
+    address: String
+    phone: String
+    email: String
+    taxId: String
+  }
+
+  input UpdateCompanyInput {
+    name: String
+    shortName: String
+    location: String
+    address: String
+    phone: String
+    email: String
+    taxId: String
+    isActive: Boolean
+  }
+
+  input CreateUserInput {
+    name: String!
+    email: String!
+    password: String!
+    role: String!
+    companyId: String
+    phone: String
+    position: String
+    department: String
+  }
+
+  input UpdateUserInput {
+    name: String
+    email: String
+    password: String
+    role: String
+    companyId: String
+    phone: String
+    position: String
+    department: String
+    isActive: Boolean
+  }
+
   type Query {
     health: String!
     
     # Directory queries
-    directoryEntities: [DirectoryEntity!]!
-    directoryEntity(entityId: String!): DirectoryEntity
-    directoryEntriesByEntity(entityId: String!, group: String): [DirectoryEntry!]!
-    directoryEntityWithEntries(entityId: String!): DirectoryEntityWithEntries
-    allDirectoryData: [DirectoryEntityWithEntries!]!
+    directoryEntities(companyId: ID): [DirectoryEntity!]!
+    directoryEntity(entityId: String!, companyId: ID): DirectoryEntity
+    directoryEntriesByEntity(entityId: String!, group: String, companyId: ID): [DirectoryEntry!]!
+    directoryEntityWithEntries(entityId: String!, companyId: ID): DirectoryEntityWithEntries
+    allDirectoryData(companyId: ID): [DirectoryEntityWithEntries!]!
+    
+    # Company queries
+    companies: [Company!]!
+    company(id: ID!): Company
+    
+    # User queries
+    users(companyId: ID): [User!]!
+    user(id: ID!): User
     
     # Clinic location queries
-    clinicLocations: [ClinicLocation!]!
+    clinicLocations(companyId: ID): [ClinicLocation!]!
     clinicLocation(companyId: String!): ClinicLocation
     
     # Schedule queries
-    frontDeskSchedules: [FrontDeskSchedule!]!
-    doctorSchedules: [DoctorSchedule!]!
+    frontDeskSchedules(companyId: ID): [FrontDeskSchedule!]!
+    doctorSchedules(companyId: ID): [DoctorSchedule!]!
     
     # Ticket queries
-    tickets: [Ticket!]!
+    tickets(companyId: ID): [Ticket!]!
     ticket(id: ID!): Ticket
     
     # Document queries
-    documentEntities: [DocumentEntity!]!
-    documentEntity(entityId: String!): DocumentEntity
+    documentEntities(companyId: ID): [DocumentEntity!]!
+    documentEntity(entityId: String!, companyId: ID): DocumentEntity
     
     # Lab Case queries
-    labCases: [LabCase!]!
+    labCases(companyId: ID): [LabCase!]!
     labCase(id: ID!): LabCase
-    labCaseByNumber(caseId: String!): LabCase
+    labCaseByNumber(caseId: String!, companyId: ID): LabCase
     
     # Employee queries
     employees(
+      companyId: ID
       search: String
       location: String
       position: String
@@ -414,7 +545,12 @@ const typeDefs = gql`
       offset: Int
     ): [Employee!]!
     employee(id: ID!): Employee
-    employeeByEmployeeId(employeeId: String!): Employee
+    employeeByEmployeeId(employeeId: String!, companyId: ID): Employee
+    
+    # PTO queries
+    ptos(employeeId: String, companyId: ID, status: String): [PTO!]!
+    pto(id: ID!): PTO
+    employeePTOBalance(employeeId: String!): Employee
     
     # Dashboard query
     dashboardData: DashboardData!
@@ -424,11 +560,11 @@ const typeDefs = gql`
     login(email: String!, password: String!): AuthPayload!
     
     # Directory mutations
-    createDirectoryEntity(entityId: String!, name: String!): DirectoryEntity!
+    createDirectoryEntity(entityId: String!, name: String!, companyId: String!): DirectoryEntity!
     createDirectoryEntry(input: DirectoryEntryInput!): DirectoryEntry!
     updateDirectoryEntry(id: ID!, input: DirectoryEntryInput!): DirectoryEntry!
     deleteDirectoryEntry(id: ID!): Boolean!
-    reorderDirectoryEntries(entityId: String!, group: String!, entryIds: [ID!]!): [DirectoryEntry!]!
+    reorderDirectoryEntries(entityId: String!, group: String!, entryIds: [ID!]!, companyId: ID): [DirectoryEntry!]!
     
     # Clinic location mutations
     createClinicLocation(
@@ -450,16 +586,28 @@ const typeDefs = gql`
     addClinic(companyId: String!, clinic: ClinicInput!): ClinicLocation!
     removeClinic(companyId: String!, clinicId: String!): ClinicLocation!
     
+    # Company mutations
+    createCompany(input: CreateCompanyInput!): Company!
+    updateCompany(id: ID!, input: UpdateCompanyInput!): Company!
+    deleteCompany(id: ID!): Boolean!
+    
+    # User mutations
+    createUser(input: CreateUserInput!): User!
+    updateUser(id: ID!, input: UpdateUserInput!): User!
+    deleteUser(id: ID!): Boolean!
+    
     # Schedule mutations
-    updateFrontDeskSchedule(positionId: String!, clinicId: String!, employee: EmployeeInput): FrontDeskSchedule!
-    updateDoctorSchedule(dayId: String!, clinicId: String!, doctor: DoctorAssignmentInput): DoctorSchedule!
+    updateFrontDeskSchedule(positionId: String!, clinicId: String!, companyId: String!, employee: EmployeeInput): FrontDeskSchedule!
+    updateDoctorSchedule(dayId: String!, clinicId: String!, companyId: String!, doctor: DoctorAssignmentInput): DoctorSchedule!
     swapFrontDeskAssignments(
+      companyId: String!
       sourcePositionId: String!
       sourceClinicId: String!
       targetPositionId: String!
       targetClinicId: String!
     ): [FrontDeskSchedule!]!
     swapDoctorAssignments(
+      companyId: String!
       sourceDayId: String!
       sourceClinicId: String!
       targetDayId: String!
@@ -472,15 +620,15 @@ const typeDefs = gql`
     deleteTicket(id: ID!): Boolean!
     
     # Document mutations
-    createDocumentEntity(entityId: String!, name: String!): DocumentEntity!
-    updateDocumentEntity(entityId: String!, name: String): DocumentEntity!
-    deleteDocumentEntity(entityId: String!): Boolean!
-    addDocumentGroup(entityId: String!, groupId: String!, groupName: String!): DocumentEntity!
-    updateDocumentGroup(entityId: String!, groupId: String!, groupName: String!): DocumentEntity!
-    deleteDocumentGroup(entityId: String!, groupId: String!): DocumentEntity!
-    addDocument(entityId: String!, groupId: String!, document: DocumentRecordInput!): DocumentEntity!
-    updateDocument(entityId: String!, groupId: String!, documentId: String!, document: DocumentRecordInput!): DocumentEntity!
-    deleteDocument(entityId: String!, groupId: String!, documentId: String!): DocumentEntity!
+    createDocumentEntity(entityId: String!, name: String!, companyId: String!): DocumentEntity!
+    updateDocumentEntity(entityId: String!, name: String, companyId: ID): DocumentEntity!
+    deleteDocumentEntity(entityId: String!, companyId: ID): Boolean!
+    addDocumentGroup(entityId: String!, groupId: String!, groupName: String!, companyId: ID): DocumentEntity!
+    updateDocumentGroup(entityId: String!, groupId: String!, groupName: String!, companyId: ID): DocumentEntity!
+    deleteDocumentGroup(entityId: String!, groupId: String!, companyId: ID): DocumentEntity!
+    addDocument(entityId: String!, groupId: String!, document: DocumentRecordInput!, companyId: ID): DocumentEntity!
+    updateDocument(entityId: String!, groupId: String!, documentId: String!, document: DocumentRecordInput!, companyId: ID): DocumentEntity!
+    deleteDocument(entityId: String!, groupId: String!, documentId: String!, companyId: ID): DocumentEntity!
     
     # Lab Case mutations
     createLabCase(input: LabCaseInput!): LabCase!
@@ -491,6 +639,13 @@ const typeDefs = gql`
     createEmployee(input: EmployeeCreateInput!): Employee!
     updateEmployee(id: ID!, input: EmployeeUpdateInput!): Employee!
     deleteEmployee(id: ID!): Boolean!
+    
+    # PTO mutations
+    createPTO(input: PTOCreateInput!): PTO!
+    updatePTO(id: ID!, input: PTOUpdateInput!): PTO!
+    approvePTO(id: ID!, reviewedBy: String!): PTO!
+    rejectPTO(id: ID!, reviewedBy: String!): PTO!
+    deletePTO(id: ID!): Boolean!
   }
 `;
 

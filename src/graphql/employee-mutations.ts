@@ -5,6 +5,7 @@ export const CREATE_EMPLOYEE = gql`
     createEmployee(input: $input) {
       id
       employeeId
+      companyId
       name
       joined
       dateOfBirth
@@ -30,6 +31,7 @@ export const UPDATE_EMPLOYEE = gql`
     updateEmployee(id: $id, input: $input) {
       id
       employeeId
+      companyId
       name
       joined
       dateOfBirth

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
 
@@ -275,31 +276,15 @@ export default function HRDashboardPage() {
 
       <div className="relative mx-auto w-full max-w-[120rem]">
         <div className="border-b border-slate-800 bg-slate-900/60">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('HR')}</p>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('People operations dashboard')}</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">
-                {t('Welcome back, {name}.', { name: userName || t('team') })}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-400">{t('Select company')}</p>
-              <select
-                id="company-select"
-                value={selectedCompanyId}
-                onChange={(event) => setSelectedCompanyId(event.target.value)}
-                className="mt-2 w-full bg-transparent text-sm font-semibold text-primary-300 focus:outline-none"
-              >
-                {companies.map((option) => (
-                  <option key={option.id} value={option.id} className="bg-slate-900 text-slate-100">
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-slate-500">{company.location}</p>
-            </div>
-          </div>
+          <PageHeader
+            category={t('HR')}
+            title={t('People operations dashboard')}
+            subtitle={t('Welcome back, {name}.', { name: userName || t('team') })}
+            showEntitySelector={true}
+            entityLabel="Company"
+            selectedEntityId={selectedCompanyId}
+            onEntityChange={setSelectedCompanyId}
+          />
 
           <TopNavigation />
         </div>

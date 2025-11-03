@@ -2,6 +2,7 @@ import { gql } from '@apollo/client';
 
 export const GET_EMPLOYEES = gql`
   query GetEmployees(
+    $companyId: ID
     $search: String
     $location: String
     $position: String
@@ -10,6 +11,7 @@ export const GET_EMPLOYEES = gql`
     $offset: Int
   ) {
     employees(
+      companyId: $companyId
       search: $search
       location: $location
       position: $position
@@ -19,6 +21,8 @@ export const GET_EMPLOYEES = gql`
     ) {
       id
       employeeId
+      userId
+      companyId
       name
       joined
       dateOfBirth
@@ -33,6 +37,10 @@ export const GET_EMPLOYEES = gql`
         relationship
         phone
       }
+      ptoAllowance
+      ptoUsed
+      ptoAvailable
+      ptoYear
       createdAt
       updatedAt
     }
@@ -44,6 +52,7 @@ export const GET_EMPLOYEE = gql`
     employee(id: $id) {
       id
       employeeId
+      companyId
       name
       joined
       dateOfBirth
@@ -65,10 +74,11 @@ export const GET_EMPLOYEE = gql`
 `;
 
 export const GET_EMPLOYEE_BY_EMPLOYEE_ID = gql`
-  query GetEmployeeByEmployeeId($employeeId: String!) {
-    employeeByEmployeeId(employeeId: $employeeId) {
+  query GetEmployeeByEmployeeId($employeeId: String!, $companyId: ID) {
+    employeeByEmployeeId(employeeId: $employeeId, companyId: $companyId) {
       id
       employeeId
+      companyId
       name
       joined
       dateOfBirth

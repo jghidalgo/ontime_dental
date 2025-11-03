@@ -13,6 +13,7 @@ export interface ITicket extends Document {
   subject: string;
   requester: string;
   location: string;
+  companyId: string;
   channel: string;
   category: string;
   description: string;
@@ -58,6 +59,11 @@ const TicketSchema = new Schema<ITicket>(
       type: String,
       required: true,
       trim: true
+    },
+    companyId: {
+      type: String,
+      required: true,
+      index: true
     },
     channel: {
       type: String,
@@ -112,7 +118,8 @@ const TicketSchema = new Schema<ITicket>(
 );
 
 // Indexes for common queries
-TicketSchema.index({ status: 1, priority: -1 });
+TicketSchema.index({ companyId: 1 });
+TicketSchema.index({ companyId: 1, status: 1, priority: -1 });
 TicketSchema.index({ createdAt: -1 });
 TicketSchema.index({ location: 1 });
 TicketSchema.index({ category: 1 });

@@ -10,24 +10,29 @@ import Ticket from '@/models/Ticket';
 import DocumentEntity from '@/models/Document';
 import LabCase from '@/models/LabCase';
 import Employee from '@/models/Employee';
+import Company from '@/models/Company';
+import PTO from '@/models/PTO';
 
 export const resolvers = {
   Query: {
     health: () => 'ok',
 
     // Directory Queries
-    directoryEntities: async () => {
+    directoryEntities: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
-      const entities = await DirectoryEntity.find().lean();
+      const filter = companyId ? { companyId } : {};
+      const entities = await DirectoryEntity.find(filter).lean();
       return entities.map((entity: any) => ({
         ...entity,
         id: entity._id.toString()
       }));
     },
 
-    directoryEntity: async (_: unknown, { entityId }: { entityId: string }) => {
+    directoryEntity: async (_: unknown, { entityId, companyId }: { entityId: string; companyId?: string }) => {
       await connectToDatabase();
-      const entity: any = await DirectoryEntity.findOne({ entityId }).lean();
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      const entity: any = await DirectoryEntity.findOne(filter).lean();
       if (!entity) return null;
       return {
         ...entity,
@@ -37,12 +42,15 @@ export const resolvers = {
 
     directoryEntriesByEntity: async (
       _: unknown,
-      { entityId, group }: { entityId: string; group?: string }
+      { entityId, group, companyId }: { entityId: string; group?: string; companyId?: string }
     ) => {
       await connectToDatabase();
-      const filter: { entityId: string; group?: string } = { entityId };
+      const filter: { entityId: string; group?: string; companyId?: string } = { entityId };
       if (group) {
         filter.group = group;
+      }
+      if (companyId) {
+        filter.companyId = companyId;
       }
       const entries = await DirectoryEntry.find(filter).sort({ order: 1 }).lean();
       return entries.map((entry: any) => ({
@@ -51,20 +59,26 @@ export const resolvers = {
       }));
     },
 
-    directoryEntityWithEntries: async (_: unknown, { entityId }: { entityId: string }) => {
+    directoryEntityWithEntries: async (_: unknown, { entityId, companyId }: { entityId: string; companyId?: string }) => {
       await connectToDatabase();
       
-      const entity: any = await DirectoryEntity.findOne({ entityId }).lean();
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      const entity: any = await DirectoryEntity.findOne(filter).lean();
       if (!entity) {
         throw new Error('Entity not found');
       }
 
-      const allEntries: any[] = await DirectoryEntry.find({ entityId }).sort({ order: 1 }).lean();
+      const entryFilter: any = { entityId };
+      if (companyId) entryFilter.companyId = companyId;
+
+      const allEntries: any[] = await DirectoryEntry.find(entryFilter).sort({ order: 1 }).lean();
 
       return {
         id: entity._id.toString(),
         entityId: entity.entityId,
         name: entity.name,
+        companyId: entity.companyId,
         corporate: allEntries
           .filter((e) => e.group === 'corporate')
           .map((e) => ({ ...e, id: e._id.toString() })),
@@ -77,11 +91,13 @@ export const resolvers = {
       };
     },
 
-    allDirectoryData: async () => {
+    allDirectoryData: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
       
-      const entities: any[] = await DirectoryEntity.find().lean();
-      const allEntries: any[] = await DirectoryEntry.find().sort({ order: 1 }).lean();
+      const filter = companyId ? { companyId } : {};
+      const entities: any[] = await DirectoryEntity.find(filter).lean();
+      const entryFilter = companyId ? { companyId } : {};
+      const allEntries: any[] = await DirectoryEntry.find(entryFilter).sort({ order: 1 }).lean();
 
       return entities.map((entity) => {
         const entityEntries = allEntries.filter((e) => e.entityId === entity.entityId);
@@ -90,6 +106,7 @@ export const resolvers = {
           id: entity._id.toString(),
           entityId: entity.entityId,
           name: entity.name,
+          companyId: entity.companyId,
           corporate: entityEntries
             .filter((e) => e.group === 'corporate')
             .map((e) => ({ ...e, id: e._id.toString() })),
@@ -103,10 +120,74 @@ export const resolvers = {
       });
     },
 
-    // Clinic Location Queries
-    clinicLocations: async () => {
+    // Company Queries
+    companies: async () => {
       await connectToDatabase();
-      const locations = await ClinicLocation.find().lean();
+      const companies = await Company.find().sort({ createdAt: -1 }).lean();
+      return companies.map((company: any) => ({
+        ...company,
+        id: company._id.toString(),
+        createdAt: company.createdAt.toISOString(),
+        updatedAt: company.updatedAt.toISOString(),
+      }));
+    },
+
+    company: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const company: any = await Company.findById(id).lean();
+      if (!company) return null;
+      return {
+        ...company,
+        id: company._id.toString(),
+        createdAt: company.createdAt.toISOString(),
+        updatedAt: company.updatedAt.toISOString(),
+      };
+    },
+
+    // User Queries
+    users: async (_: unknown, { companyId }: { companyId?: string }) => {
+      await connectToDatabase();
+      const filter = companyId ? { companyId } : {};
+      const users = await User.find(filter).sort({ createdAt: -1 }).lean();
+      return users.map((user: any) => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId || null,
+        phone: user.phone || null,
+        position: user.position || null,
+        department: user.department || null,
+        isActive: user.isActive ?? true,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      }));
+    },
+
+    user: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const user: any = await User.findById(id).lean();
+      if (!user) return null;
+      return {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId || null,
+        phone: user.phone || null,
+        position: user.position || null,
+        department: user.department || null,
+        isActive: user.isActive ?? true,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      };
+    },
+
+    // Clinic Location Queries
+    clinicLocations: async (_: unknown, { companyId }: { companyId?: string }) => {
+      await connectToDatabase();
+      const filter = companyId ? { companyId } : {};
+      const locations = await ClinicLocation.find(filter).lean();
       return locations.map((location: any) => ({
         ...location,
         id: location._id.toString()
@@ -124,18 +205,20 @@ export const resolvers = {
     },
 
     // Schedule Queries
-    frontDeskSchedules: async () => {
+    frontDeskSchedules: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
-      const schedules = await FrontDeskSchedule.find().lean();
+      const filter = companyId ? { companyId } : {};
+      const schedules = await FrontDeskSchedule.find(filter).lean();
       return schedules.map((schedule: any) => ({
         ...schedule,
         id: schedule._id.toString()
       }));
     },
 
-    doctorSchedules: async () => {
+    doctorSchedules: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
-      const schedules = await DoctorSchedule.find().lean();
+      const filter = companyId ? { companyId } : {};
+      const schedules = await DoctorSchedule.find(filter).lean();
       return schedules.map((schedule: any) => ({
         ...schedule,
         id: schedule._id.toString()
@@ -143,9 +226,10 @@ export const resolvers = {
     },
 
     // Ticket Queries
-    tickets: async () => {
+    tickets: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
-      const tickets = await Ticket.find().sort({ createdAt: -1 }).lean();
+      const filter = companyId ? { companyId } : {};
+      const tickets = await Ticket.find(filter).sort({ createdAt: -1 }).lean();
       return tickets.map((ticket: any) => ({
         ...ticket,
         id: ticket._id.toString()
@@ -163,18 +247,21 @@ export const resolvers = {
     },
 
     // Document Queries
-    documentEntities: async () => {
+    documentEntities: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
-      const entities = await DocumentEntity.find().lean();
+      const filter = companyId ? { companyId } : {};
+      const entities = await DocumentEntity.find(filter).lean();
       return entities.map((entity: any) => ({
         ...entity,
         id: entity._id.toString()
       }));
     },
 
-    documentEntity: async (_: unknown, { entityId }: { entityId: string }) => {
+    documentEntity: async (_: unknown, { entityId, companyId }: { entityId: string; companyId?: string }) => {
       await connectToDatabase();
-      const entity: any = await DocumentEntity.findOne({ entityId }).lean();
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      const entity: any = await DocumentEntity.findOne(filter).lean();
       if (!entity) return null;
       return {
         ...entity,
@@ -183,9 +270,10 @@ export const resolvers = {
     },
 
     // Lab Case Queries
-    labCases: async () => {
+    labCases: async (_: unknown, { companyId }: { companyId?: string }) => {
       await connectToDatabase();
-      const cases = await LabCase.find().sort({ createdAt: -1 }).lean();
+      const filter = companyId ? { companyId } : {};
+      const cases = await LabCase.find(filter).sort({ createdAt: -1 }).lean();
       return cases.map((labCase: any) => ({
         ...labCase,
         id: labCase._id.toString()
@@ -202,9 +290,11 @@ export const resolvers = {
       };
     },
 
-    labCaseByNumber: async (_: unknown, { caseId }: { caseId: string }) => {
+    labCaseByNumber: async (_: unknown, { caseId, companyId }: { caseId: string; companyId?: string }) => {
       await connectToDatabase();
-      const labCase: any = await LabCase.findOne({ caseId }).lean();
+      const filter: any = { caseId };
+      if (companyId) filter.companyId = companyId;
+      const labCase: any = await LabCase.findOne(filter).lean();
       if (!labCase) return null;
       return {
         ...labCase,
@@ -216,6 +306,7 @@ export const resolvers = {
     employees: async (
       _: unknown,
       {
+        companyId,
         search,
         location,
         position,
@@ -223,6 +314,7 @@ export const resolvers = {
         limit = 100,
         offset = 0
       }: {
+        companyId?: string;
         search?: string;
         location?: string;
         position?: string;
@@ -234,6 +326,11 @@ export const resolvers = {
       await connectToDatabase();
       
       const filter: any = {};
+      
+      // Filter by company
+      if (companyId) {
+        filter.companyId = companyId;
+      }
       
       // Text search across name, position, and location
       if (search) {
@@ -284,15 +381,78 @@ export const resolvers = {
       };
     },
 
-    employeeByEmployeeId: async (_: unknown, { employeeId }: { employeeId: string }) => {
+    employeeByEmployeeId: async (_: unknown, { employeeId, companyId }: { employeeId: string; companyId?: string }) => {
       await connectToDatabase();
-      const employee: any = await Employee.findOne({ employeeId }).lean();
+      const filter: any = { employeeId };
+      if (companyId) filter.companyId = companyId;
+      const employee: any = await Employee.findOne(filter).lean();
       if (!employee) return null;
       return {
         ...employee,
         id: employee._id.toString(),
         createdAt: employee.createdAt.toISOString(),
         updatedAt: employee.updatedAt.toISOString()
+      };
+    },
+
+    // PTO Queries
+    ptos: async (_: unknown, { employeeId, companyId, status }: { employeeId?: string; companyId?: string; status?: string }) => {
+      await connectToDatabase();
+      const filter: any = {};
+      if (employeeId) filter.employeeId = employeeId;
+      if (companyId) filter.companyId = companyId;
+      if (status) filter.status = status;
+      
+      const ptos = await PTO.find(filter).sort({ createdAt: -1 }).lean();
+      return ptos.map((pto: any) => ({
+        ...pto,
+        id: pto._id.toString(),
+        createdAt: pto.createdAt.toISOString(),
+        updatedAt: pto.updatedAt.toISOString(),
+        reviewedAt: pto.reviewedAt ? pto.reviewedAt.toISOString() : null
+      }));
+    },
+
+    pto: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const pto: any = await PTO.findById(id).lean();
+      if (!pto) return null;
+      return {
+        ...pto,
+        id: pto._id.toString(),
+        createdAt: pto.createdAt.toISOString(),
+        updatedAt: pto.updatedAt.toISOString(),
+        reviewedAt: pto.reviewedAt ? pto.reviewedAt.toISOString() : null
+      };
+    },
+
+    employeePTOBalance: async (_: unknown, { employeeId }: { employeeId: string }) => {
+      await connectToDatabase();
+      const employee: any = await Employee.findOne({ employeeId }).lean();
+      if (!employee) return null;
+      
+      const currentYear = new Date().getFullYear();
+      
+      // Reset PTO if it's a new year
+      if (employee.ptoYear !== currentYear) {
+        await Employee.findByIdAndUpdate(employee._id, {
+          ptoYear: currentYear,
+          ptoUsed: 0,
+          ptoAvailable: employee.ptoAllowance || 15
+        });
+        
+        return {
+          ...employee,
+          id: employee._id.toString(),
+          ptoYear: currentYear,
+          ptoUsed: 0,
+          ptoAvailable: employee.ptoAllowance || 15
+        };
+      }
+      
+      return {
+        ...employee,
+        id: employee._id.toString()
       };
     },
 
@@ -490,10 +650,10 @@ export const resolvers = {
     // Directory Mutations
     createDirectoryEntity: async (
       _: unknown,
-      { entityId, name }: { entityId: string; name: string }
+      { entityId, name, companyId }: { entityId: string; name: string; companyId: string }
     ) => {
       await connectToDatabase();
-      const entity = await DirectoryEntity.create({ entityId, name });
+      const entity = await DirectoryEntity.create({ entityId, name, companyId });
       return {
         ...entity.toObject(),
         id: entity._id.toString()
@@ -527,7 +687,7 @@ export const resolvers = {
       return !!result;
     },
 
-    reorderDirectoryEntries: async (_: unknown, { entityId, group, entryIds }: { entityId: string; group: string; entryIds: string[] }) => {
+    reorderDirectoryEntries: async (_: unknown, { entityId, group, entryIds, companyId }: { entityId: string; group: string; entryIds: string[]; companyId?: string }) => {
       await connectToDatabase();
       
       // Update the order field for each entry based on its position in the array
@@ -611,15 +771,168 @@ export const resolvers = {
       };
     },
 
+    // Company Mutations
+    createCompany: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      const company = await Company.create({
+        ...input,
+        isActive: true,
+      });
+      return {
+        ...company.toObject(),
+        id: company._id.toString(),
+        createdAt: company.createdAt.toISOString(),
+        updatedAt: company.updatedAt.toISOString(),
+      };
+    },
+
+    updateCompany: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      const company = await Company.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true }
+      );
+      if (!company) {
+        throw new Error('Company not found');
+      }
+      return {
+        ...company.toObject(),
+        id: company._id.toString(),
+        createdAt: company.createdAt.toISOString(),
+        updatedAt: company.updatedAt.toISOString(),
+      };
+    },
+
+    deleteCompany: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const result = await Company.findByIdAndDelete(id);
+      return !!result;
+    },
+
+    // User Mutations
+    createUser: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      // Check if email already exists
+      const existingUser = await User.findOne({ email: input.email });
+      if (existingUser) {
+        throw new Error('Email already in use');
+      }
+      
+      const user = await User.create({
+        ...input,
+        isActive: true,
+      });
+      
+      // Automatically create an employee record for this user
+      const employeeId = `EMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      await Employee.create({
+        employeeId,
+        userId: user._id.toString(),
+        companyId: input.companyId || null,
+        name: input.name,
+        joined: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+        dateOfBirth: '1990-01-01', // Default, should be updated later
+        phone: input.phone || '',
+        position: input.position || input.role || 'Staff',
+        location: 'Main Office', // Default location
+        email: input.email,
+        department: input.department || '',
+        status: 'active',
+      });
+      
+      const userObject = user.toObject();
+      return {
+        id: user._id.toString(),
+        name: userObject.name,
+        email: userObject.email,
+        role: userObject.role,
+        companyId: userObject.companyId || null,
+        phone: userObject.phone || null,
+        position: userObject.position || null,
+        department: userObject.department || null,
+        isActive: userObject.isActive ?? true,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      };
+    },
+
+    updateUser: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      // If email is being updated, check if it's already in use
+      if (input.email) {
+        const existingUser = await User.findOne({ 
+          email: input.email,
+          _id: { $ne: id }
+        });
+        if (existingUser) {
+          throw new Error('Email already in use');
+        }
+      }
+      
+      const user = await User.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true }
+      );
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // Update the corresponding employee record
+      const employeeUpdate: any = {};
+      if (input.name) employeeUpdate.name = input.name;
+      if (input.phone) employeeUpdate.phone = input.phone;
+      if (input.email) employeeUpdate.email = input.email;
+      if (input.position) employeeUpdate.position = input.position;
+      if (input.department) employeeUpdate.department = input.department;
+      if (input.companyId !== undefined) employeeUpdate.companyId = input.companyId;
+      
+      if (Object.keys(employeeUpdate).length > 0) {
+        await Employee.findOneAndUpdate(
+          { userId: id },
+          { $set: employeeUpdate },
+          { new: true }
+        );
+      }
+      
+      const userObject = user.toObject();
+      return {
+        id: user._id.toString(),
+        name: userObject.name,
+        email: userObject.email,
+        role: userObject.role,
+        companyId: userObject.companyId || null,
+        phone: userObject.phone || null,
+        position: userObject.position || null,
+        department: userObject.department || null,
+        isActive: userObject.isActive ?? true,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      };
+    },
+
+    deleteUser: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      // Delete the user
+      const result = await User.findByIdAndDelete(id);
+      // Also delete the corresponding employee record
+      if (result) {
+        await Employee.findOneAndDelete({ userId: id });
+      }
+      return !!result;
+    },
+
     // Schedule Mutations
     updateFrontDeskSchedule: async (
       _: unknown,
-      { positionId, clinicId, employee }: { positionId: string; clinicId: string; employee?: any }
+      { positionId, clinicId, employee, companyId }: { positionId: string; clinicId: string; employee?: any; companyId: string }
     ) => {
       await connectToDatabase();
       const schedule = await FrontDeskSchedule.findOneAndUpdate(
-        { positionId, clinicId },
-        { employee: employee || null },
+        { positionId, clinicId, companyId },
+        { employee: employee || null, companyId },
         { new: true, upsert: true }
       );
       return {
@@ -630,12 +943,12 @@ export const resolvers = {
 
     updateDoctorSchedule: async (
       _: unknown,
-      { dayId, clinicId, doctor }: { dayId: string; clinicId: string; doctor?: any }
+      { dayId, clinicId, doctor, companyId }: { dayId: string; clinicId: string; doctor?: any; companyId: string }
     ) => {
       await connectToDatabase();
       const schedule = await DoctorSchedule.findOneAndUpdate(
-        { dayId, clinicId },
-        { doctor: doctor || null },
+        { dayId, clinicId, companyId },
+        { doctor: doctor || null, companyId },
         { new: true, upsert: true }
       );
       return {
@@ -650,32 +963,34 @@ export const resolvers = {
         sourcePositionId,
         sourceClinicId,
         targetPositionId,
-        targetClinicId
+        targetClinicId,
+        companyId
       }: {
         sourcePositionId: string;
         sourceClinicId: string;
         targetPositionId: string;
         targetClinicId: string;
+        companyId: string;
       }
     ) => {
       await connectToDatabase();
 
-      const source = await FrontDeskSchedule.findOne({ positionId: sourcePositionId, clinicId: sourceClinicId });
-      const target = await FrontDeskSchedule.findOne({ positionId: targetPositionId, clinicId: targetClinicId });
+      const source = await FrontDeskSchedule.findOne({ positionId: sourcePositionId, clinicId: sourceClinicId, companyId });
+      const target = await FrontDeskSchedule.findOne({ positionId: targetPositionId, clinicId: targetClinicId, companyId });
 
       const sourceEmployee = source?.employee || null;
       const targetEmployee = target?.employee || null;
 
       // Swap the assignments
       const updatedSource = await FrontDeskSchedule.findOneAndUpdate(
-        { positionId: sourcePositionId, clinicId: sourceClinicId },
-        { employee: targetEmployee },
+        { positionId: sourcePositionId, clinicId: sourceClinicId, companyId },
+        { employee: targetEmployee, companyId },
         { new: true, upsert: true }
       );
 
       const updatedTarget = await FrontDeskSchedule.findOneAndUpdate(
-        { positionId: targetPositionId, clinicId: targetClinicId },
-        { employee: sourceEmployee },
+        { positionId: targetPositionId, clinicId: targetClinicId, companyId },
+        { employee: sourceEmployee, companyId },
         { new: true, upsert: true }
       );
 
@@ -691,32 +1006,34 @@ export const resolvers = {
         sourceDayId,
         sourceClinicId,
         targetDayId,
-        targetClinicId
+        targetClinicId,
+        companyId
       }: {
         sourceDayId: string;
         sourceClinicId: string;
         targetDayId: string;
         targetClinicId: string;
+        companyId: string;
       }
     ) => {
       await connectToDatabase();
 
-      const source = await DoctorSchedule.findOne({ dayId: sourceDayId, clinicId: sourceClinicId });
-      const target = await DoctorSchedule.findOne({ dayId: targetDayId, clinicId: targetClinicId });
+      const source = await DoctorSchedule.findOne({ dayId: sourceDayId, clinicId: sourceClinicId, companyId });
+      const target = await DoctorSchedule.findOne({ dayId: targetDayId, clinicId: targetClinicId, companyId });
 
       const sourceDoctor = source?.doctor || null;
       const targetDoctor = target?.doctor || null;
 
       // Swap the assignments
       const updatedSource = await DoctorSchedule.findOneAndUpdate(
-        { dayId: sourceDayId, clinicId: sourceClinicId },
-        { doctor: targetDoctor },
+        { dayId: sourceDayId, clinicId: sourceClinicId, companyId },
+        { doctor: targetDoctor, companyId },
         { new: true, upsert: true }
       );
 
       const updatedTarget = await DoctorSchedule.findOneAndUpdate(
-        { dayId: targetDayId, clinicId: targetClinicId },
-        { doctor: sourceDoctor },
+        { dayId: targetDayId, clinicId: targetClinicId, companyId },
+        { doctor: sourceDoctor, companyId },
         { new: true, upsert: true }
       );
 
@@ -780,13 +1097,14 @@ export const resolvers = {
     // Document Mutations
     createDocumentEntity: async (
       _: unknown,
-      { entityId, name }: { entityId: string; name: string }
+      { entityId, name, companyId }: { entityId: string; name: string; companyId: string }
     ) => {
       await connectToDatabase();
       
       const entity: any = await DocumentEntity.create({
         entityId,
         name,
+        companyId,
         groups: []
       });
       
@@ -798,15 +1116,18 @@ export const resolvers = {
 
     updateDocumentEntity: async (
       _: unknown,
-      { entityId, name }: { entityId: string; name?: string }
+      { entityId, name, companyId }: { entityId: string; name?: string; companyId?: string }
     ) => {
       await connectToDatabase();
       
       const updateData: any = {};
       if (name) updateData.name = name;
       
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      
       const entity: any = await DocumentEntity.findOneAndUpdate(
-        { entityId },
+        filter,
         updateData,
         { new: true }
       );
@@ -823,22 +1144,28 @@ export const resolvers = {
 
     deleteDocumentEntity: async (
       _: unknown,
-      { entityId }: { entityId: string }
+      { entityId, companyId }: { entityId: string; companyId?: string }
     ) => {
       await connectToDatabase();
       
-      const result = await DocumentEntity.findOneAndDelete({ entityId });
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      
+      const result = await DocumentEntity.findOneAndDelete(filter);
       return !!result;
     },
 
     addDocumentGroup: async (
       _: unknown,
-      { entityId, groupId, groupName }: { entityId: string; groupId: string; groupName: string }
+      { entityId, groupId, groupName, companyId }: { entityId: string; groupId: string; groupName: string; companyId?: string }
     ) => {
       await connectToDatabase();
       
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      
       const entity: any = await DocumentEntity.findOneAndUpdate(
-        { entityId },
+        filter,
         {
           $push: {
             groups: {
@@ -863,12 +1190,15 @@ export const resolvers = {
 
     updateDocumentGroup: async (
       _: unknown,
-      { entityId, groupId, groupName }: { entityId: string; groupId: string; groupName: string }
+      { entityId, groupId, groupName, companyId }: { entityId: string; groupId: string; groupName: string; companyId?: string }
     ) => {
       await connectToDatabase();
       
+      const filter: any = { entityId, 'groups.id': groupId };
+      if (companyId) filter.companyId = companyId;
+      
       const entity: any = await DocumentEntity.findOneAndUpdate(
-        { entityId, 'groups.id': groupId },
+        filter,
         {
           $set: {
             'groups.$.name': groupName
@@ -889,12 +1219,15 @@ export const resolvers = {
 
     deleteDocumentGroup: async (
       _: unknown,
-      { entityId, groupId }: { entityId: string; groupId: string }
+      { entityId, groupId, companyId }: { entityId: string; groupId: string; companyId?: string }
     ) => {
       await connectToDatabase();
       
+      const filter: any = { entityId };
+      if (companyId) filter.companyId = companyId;
+      
       const entity: any = await DocumentEntity.findOneAndUpdate(
-        { entityId },
+        filter,
         {
           $pull: {
             groups: { id: groupId }
@@ -915,12 +1248,15 @@ export const resolvers = {
 
     addDocument: async (
       _: unknown,
-      { entityId, groupId, document }: { entityId: string; groupId: string; document: any }
+      { entityId, groupId, document, companyId }: { entityId: string; groupId: string; document: any; companyId?: string }
     ) => {
       await connectToDatabase();
       
+      const filter: any = { entityId, 'groups.id': groupId };
+      if (companyId) filter.companyId = companyId;
+      
       const entity: any = await DocumentEntity.findOneAndUpdate(
-        { entityId, 'groups.id': groupId },
+        filter,
         {
           $push: {
             'groups.$.documents': document
@@ -941,12 +1277,15 @@ export const resolvers = {
 
     updateDocument: async (
       _: unknown,
-      { entityId, groupId, documentId, document }: { entityId: string; groupId: string; documentId: string; document: any }
+      { entityId, groupId, documentId, document, companyId }: { entityId: string; groupId: string; documentId: string; document: any; companyId?: string }
     ) => {
       await connectToDatabase();
       
+      const filter: any = { entityId, 'groups.id': groupId };
+      if (companyId) filter.companyId = companyId;
+      
       // Find the entity and update the specific document
-      const entity: any = await DocumentEntity.findOne({ entityId, 'groups.id': groupId });
+      const entity: any = await DocumentEntity.findOne(filter);
       
       if (!entity) {
         throw new Error('Document entity or group not found');
@@ -975,11 +1314,14 @@ export const resolvers = {
 
     deleteDocument: async (
       _: unknown,
-      { entityId, groupId, documentId }: { entityId: string; groupId: string; documentId: string }
+      { entityId, groupId, documentId, companyId }: { entityId: string; groupId: string; documentId: string; companyId?: string }
     ) => {
       await connectToDatabase();
       
-      const entity: any = await DocumentEntity.findOne({ entityId, 'groups.id': groupId });
+      const filter: any = { entityId, 'groups.id': groupId };
+      if (companyId) filter.companyId = companyId;
+      
+      const entity: any = await DocumentEntity.findOne(filter);
       
       if (!entity) {
         throw new Error('Document entity or group not found');
@@ -1096,6 +1438,130 @@ export const resolvers = {
       await connectToDatabase();
       
       const result = await Employee.findByIdAndDelete(id);
+      return !!result;
+    },
+
+    // PTO Mutations
+    createPTO: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      
+      const pto = new PTO({
+        ...input,
+        status: 'pending'
+      });
+      await pto.save();
+      
+      return {
+        ...pto.toObject(),
+        id: pto._id.toString(),
+        createdAt: pto.createdAt.toISOString(),
+        updatedAt: pto.updatedAt.toISOString()
+      };
+    },
+
+    updatePTO: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      const pto: any = await PTO.findByIdAndUpdate(
+        id,
+        { ...input },
+        { new: true }
+      );
+      
+      if (!pto) {
+        throw new Error('PTO not found');
+      }
+      
+      return {
+        ...pto.toObject(),
+        id: pto._id.toString(),
+        createdAt: pto.createdAt.toISOString(),
+        updatedAt: pto.updatedAt.toISOString(),
+        reviewedAt: pto.reviewedAt ? pto.reviewedAt.toISOString() : null
+      };
+    },
+
+    approvePTO: async (_: unknown, { id, reviewedBy }: { id: string; reviewedBy: string }) => {
+      await connectToDatabase();
+      
+      const pto: any = await PTO.findById(id);
+      if (!pto) {
+        throw new Error('PTO not found');
+      }
+      
+      // Update employee PTO balance
+      const employee: any = await Employee.findOne({ employeeId: pto.employeeId });
+      if (employee && pto.leaveType === 'paid') {
+        const newPtoUsed = (employee.ptoUsed || 0) + pto.requestedDays;
+        const newPtoAvailable = (employee.ptoAllowance || 15) - newPtoUsed;
+        
+        await Employee.findByIdAndUpdate(employee._id, {
+          ptoUsed: newPtoUsed,
+          ptoAvailable: newPtoAvailable
+        });
+      }
+      
+      // Update PTO status
+      pto.status = 'approved';
+      pto.reviewedBy = reviewedBy;
+      pto.reviewedAt = new Date();
+      await pto.save();
+      
+      return {
+        ...pto.toObject(),
+        id: pto._id.toString(),
+        reviewedAt: pto.reviewedAt.toISOString()
+      };
+    },
+
+    rejectPTO: async (_: unknown, { id, reviewedBy }: { id: string; reviewedBy: string }) => {
+      await connectToDatabase();
+      
+      const pto: any = await PTO.findByIdAndUpdate(
+        id,
+        { 
+          status: 'rejected',
+          reviewedBy,
+          reviewedAt: new Date()
+        },
+        { new: true }
+      );
+      
+      if (!pto) {
+        throw new Error('PTO not found');
+      }
+      
+      return {
+        ...pto.toObject(),
+        id: pto._id.toString(),
+        reviewedAt: pto.reviewedAt.toISOString()
+      };
+    },
+
+    deletePTO: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      
+      // Find PTO first to check if we need to restore balance
+      const pto: any = await PTO.findById(id);
+      if (!pto) {
+        return false;
+      }
+      
+      // If PTO was approved and paid, restore employee balance
+      if (pto.status === 'approved' && pto.leaveType === 'paid') {
+        const employee: any = await Employee.findOne({ employeeId: pto.employeeId });
+        if (employee) {
+          const newPtoUsed = Math.max(0, (employee.ptoUsed || 0) - pto.requestedDays);
+          const newPtoAvailable = (employee.ptoAllowance || 15) - newPtoUsed;
+          
+          await Employee.findByIdAndUpdate(employee._id, {
+            ptoUsed: newPtoUsed,
+            ptoAvailable: newPtoAvailable
+          });
+        }
+      }
+      
+      const result = await PTO.findByIdAndDelete(id);
       return !!result;
     }
   }

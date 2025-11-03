@@ -19,6 +19,7 @@ export interface IDocumentGroup {
 export interface IDocumentEntity extends Document {
   entityId: string;
   name: string;
+  companyId: string;
   groups: IDocumentGroup[];
 }
 
@@ -89,6 +90,11 @@ const DocumentEntitySchema = new Schema<IDocumentEntity>(
       required: true,
       trim: true
     },
+    companyId: {
+      type: String,
+      required: true,
+      index: true
+    },
     groups: {
       type: [DocumentGroupSchema],
       default: []
@@ -101,6 +107,7 @@ const DocumentEntitySchema = new Schema<IDocumentEntity>(
 
 // Indexes for common queries
 DocumentEntitySchema.index({ entityId: 1 });
+DocumentEntitySchema.index({ companyId: 1 });
 DocumentEntitySchema.index({ name: 1 });
 
 const DocumentEntity: Model<IDocumentEntity> =

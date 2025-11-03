@@ -8,6 +8,7 @@ import { useTranslations } from '@/lib/i18n';
 import { GET_TICKETS } from '@/graphql/ticket-queries';
 import { CREATE_TICKET, UPDATE_TICKET, DELETE_TICKET } from '@/graphql/ticket-mutations';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 
 type TicketStatus = 'new' | 'in_progress' | 'waiting' | 'resolved';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -83,6 +84,7 @@ const defaultFormState: TicketFormState = {
 export default function TicketsPage() {
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
 
   const statusLabels = useMemo<Record<TicketStatus, string>>(
     () => ({
@@ -343,22 +345,17 @@ export default function TicketsPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="border-b border-slate-800 bg-slate-900/60">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary-300">{t('Support Hub')}</p>
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">{t('Tickets')}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-300">
-              {t(
-                'Monitor live requests, prioritize escalations, and deliver quick resolutions across every OnTime Dental clinic.'
-              )}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-right">
-            <p className="text-xs uppercase tracking-wider text-slate-400">{t('Average satisfaction')}</p>
-            <p className="text-3xl font-semibold text-emerald-300">{metrics.satisfaction}%</p>
-            <p className="text-xs text-slate-500">{t('Based on last 30 closed tickets')}</p>
-          </div>
-        </div>
+        <PageHeader
+          category={t('Support Hub')}
+          title={t('Tickets')}
+          subtitle={t(
+            'Monitor live requests, prioritize escalations, and deliver quick resolutions across every location.'
+          )}
+          showEntitySelector={true}
+          entityLabel="Entity"
+          selectedEntityId={selectedEntityId}
+          onEntityChange={(id) => setSelectedEntityId(id)}
+        />
 
         <TopNavigation />
       </div>

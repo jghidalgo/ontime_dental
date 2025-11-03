@@ -1,10 +1,11 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { useTranslations } from '@/lib/i18n';
 import { CREATE_EMPLOYEE } from '@/graphql/employee-mutations';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
+import { GET_COMPANIES } from '@/graphql/company-queries';
 
 type AddEmployeeModalProps = {
   isOpen: boolean;
@@ -27,6 +28,13 @@ type EmployeeFormState = {
   position: string;
   location: string;
   status: string;
+  companyId: string;
+};
+
+type SnackbarState = {
+  show: boolean;
+  message: string;
+  type: 'success' | 'error';
 };
 
 const initialState: EmployeeFormState = {
@@ -44,7 +52,8 @@ const initialState: EmployeeFormState = {
   department: '',
   position: '',
   location: '',
-  status: 'active'
+  status: 'active',
+  companyId: ''
 };
 
 const monthOptions = [
@@ -114,15 +123,28 @@ const statusOptions = [
 export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalProps) {
   const { t } = useTranslations();
   const [formState, setFormState] = useState<EmployeeFormState>(initialState);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
+
+  // Fetch companies for dropdown
+  const { data: companiesData } = useQuery(GET_COMPANIES);
+  const companies = companiesData?.companies || [];
 
   const [createEmployee, { loading, error }] = useMutation(CREATE_EMPLOYEE, {
     refetchQueries: [{ query: GET_EMPLOYEES, variables: { limit: 1000 } }],
     onCompleted: () => {
       setFormState(initialState);
-      onClose();
+      showSnackbar(t('Employee created successfully!'), 'success');
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     },
     onError: (err) => {
       console.error('Error creating employee:', err);
+      showSnackbar(err.message || t('Failed to create employee'), 'error');
     }
   });
 
@@ -131,6 +153,13 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 60 }, (_, index) => String(currentYear - index));
   }, []);
+
+  const showSnackbar = (message: string, type: 'success' | 'error') => {
+    setSnackbar({ show: true, message, type });
+    setTimeout(() => {
+      setSnackbar({ show: false, message: '', type: 'success' });
+    }, 4000);
+  };
 
   const handleChange = (field: keyof EmployeeFormState) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormState((previous) => ({
@@ -151,25 +180,36 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
     const dateOfBirth = formatDateString(formState.birthMonth, formState.birthDay, formState.birthYear);
     const joined = formatDateString(formState.startMonth, formState.startDay, formState.startYear);
 
+    // Validate required fields
+    if (!formState.companyId) {
+      showSnackbar(t('Please select a company'), 'error');
+      return;
+    }
+
+    const input = {
+      employeeId: formState.employeeId,
+      name: `${formState.firstName} ${formState.lastName}`,
+      email: formState.email || undefined,
+      phone: formState.phone,
+      dateOfBirth,
+      joined,
+      department: formState.department || undefined,
+      position: formState.position,
+      location: formState.location,
+      status: formState.status,
+      companyId: formState.companyId
+    };
+
+    console.log('Creating employee with input:', input);
+
     try {
-      await createEmployee({
-        variables: {
-          input: {
-            employeeId: formState.employeeId,
-            name: `${formState.firstName} ${formState.lastName}`,
-            email: formState.email,
-            phone: formState.phone,
-            dateOfBirth,
-            joined,
-            department: formState.department,
-            position: formState.position,
-            location: formState.location,
-            status: formState.status
-          }
-        }
+      const result = await createEmployee({
+        variables: { input }
       });
-    } catch (err) {
+      console.log('Employee created successfully:', result);
+    } catch (err: any) {
       console.error('Failed to create employee:', err);
+      // Error is handled by onError callback in mutation hook
     }
   };
 
@@ -311,6 +351,28 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
                 {locationOptions.map((location) => (
                   <option key={location} value={location}>
                     {location}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="company">
+                {t('Company')} <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="company"
+                required
+                value={formState.companyId}
+                onChange={handleChange('companyId')}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-500 dark:focus:ring-primary-500/20"
+              >
+                <option value="" disabled>
+                  {t('Select Company')}
+                </option>
+                {companies.map((company: any) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
                   </option>
                 ))}
               </select>
@@ -520,6 +582,30 @@ export default function AddEmployeeModal({ isOpen, onClose }: AddEmployeeModalPr
           </div>
         </form>
       </div>
+
+      {/* Snackbar Notification */}
+      {snackbar.show && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 animate-slide-in-up rounded-xl border px-6 py-4 shadow-2xl transition-all ${
+            snackbar.type === 'success'
+              ? 'border-green-500/50 bg-green-950/90 text-green-100'
+              : 'border-red-500/50 bg-red-950/90 text-red-100'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {snackbar.type === 'success' ? (
+              <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+            <p className="text-sm font-semibold">{snackbar.message}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
