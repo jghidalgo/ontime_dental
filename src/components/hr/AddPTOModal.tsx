@@ -2,10 +2,26 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from '@/lib/i18n';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery, gql } from '@apollo/client';
 import { CREATE_PTO } from '@/graphql/pto-mutations';
 import { GET_PTOS } from '@/graphql/pto-queries';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
+
+const GET_COMPANY_PTO_POLICIES = gql`
+  query GetCompanyPTOPolicies($companyId: ID!) {
+    companyPTOPolicies(companyId: $companyId) {
+      id
+      companyId
+      leaveTypes {
+        id
+        name
+        hoursAllowed
+        isPaid
+        isActive
+      }
+    }
+  }
+`;
 
 type AddPTOModalProps = {
   isOpen: boolean;
@@ -21,26 +37,48 @@ type AddPTOModalProps = {
   } | null;
 };
 
+type LeaveType = {
+  id: string;
+  name: string;
+  hoursAllowed: number;
+  isPaid: boolean;
+  isActive: boolean;
+};
+
 type PTOFormData = {
-  leaveType: 'non-paid' | 'paid';
+  leaveTypeId: string | null;
   startDate: string;
   endDate: string;
   requestedDays: string;
   comment: string;
   agreed: boolean;
+  signature: string;
 };
 
 export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalProps) {
   const { t } = useTranslations();
   const [formData, setFormData] = useState<PTOFormData>({
-    leaveType: 'non-paid',
+    leaveTypeId: null,
     startDate: '',
     endDate: '',
     requestedDays: '',
     comment: '',
     agreed: false,
+    signature: '',
   });
   const [snackbar, setSnackbar] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Fetch company PTO policies to get leave types
+  const { data: ptoData, loading: loadingPolicies } = useQuery(GET_COMPANY_PTO_POLICIES, {
+    variables: { companyId: employee?.companyId },
+    skip: !employee?.companyId,
+  });
+
+  const leaveTypes: LeaveType[] = ptoData?.companyPTOPolicies?.leaveTypes?.filter((lt: LeaveType) => lt.isActive) || [];
+  const selectedLeaveType = leaveTypes.find(lt => lt.id === formData.leaveTypeId);
+
+  // Calculate available hours based on selected leave type
+  const availableHours = selectedLeaveType?.hoursAllowed || 0;
 
   const [createPTO, { loading }] = useMutation(CREATE_PTO, {
     refetchQueries: [
@@ -63,8 +101,16 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
 
   if (!isOpen || !employee) return null;
 
-  const handleInputChange = (field: keyof PTOFormData, value: string | boolean) => {
+  const handleInputChange = (field: keyof PTOFormData, value: string | boolean | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleLeaveTypeToggle = (leaveTypeId: string) => {
+    // Toggle the leave type - if clicking the same one, deselect it
+    setFormData((prev) => ({
+      ...prev,
+      leaveTypeId: prev.leaveTypeId === leaveTypeId ? null : leaveTypeId
+    }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -76,6 +122,18 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
       return;
     }
 
+    if (!formData.signature.trim()) {
+      setSnackbar({ message: t('Please provide your signature'), type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+      return;
+    }
+
+    if (!formData.leaveTypeId) {
+      setSnackbar({ message: t('Please select a leave type'), type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+      return;
+    }
+
     if (!formData.startDate || !formData.endDate || !formData.requestedDays) {
       setSnackbar({ message: t('Please fill in all required fields'), type: 'error' });
       setTimeout(() => setSnackbar(null), 4000);
@@ -83,9 +141,20 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
     }
 
     const requestedDays = parseInt(formData.requestedDays, 10);
+    const requestedHours = requestedDays * 8;
     
-    // Check if enough PTO available for paid leave
-    if (formData.leaveType === 'paid' && employee.ptoAvailable !== undefined && requestedDays > employee.ptoAvailable) {
+    // Check if enough hours available for this leave type
+    if (selectedLeaveType && requestedHours > selectedLeaveType.hoursAllowed) {
+      setSnackbar({ 
+        message: t(`Not enough hours available. This leave type allows ${selectedLeaveType.hoursAllowed} hours (${selectedLeaveType.hoursAllowed / 8} days).`), 
+        type: 'error' 
+      });
+      setTimeout(() => setSnackbar(null), 4000);
+      return;
+    }
+
+    // Check PTO balance for paid leave
+    if (selectedLeaveType?.isPaid && employee.ptoAvailable !== undefined && requestedDays > employee.ptoAvailable) {
       setSnackbar({ 
         message: t(`Not enough PTO available. You have ${employee.ptoAvailable} days remaining.`), 
         type: 'error' 
@@ -93,14 +162,14 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
       setTimeout(() => setSnackbar(null), 4000);
       return;
     }
-
+    
     try {
       await createPTO({
         variables: {
           input: {
             employeeId: employee.employeeId,
             companyId: employee.companyId,
-            leaveType: formData.leaveType === 'paid' ? 'paid' : 'unpaid',
+            leaveType: selectedLeaveType?.isPaid ? 'paid' : 'unpaid',
             startDate: formData.startDate,
             endDate: formData.endDate,
             requestedDays,
@@ -116,12 +185,13 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
 
   const handleCancel = () => {
     setFormData({
-      leaveType: 'non-paid',
+      leaveTypeId: null,
       startDate: '',
       endDate: '',
       requestedDays: '',
       comment: '',
       agreed: false,
+      signature: '',
     });
     onClose();
   };
@@ -180,26 +250,63 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
 
             {/* Leave Type */}
             <div className="mb-6">
-              <label className="mb-2 block text-sm font-semibold text-slate-200">
+              <label className="mb-3 block text-sm font-semibold text-slate-200">
                 {t('Leave Type')}
               </label>
-              <div className="flex items-center gap-3">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <div className="relative">
-                    <input
-                      type="radio"
-                      name="leaveType"
-                      value="non-paid"
-                      checked={formData.leaveType === 'non-paid'}
-                      onChange={(e) => handleInputChange('leaveType', e.target.value as 'non-paid' | 'paid')}
-                      className="peer sr-only"
-                    />
-                    <div className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-blue-500"></div>
-                    <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5"></div>
+              
+              {loadingPolicies ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-700 border-t-primary-500"></div>
+                </div>
+              ) : leaveTypes.length === 0 ? (
+                <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-center">
+                  <p className="text-sm text-slate-400">
+                    {t('No leave types configured for this company.')}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {t('Please contact HR to set up leave types.')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {leaveTypes.map((leaveType) => (
+                    <label key={leaveType.id} className="flex cursor-pointer items-center gap-2">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          checked={formData.leaveTypeId === leaveType.id}
+                          onChange={() => handleLeaveTypeToggle(leaveType.id)}
+                          className="peer sr-only"
+                        />
+                        <div className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-blue-500"></div>
+                        <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5"></div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-slate-300">{leaveType.name}</span>
+                        <span className="text-xs text-slate-500">
+                          {leaveType.hoursAllowed} {t('hrs')} ({leaveType.hoursAllowed / 8} {t('days')})
+                          {leaveType.isPaid && <span className="ml-1 text-green-400">• {t('Paid')}</span>}
+                          {!leaveType.isPaid && <span className="ml-1 text-orange-400">• {t('Unpaid')}</span>}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Show available hours when a leave type is selected */}
+              {selectedLeaveType && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-2 border border-slate-700">
+                  <div className="flex h-6 w-6 items-center justify-center rounded bg-yellow-500">
+                    <svg className="h-4 w-4 text-slate-900" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                  <span className="text-sm font-medium text-slate-200">{t('Non-Paid Time Off')}</span>
-                </label>
-              </div>
+                  <span className="text-sm font-semibold text-slate-200">
+                    {t('Available')}: <span className="text-yellow-400">{availableHours}</span> {t('hours')} ({availableHours / 8} {t('days')})
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Date Fields */}
@@ -275,6 +382,29 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
                 </div>
                 <span className="text-sm font-medium text-slate-200">{t('I Agree')}</span>
               </label>
+
+              {/* Signature Box - Shows when agreed */}
+              {formData.agreed && (
+                <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">
+                    {t('Signature')} <span className="text-red-400">*</span>
+                  </label>
+                  <div className="rounded-lg border-2 border-dashed border-slate-600 bg-slate-800/50 p-4">
+                    <input
+                      type="text"
+                      required
+                      value={formData.signature}
+                      onChange={(e) => handleInputChange('signature', e.target.value)}
+                      placeholder={t('Type your full name to sign')}
+                      className="w-full bg-transparent font-serif text-2xl italic text-white placeholder-slate-500 focus:outline-none"
+                      style={{ fontFamily: 'cursive' }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">
+                    {t('By typing your name above, you are electronically signing this agreement.')}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -290,7 +420,7 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
             </button>
             <button
               type="submit"
-              disabled={!formData.agreed || loading}
+              disabled={!formData.agreed || !formData.signature.trim() || loading}
               className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? t('Sending...') : t('Send PTO')}

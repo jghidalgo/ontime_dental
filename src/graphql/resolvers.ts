@@ -12,6 +12,7 @@ import LabCase from '@/models/LabCase';
 import Employee from '@/models/Employee';
 import Company from '@/models/Company';
 import PTO from '@/models/PTO';
+import CompanyPTOPolicy from '@/models/CompanyPTOPolicy';
 
 export const resolvers = {
   Query: {
@@ -141,6 +142,34 @@ export const resolvers = {
         id: company._id.toString(),
         createdAt: company.createdAt.toISOString(),
         updatedAt: company.updatedAt.toISOString(),
+      };
+    },
+
+    // Company PTO Policy Queries
+    companyPTOPolicies: async (_: unknown, { companyId }: { companyId: string }) => {
+      await connectToDatabase();
+      console.log('Fetching PTO policies for company:', companyId);
+      
+      let policy: any = await CompanyPTOPolicy.findOne({ companyId }).lean();
+      
+      // If no policy exists, create one with default leave types
+      if (!policy) {
+        console.log('No policy found, creating new one for company:', companyId);
+        policy = await CompanyPTOPolicy.create({
+          companyId,
+          leaveTypes: [],
+        });
+        // Convert to plain object
+        policy = policy.toObject();
+      }
+      
+      console.log('Returning policy:', policy);
+      
+      return {
+        ...policy,
+        id: policy._id.toString(),
+        createdAt: policy.createdAt?.toISOString(),
+        updatedAt: policy.updatedAt?.toISOString(),
       };
     },
 
@@ -1563,6 +1592,125 @@ export const resolvers = {
       
       const result = await PTO.findByIdAndDelete(id);
       return !!result;
+    },
+
+    // Company PTO Policy Mutations
+    createLeaveType: async (_: unknown, { companyId, input }: { companyId: string; input: any }) => {
+      try {
+        await connectToDatabase();
+        
+        console.log('Creating leave type for company:', companyId, 'input:', input);
+        
+        // Find or create company PTO policy
+        let policy: any = await CompanyPTOPolicy.findOne({ companyId });
+        
+        if (!policy) {
+          console.log('No policy found, creating new one');
+          policy = await CompanyPTOPolicy.create({
+            companyId,
+            leaveTypes: [],
+          });
+          console.log('Created policy:', policy);
+        }
+        
+        // Generate unique ID for leave type
+        const leaveTypeId = `lt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Add new leave type
+        const newLeaveType = {
+          id: leaveTypeId,
+          name: input.name,
+          hoursAllowed: input.hoursAllowed,
+          isPaid: input.isPaid,
+          isActive: input.isActive,
+        };
+        
+        console.log('Adding leave type:', newLeaveType);
+        
+        const updatedPolicy: any = await CompanyPTOPolicy.findByIdAndUpdate(
+          policy._id,
+          { $push: { leaveTypes: newLeaveType } },
+          { new: true }
+        ).lean();
+        
+        console.log('Updated policy:', updatedPolicy);
+        
+        if (!updatedPolicy) {
+          throw new Error('Failed to update policy');
+        }
+        
+        return {
+          ...updatedPolicy,
+          id: updatedPolicy._id.toString(),
+          createdAt: updatedPolicy.createdAt?.toISOString(),
+          updatedAt: updatedPolicy.updatedAt?.toISOString(),
+        };
+      } catch (error) {
+        console.error('Error in createLeaveType resolver:', error);
+        throw error;
+      }
+    },
+
+    updateLeaveType: async (_: unknown, { companyId, leaveTypeId, input }: { companyId: string; leaveTypeId: string; input: any }) => {
+      await connectToDatabase();
+      
+      const policy: any = await CompanyPTOPolicy.findOne({ companyId });
+      
+      if (!policy) {
+        throw new Error('Company PTO policy not found');
+      }
+      
+      // Find and update the leave type
+      const leaveTypeIndex = policy.leaveTypes.findIndex((lt: any) => lt.id === leaveTypeId);
+      
+      if (leaveTypeIndex === -1) {
+        throw new Error('Leave type not found');
+      }
+      
+      // Update the leave type
+      policy.leaveTypes[leaveTypeIndex] = {
+        id: leaveTypeId,
+        name: input.name,
+        hoursAllowed: input.hoursAllowed,
+        isPaid: input.isPaid,
+        isActive: input.isActive,
+      };
+      
+      await policy.save();
+      
+      const updatedPolicy: any = await CompanyPTOPolicy.findById(policy._id).lean();
+      
+      if (!updatedPolicy) {
+        throw new Error('Failed to retrieve updated policy');
+      }
+      
+      return {
+        ...updatedPolicy,
+        id: updatedPolicy._id.toString(),
+        createdAt: updatedPolicy.createdAt?.toISOString(),
+        updatedAt: updatedPolicy.updatedAt?.toISOString(),
+      };
+    },
+
+    deleteLeaveType: async (_: unknown, { companyId, leaveTypeId }: { companyId: string; leaveTypeId: string }) => {
+      await connectToDatabase();
+      
+      const policy: any = await CompanyPTOPolicy.findOneAndUpdate(
+        { companyId },
+        { $pull: { leaveTypes: { id: leaveTypeId } } },
+        { new: true }
+      ).lean();
+      
+      if (!policy) {
+        throw new Error('Company PTO policy not found');
+      }
+      
+      return {
+        ...policy,
+        id: policy._id.toString(),
+        createdAt: policy.createdAt?.toISOString(),
+        updatedAt: policy.updatedAt?.toISOString(),
+      };
     }
   }
 };

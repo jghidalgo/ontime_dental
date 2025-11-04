@@ -6,6 +6,8 @@ import { useMutation, useQuery, gql } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import UsersTab from '@/components/UsersTab';
+import ClinicsTab from '@/components/ClinicsTab';
+import CompanySettingsModal from '@/components/CompanySettingsModal';
 import { useTranslations } from '@/lib/i18n';
 
 // GraphQL Queries and Mutations
@@ -84,9 +86,11 @@ type CompanyFormData = {
 export default function SettingsPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'system'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'system'>('companies');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsCompany, setSettingsCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<CompanyFormData>({
     name: '',
     shortName: '',
@@ -179,6 +183,16 @@ export default function SettingsPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleOpenSettings = (company: Company) => {
+    setSettingsCompany(company);
+    setShowSettingsModal(true);
+  };
+
+  const handleCloseSettings = () => {
+    setShowSettingsModal(false);
+    setSettingsCompany(null);
+  };
+
   return (
     <main className="min-h-screen bg-slate-950">
       <div className="border-b border-slate-800 bg-slate-900/60">
@@ -212,6 +226,16 @@ export default function SettingsPage() {
             }`}
           >
             {t('Users')}
+          </button>
+          <button
+            onClick={() => setActiveTab('clinics')}
+            className={`px-6 py-3 text-sm font-medium transition ${
+              activeTab === 'clinics'
+                ? 'border-b-2 border-primary-500 text-primary-400'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t('Clinics')}
           </button>
           <button
             onClick={() => setActiveTab('system')}
@@ -326,14 +350,27 @@ export default function SettingsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => handleOpenEdit(company)}
-                            className="text-primary-400 transition hover:text-primary-300"
-                          >
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenEdit(company)}
+                              className="text-primary-400 transition hover:text-primary-300"
+                              title={t('Edit Company')}
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleOpenSettings(company)}
+                              className="text-slate-400 transition hover:text-slate-300"
+                              title={t('Company Settings')}
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -347,6 +384,9 @@ export default function SettingsPage() {
         {/* Users Tab - Placeholder */}
         {/* Users Tab */}
         {activeTab === 'users' && <UsersTab />}
+
+        {/* Clinics Tab */}
+        {activeTab === 'clinics' && <ClinicsTab />}
 
         {/* System Tab - Placeholder */}
         {activeTab === 'system' && (
@@ -512,6 +552,14 @@ export default function SettingsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Company Settings Modal */}
+      {showSettingsModal && settingsCompany && (
+        <CompanySettingsModal
+          company={settingsCompany}
+          onClose={handleCloseSettings}
+        />
       )}
     </main>
   );

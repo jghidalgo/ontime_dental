@@ -495,6 +495,29 @@ const typeDefs = gql`
     isActive: Boolean
   }
 
+  type LeaveType {
+    id: ID!
+    name: String!
+    hoursAllowed: Float!
+    isPaid: Boolean!
+    isActive: Boolean!
+  }
+
+  type CompanyPTOPolicy {
+    id: ID!
+    companyId: ID!
+    leaveTypes: [LeaveType!]!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input LeaveTypeInput {
+    name: String!
+    hoursAllowed: Float!
+    isPaid: Boolean!
+    isActive: Boolean!
+  }
+
   type Query {
     health: String!
     
@@ -508,6 +531,9 @@ const typeDefs = gql`
     # Company queries
     companies: [Company!]!
     company(id: ID!): Company
+    
+    # Company PTO Policy queries
+    companyPTOPolicies(companyId: ID!): CompanyPTOPolicy
     
     # User queries
     users(companyId: ID): [User!]!
@@ -646,6 +672,11 @@ const typeDefs = gql`
     approvePTO(id: ID!, reviewedBy: String!): PTO!
     rejectPTO(id: ID!, reviewedBy: String!): PTO!
     deletePTO(id: ID!): Boolean!
+    
+    # Company PTO Policy mutations
+    createLeaveType(companyId: ID!, input: LeaveTypeInput!): CompanyPTOPolicy!
+    updateLeaveType(companyId: ID!, leaveTypeId: ID!, input: LeaveTypeInput!): CompanyPTOPolicy!
+    deleteLeaveType(companyId: ID!, leaveTypeId: ID!): CompanyPTOPolicy!
   }
 `;
 
