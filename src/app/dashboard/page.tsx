@@ -21,7 +21,6 @@ export default function DashboardPage() {
   const metrics = useMemo(() => data?.dashboardData?.metrics || [], [data]);
   const upcomingAppointments = useMemo(() => data?.dashboardData?.upcomingAppointments || [], [data]);
   const revenueTrend = useMemo(() => data?.dashboardData?.revenueTrend || [], [data]);
-  const teamActivity = useMemo(() => data?.dashboardData?.teamActivity || [], [data]);
   const announcements = useMemo(() => data?.dashboardData?.announcements || [], [data]);
 
   useEffect(() => {
@@ -51,7 +50,7 @@ export default function DashboardPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[120rem]">
+      <div className="relative w-full">
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
             category={t('Dashboard')}
@@ -65,120 +64,99 @@ export default function DashboardPage() {
           <TopNavigation />
         </div>
 
-        <main className="overflow-y-auto px-6 py-10 sm:px-10">
+        <main className="mx-auto max-w-7xl px-6 py-10">
             {data ? (
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="space-y-6">
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {metrics.map((metric: any) => (
-                <div
-                  key={metric.label}
-                  className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
-                >
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 truncate">{t(metric.label)}</p>
-                    <p className="text-3xl font-semibold text-slate-50 truncate">{metric.value}</p>
-                    <span
-                      className={`text-[10px] font-semibold uppercase tracking-wider ${getTrendColor(metric.trend)} truncate`}
-                    >
-                      {t(metric.delta)}
-                    </span>
+        <div className="space-y-6">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((metric: any) => (
+              <div
+                key={metric.label}
+                className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
+              >
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400 truncate">{t(metric.label)}</p>
+                  <p className="text-3xl font-semibold text-slate-50 truncate">{metric.value}</p>
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wider ${getTrendColor(metric.trend)} truncate`}
+                  >
+                    {t(metric.delta)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Performance')}</p>
+                  <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Monthly Production')}</h2>
+                  <p className="mt-1 text-sm text-slate-400 truncate">{t('Revenue trend across the last six months')}</p>
+                </div>
+                <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200 whitespace-nowrap">
+                  +9.5%
+                </div>
+              </div>
+              <div className="mt-8 flex items-end gap-4 overflow-x-auto pb-2">
+                {revenueTrend.map((point: any) => (
+                  <div key={point.month} className="flex w-full min-w-[40px] flex-col items-center gap-3">
+                    <div
+                      className="w-full rounded-2xl bg-gradient-to-t from-primary-500/10 via-primary-400/50 to-primary-300/80 shadow-inner shadow-primary-900/40"
+                      style={{ height: `${(point.value / revenueMax) * 160 + 24}px` }}
+                    />
+                    <p className="text-xs font-medium text-slate-400 whitespace-nowrap">{t(point.month)}</p>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Today')}</p>
+                  <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Upcoming Appointments')}</h2>
+                  <p className="mt-1 text-sm text-slate-400 truncate">{t('Confirm readiness and chair availability')}</p>
+                </div>
+                <button className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white whitespace-nowrap">
+                  {t('View schedule')}
+                </button>
+              </div>
+              <div className="mt-8 space-y-4">
+                {upcomingAppointments.map((appointment: any, index: number) => (
+                  <div
+                    key={`${appointment.time}-${appointment.patient}-${index}`}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-primary-400/30 hover:bg-white/[0.06]"
+                  >
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-100 truncate">{appointment.patient}</p>
+                      <p className="text-xs text-slate-400 truncate">{t(appointment.treatment)}</p>
+                    </div>
+                    <div className="text-right text-xs text-slate-400 flex-shrink-0">
+                      <p className="font-semibold text-slate-100 whitespace-nowrap">{appointment.time}</p>
+                      <p className="truncate max-w-[120px]">{appointment.practitioner}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-primary-500/10 via-slate-900/70 to-slate-950 p-8 shadow-2xl shadow-primary-900/40 backdrop-blur-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80 truncate">{t('Announcements')}</p>
+            <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t("What's happening")}</h2>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {announcements.map((item: any, index: number) => (
+                <div key={`${item.title}-${index}`} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4 overflow-hidden">
+                  <span className="inline-flex items-center rounded-full bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-200 whitespace-nowrap">
+                    {t(item.badge)}
+                  </span>
+                  <p className="text-sm font-semibold text-slate-100 break-words">{t(item.title)}</p>
+                  <p className="text-xs text-slate-400 break-words">{t(item.description)}</p>
                 </div>
               ))}
             </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Performance')}</p>
-                    <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Monthly Production')}</h2>
-                    <p className="mt-1 text-sm text-slate-400 truncate">{t('Revenue trend across the last six months')}</p>
-                  </div>
-                  <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200 whitespace-nowrap">
-                    +9.5%
-                  </div>
-                </div>
-                <div className="mt-8 flex items-end gap-4 overflow-x-auto pb-2">
-                  {revenueTrend.map((point: any) => (
-                    <div key={point.month} className="flex w-full min-w-[40px] flex-col items-center gap-3">
-                      <div
-                        className="w-full rounded-2xl bg-gradient-to-t from-primary-500/10 via-primary-400/50 to-primary-300/80 shadow-inner shadow-primary-900/40"
-                        style={{ height: `${(point.value / revenueMax) * 160 + 24}px` }}
-                      />
-                      <p className="text-xs font-medium text-slate-400 whitespace-nowrap">{t(point.month)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Today')}</p>
-                    <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Upcoming Appointments')}</h2>
-                    <p className="mt-1 text-sm text-slate-400 truncate">{t('Confirm readiness and chair availability')}</p>
-                  </div>
-                  <button className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white whitespace-nowrap">
-                    {t('View schedule')}
-                  </button>
-                </div>
-                <div className="mt-8 space-y-4">
-                  {upcomingAppointments.map((appointment: any, index: number) => (
-                    <div
-                      key={`${appointment.time}-${appointment.patient}-${index}`}
-                      className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-primary-400/30 hover:bg-white/[0.06]"
-                    >
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-100 truncate">{appointment.patient}</p>
-                        <p className="text-xs text-slate-400 truncate">{t(appointment.treatment)}</p>
-                      </div>
-                      <div className="text-right text-xs text-slate-400 flex-shrink-0">
-                        <p className="font-semibold text-slate-100 whitespace-nowrap">{appointment.time}</p>
-                        <p className="truncate max-w-[120px]">{appointment.practitioner}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80 truncate">{t('Team pulse')}</p>
-              <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Activity Feed')}</h2>
-              <p className="mt-1 text-sm text-slate-400 truncate">{t('Real-time updates across your team')}</p>
-              <div className="mt-6 space-y-4">
-                {teamActivity.map((activity: any) => (
-                  <div key={activity.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                    <p className="text-sm font-semibold text-slate-100 break-words">{t(activity.title)}</p>
-                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-400">
-                      <span className="truncate">{activity.owner}</span>
-                      <span className="flex-shrink-0 whitespace-nowrap">{t(activity.timestamp)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-primary-500/10 via-slate-900/70 to-slate-950 p-8 shadow-2xl shadow-primary-900/40 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80 truncate">{t('Announcements')}</p>
-              <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t("What's happening")}</h2>
-              <div className="mt-6 space-y-5">
-                {announcements.map((item: any, index: number) => (
-                  <div key={`${item.title}-${index}`} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4 overflow-hidden">
-                    <span className="inline-flex items-center rounded-full bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-200 whitespace-nowrap">
-                      {t(item.badge)}
-                    </span>
-                    <p className="text-sm font-semibold text-slate-100 break-words">{t(item.title)}</p>
-                    <p className="text-xs text-slate-400 break-words">{t(item.description)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
+          </div>
         </div>
             ) : (
               <div className="flex items-center justify-center py-20">

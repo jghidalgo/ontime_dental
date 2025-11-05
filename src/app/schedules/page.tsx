@@ -399,7 +399,7 @@ export default function SchedulesPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[120rem]">
+      <div className="relative w-full">
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
             category="Operations"
@@ -414,7 +414,7 @@ export default function SchedulesPage() {
           <TopNavigation />
         </div>
 
-        <main className="overflow-y-auto px-6 py-10 sm:px-10">
+        <main className="mx-auto max-w-7xl px-6 py-10">
 
           <section className="mt-8 space-y-12">
             <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">
@@ -522,15 +522,32 @@ export default function SchedulesPage() {
                                             })
                                           }
                                           onDragEnd={handleDragEnd}
-                                          className="rounded-xl bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary-100 ring-1 ring-primary-500/40"
+                                          aria-label="Drag to reassign"
+                                          className="flex h-8 w-8 cursor-grab items-center justify-center rounded-xl bg-primary-500/15 text-primary-200 ring-1 ring-primary-500/40 transition hover:bg-primary-500/25 active:cursor-grabbing"
+                                          title="Drag to reassign"
                                         >
-                                          Drag
+                                          <span className="sr-only">Drag to reassign</span>
+                                          <svg
+                                            aria-hidden="true"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-4 w-4"
+                                          >
+                                            <circle cx="7" cy="5" r="1.5" />
+                                            <circle cx="13" cy="5" r="1.5" />
+                                            <circle cx="7" cy="10" r="1.5" />
+                                            <circle cx="13" cy="10" r="1.5" />
+                                            <circle cx="7" cy="15" r="1.5" />
+                                            <circle cx="13" cy="15" r="1.5" />
+                                          </svg>
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => handleDeleteFrontDeskCard(position.id, clinic.id)}
                                           aria-label="Delete assignment"
-                                          className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/40 transition hover:bg-rose-500/30"
+                                          className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f69907]/15 text-[#f69907] ring-1 ring-[#f69907]/40 transition hover:bg-[#f69907]/30"
+                                          title="Delete assignment"
                                         >
                                           <span className="sr-only">Delete assignment</span>
                                           <svg
@@ -538,12 +555,12 @@ export default function SchedulesPage() {
                                             viewBox="0 0 20 20"
                                             fill="none"
                                             xmlns="http://www.w3.org/2000/svg"
-                                            className="h-3.5 w-3.5"
+                                            className="h-4 w-4"
                                           >
                                             <path
-                                              d="M5 5L15 15M15 5L5 15"
+                                              d="M3 5h14M8 5V3h4v2m-5 0v9m4-9v9m-7-9v11a1 1 0 001 1h8a1 1 0 001-1V5"
                                               stroke="currentColor"
-                                              strokeWidth="1.75"
+                                              strokeWidth="1.5"
                                               strokeLinecap="round"
                                               strokeLinejoin="round"
                                             />
@@ -675,15 +692,32 @@ export default function SchedulesPage() {
                                               })
                                             }
                                             onDragEnd={handleDragEnd}
-                                            className="rounded-xl bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-100 ring-1 ring-emerald-500/40"
+                                            aria-label="Drag to reassign"
+                                            className="flex h-8 w-8 cursor-grab items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/40 transition hover:bg-emerald-500/25 active:cursor-grabbing"
+                                            title="Drag to reassign"
                                           >
-                                            Drag
+                                            <span className="sr-only">Drag to reassign</span>
+                                            <svg
+                                              aria-hidden="true"
+                                              viewBox="0 0 20 20"
+                                              fill="currentColor"
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              className="h-4 w-4"
+                                            >
+                                              <circle cx="7" cy="5" r="1.5" />
+                                              <circle cx="13" cy="5" r="1.5" />
+                                              <circle cx="7" cy="10" r="1.5" />
+                                              <circle cx="13" cy="10" r="1.5" />
+                                              <circle cx="7" cy="15" r="1.5" />
+                                              <circle cx="13" cy="15" r="1.5" />
+                                            </svg>
                                           </button>
                                           <button
                                             type="button"
                                             onClick={() => handleDeleteDoctorCard(day.id, clinic.id)}
                                             aria-label="Delete assignment"
-                                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/40 transition hover:bg-rose-500/30"
+                                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f69907]/15 text-[#f69907] ring-1 ring-[#f69907]/40 transition hover:bg-[#f69907]/30"
+                                            title="Delete assignment"
                                           >
                                             <span className="sr-only">Delete assignment</span>
                                             <svg
@@ -691,12 +725,12 @@ export default function SchedulesPage() {
                                               viewBox="0 0 20 20"
                                               fill="none"
                                               xmlns="http://www.w3.org/2000/svg"
-                                              className="h-3.5 w-3.5"
+                                              className="h-4 w-4"
                                             >
                                               <path
-                                                d="M5 5L15 15M15 5L5 15"
+                                                d="M3 5h14M8 5V3h4v2m-5 0v9m4-9v9m-7-9v11a1 1 0 001 1h8a1 1 0 001-1V5"
                                                 stroke="currentColor"
-                                                strokeWidth="1.75"
+                                                strokeWidth="1.5"
                                                 strokeLinecap="round"
                                                 strokeLinejoin="round"
                                               />

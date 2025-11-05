@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
+import Image from 'next/image';
 import { useLanguage } from '@/lib/i18n';
 import { GET_COMPANIES } from '@/graphql/company-queries';
 
@@ -119,11 +120,27 @@ export default function PageHeader({
 
   return (
     <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-      <header>
-        <p className="text-sm uppercase tracking-widest text-primary-300">{category}</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-50">{title}</h1>
-        {subtitle && <p className="mt-1 text-slate-300">{subtitle}</p>}
-      </header>
+      {/* Logo and Header Section */}
+      <div className="flex items-center gap-8">
+        {/* OnTime Logo */}
+        <div className="flex-shrink-0">
+          <Image
+            src="/logoOntime.png"
+            alt="OnTime Dental"
+            width={120}
+            height={40}
+            className="h-10 w-auto"
+            priority
+          />
+        </div>
+
+        {/* Header Text */}
+        <header>
+          <p className="text-sm uppercase tracking-widest text-primary-300">{category}</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-50">{title}</h1>
+          {subtitle && <p className="mt-1 text-slate-300">{subtitle}</p>}
+        </header>
+      </div>
 
       <div className="flex items-center gap-4">
         {/* Stats card (optional) */}

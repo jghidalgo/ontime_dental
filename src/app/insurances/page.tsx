@@ -165,7 +165,7 @@ export default function InsurancesPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[120rem]">
+      <div className="relative w-full">
         <div className="flex-1">
           <div className="border-b border-white/5 bg-white/[0.02] backdrop-blur-2xl">
             <PageHeader
@@ -181,8 +181,8 @@ export default function InsurancesPage() {
             <TopNavigation />
           </div>
 
-          <main className="overflow-y-auto px-6 py-10 sm:px-10">
-            <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <main className="mx-auto max-w-7xl px-6 py-10">
+            <div className="space-y-8">
               <section className="space-y-8">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                   <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
@@ -301,52 +301,6 @@ export default function InsurancesPage() {
                   </div>
                 </div>
               </section>
-
-              <aside className="space-y-6">
-                <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-primary-500/10 via-slate-900/70 to-slate-950 p-8 shadow-2xl shadow-primary-900/40 backdrop-blur-xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Reminders</p>
-                  <h3 className="mt-3 text-xl font-semibold text-slate-50">Latest from {selectedInsurer?.name}</h3>
-                  <p className="mt-1 text-sm text-slate-400">Keep your team aligned with carrier notices and operational updates.</p>
-                  <div className="mt-6 space-y-5">
-                    {selectedInsurer?.updates.map((update) => (
-                      <div key={update.title} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4">
-                        <span className="inline-flex items-center rounded-full bg-primary-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-200">
-                          {update.badge}
-                        </span>
-                        <p className="text-sm font-semibold text-slate-100">{update.title}</p>
-                        <p className="text-xs text-slate-400">{update.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl text-sm text-slate-300">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Credentialing checklist</p>
-                  <ul className="mt-4 space-y-3 text-sm">
-                    <li className="flex items-start gap-3">
-                      <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-400" />
-                      <div>
-                        <p className="font-semibold text-slate-100">Verify license expiration dates</p>
-                        <p className="text-xs text-slate-400">Upload renewed documents at least 30 days before carrier review cycles.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-400" />
-                      <div>
-                        <p className="font-semibold text-slate-100">Confirm tax ID and W-9</p>
-                        <p className="text-xs text-slate-400">Ensure the latest W-9 is attached to avoid claim delays.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-400" />
-                      <div>
-                        <p className="font-semibold text-slate-100">Track re-credentialing cycles</p>
-                        <p className="text-xs text-slate-400">Set reminders for {selectedInsurer?.name} at least 60 days in advance.</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </aside>
             </div>
           </main>
         </div>

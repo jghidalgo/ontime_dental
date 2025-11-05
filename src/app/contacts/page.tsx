@@ -217,12 +217,12 @@ export default function ContactsPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[120rem]">
+      <div className="relative w-full">
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
             category="Contacts hub"
             title="Reach every team instantly"
-            subtitle="Browse location extensions, clinic reception desks, and support center directories."
+            // subtitle="Browse location extensions, clinic reception desks, and support center directories."
             showEntitySelector={true}
             selectedEntityId={selectedEntityId}
             onEntityChange={setSelectedEntityId}
@@ -231,7 +231,7 @@ export default function ContactsPage() {
           <TopNavigation />
         </div>
 
-        <main className="overflow-y-auto px-6 py-10 sm:px-10">
+        <main className="mx-auto max-w-7xl px-6 py-10">
           <nav className="mb-8 flex flex-wrap gap-3">
             {contactSections.map((section) => {
               const isLocationsLink = section.id === 'locations-search';

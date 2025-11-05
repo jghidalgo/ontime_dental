@@ -274,12 +274,12 @@ export default function HRDashboardPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[120rem]">
+      <div className="relative w-full">
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
             category={t('HR')}
             title={t('People operations dashboard')}
-            subtitle={t('Welcome back, {name}.', { name: userName || t('team') })}
+            // subtitle={t('Welcome back, {name}.', { name: userName || t('team') })}
             showEntitySelector={true}
             entityLabel="Company"
             selectedEntityId={selectedCompanyId}
@@ -289,97 +289,103 @@ export default function HRDashboardPage() {
           <TopNavigation />
         </div>
 
-        <main className="overflow-y-auto px-6 py-10 sm:px-10">
+        <main className="mx-auto max-w-7xl px-6 py-10">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <HrSubNavigation />
             <button className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400">
               {t('Create announcement')}
             </button>
           </div>
-            <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="space-y-6">
-                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                  {company.highlights.map((metric) => (
-                    <div
-                      key={metric.id}
-                      className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
-                    >
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t(metric.label)}</p>
-                      <p className="mt-3 text-3xl font-semibold text-slate-50">{metric.value}</p>
-                      <p className={`mt-2 text-[11px] font-semibold uppercase tracking-wider ${toneStyles[metric.tone]}`}>
-                        {t(metric.change)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+            <section className="space-y-6">
+              {/* Metrics Cards */}
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {company.highlights.map((metric) => (
+                  <div
+                    key={metric.id}
+                    className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t(metric.label)}</p>
+                    <p className="mt-3 text-3xl font-semibold text-slate-50">{metric.value}</p>
+                    <p className={`mt-2 text-[11px] font-semibold uppercase tracking-wider ${toneStyles[metric.tone]}`}>
+                      {t(metric.change)}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Headcount')}</p>
-                        <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Employees by department')}</h2>
-                        <p className="mt-1 text-sm text-slate-400">{t('Visualize distribution across your teams')}</p>
-                      </div>
-                      <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200">
-                        {company.headcount} {t('people')}
-                      </div>
+              {/* Main Content Grid */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Employees by Department */}
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Headcount')}</p>
+                      <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Employees by department')}</h2>
+                      <p className="mt-1 text-sm text-slate-400">{t('Visualize distribution across your teams')}</p>
                     </div>
-
-                    <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
-                      <div className="mx-auto h-48 w-48 rounded-full border border-white/10 bg-white/[0.02] p-6">
-                        <div
-                          className="relative h-full w-full rounded-full"
-                          style={{ backgroundImage: `conic-gradient(${departmentGradient})` }}
-                        >
-                          <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/90" />
-                        </div>
-                      </div>
-                      <ul className="space-y-3">
-                        {company.departmentDistribution.map((item) => (
-                          <li key={item.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-slate-100">{item.label}</p>
-                              <p className="text-xs text-slate-400">{Math.round((item.value / company.headcount) * 100)}% {t('of team')}</p>
-                            </div>
-                            <p className="text-sm font-semibold text-slate-100">{item.value}</p>
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200">
+                      {company.headcount} {t('people')}
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Time away')}</p>
-                        <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('PTO activity')}</h2>
-                        <p className="mt-1 text-sm text-slate-400">{t('Track approvals and returns at a glance')}</p>
-                      </div>
-                      <div className="flex-shrink-0 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                        {company.activePTO} {t('active today')}
+                  <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
+                    <div className="mx-auto h-48 w-48 rounded-full border border-white/10 bg-white/[0.02] p-6">
+                      <div
+                        className="relative h-full w-full rounded-full"
+                        style={{ backgroundImage: `conic-gradient(${departmentGradient})` }}
+                      >
+                        <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/90" />
                       </div>
                     </div>
-
-                    <div className="mt-6 space-y-4">
-                      {company.ptoStats.map((stat) => (
-                        <div key={stat.label} className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-100">{t(stat.label)}</p>
-                            <p className="text-xs text-slate-400">{t(stat.helper)}</p>
+                    <ul className="space-y-3">
+                      {company.departmentDistribution.map((item) => (
+                        <li key={item.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-100">{item.label}</p>
+                            <p className="text-xs text-slate-400">{Math.round((item.value / company.headcount) * 100)}% {t('of team')}</p>
                           </div>
-                          <p className="text-2xl font-semibold text-slate-50">{stat.value}</p>
-                        </div>
+                          <p className="text-sm font-semibold text-slate-100">{item.value}</p>
+                        </li>
                       ))}
-                    </div>
-
-                    <button className="mt-6 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-primary-400/30 hover:text-white">
-                      {t('View PTO calendar')}
-                    </button>
+                    </ul>
                   </div>
                 </div>
 
+                {/* PTO Activity */}
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Time away')}</p>
+                      <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('PTO activity')}</h2>
+                      <p className="mt-1 text-sm text-slate-400">{t('Track approvals and returns at a glance')}</p>
+                    </div>
+                    <div className="flex-shrink-0 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                      {company.activePTO} {t('active today')}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+                    {company.ptoStats.map((stat) => (
+                      <div key={stat.label} className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">{t(stat.label)}</p>
+                          <p className="text-xs text-slate-400">{t(stat.helper)}</p>
+                        </div>
+                        <p className="text-2xl font-semibold text-slate-50">{stat.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button className="mt-6 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-primary-400/30 hover:text-white">
+                    {t('View PTO calendar')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom Row Grid */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Field Communications */}
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -406,30 +412,8 @@ export default function HRDashboardPage() {
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <aside className="space-y-6">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Watchlist')}</p>
-                  <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Critical follow-ups')}</h2>
-                  <p className="mt-1 text-sm text-slate-400">{t('Top priorities surfaced from workforce analytics')}</p>
-
-                  <ul className="mt-6 space-y-3 text-sm text-slate-300">
-                    <li className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                      <p className="font-semibold text-slate-100">{t('Finalize staffing plan for Pinecrest expansion')}</p>
-                      <p className="text-xs text-slate-400">{t('Draft ready for approval · Due Friday')}</p>
-                    </li>
-                    <li className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                      <p className="font-semibold text-slate-100">{t('Review compensation adjustments for Q4')}</p>
-                      <p className="text-xs text-slate-400">{t('Finance inputs received · Schedule exec briefing')}</p>
-                    </li>
-                    <li className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                      <p className="font-semibold text-slate-100">{t('Launch retention pulse for hygiene teams')}</p>
-                      <p className="text-xs text-slate-400">{t('Survey draft ready · Need localization review')}</p>
-                    </li>
-                  </ul>
-                </div>
-
+                {/* People Moments */}
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('People moments')}</p>
                   <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Celebrate your teams')}</h2>
@@ -452,48 +436,7 @@ export default function HRDashboardPage() {
                     ))}
                   </div>
                 </div>
-
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Open roles')}</p>
-                  <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Recruiting snapshot')}</h2>
-                  <p className="mt-1 text-sm text-slate-400">{t('Monitor active searches and candidate flow')}</p>
-
-                  <div className="mt-6 grid gap-4">
-                    <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-100">{t('Active job postings')}</p>
-                        <p className="text-xs text-slate-400">{t('Clinical, operations, leadership')}</p>
-                      </div>
-                      <p className="text-2xl font-semibold text-slate-50">{company.openRoles}</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/5 bg-white/[0.02]">
-                      <div className="flex items-center justify-between border-b border-white/5 px-4 py-2 text-xs uppercase tracking-wide text-slate-400">
-                        <span>{t('Role')}</span>
-                        <span>{t('Stage')}</span>
-                      </div>
-                      <ul className="divide-y divide-white/5 text-sm text-slate-300">
-                        <li className="flex items-center justify-between px-4 py-3">
-                          <span>{t('Dental Hygienist · Pinecrest')}</span>
-                          <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-200">{t('Offers out')}</span>
-                        </li>
-                        <li className="flex items-center justify-between px-4 py-3">
-                          <span>{t('Practice Manager · Lilite')}</span>
-                          <span className="rounded-full bg-primary-500/10 px-3 py-0.5 text-xs font-semibold text-primary-200">{t('Panel interviews')}</span>
-                        </li>
-                        <li className="flex items-center justify-between px-4 py-3">
-                          <span>{t('Dental Assistant · Harama')}</span>
-                          <span className="rounded-full bg-amber-500/10 px-3 py-0.5 text-xs font-semibold text-amber-200">{t('Second round')}</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-primary-400/30 hover:text-white">
-                      {t('Open recruiting workspace')}
-                    </button>
-                  </div>
-                </div>
-              </aside>
+              </div>
             </section>
           </main>
       </div>

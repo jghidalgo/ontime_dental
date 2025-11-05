@@ -152,7 +152,7 @@ export default function HREmployeesPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[120rem]">
+      <div className="relative w-full">
         <section className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
             category={t('HR')}
@@ -169,7 +169,7 @@ export default function HREmployeesPage() {
           <TopNavigation />
         </section>
 
-          <main className="overflow-y-auto px-6 py-10 sm:px-10">
+          <main className="mx-auto max-w-7xl px-6 py-10">
             <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
               <HrSubNavigation />
               
@@ -241,29 +241,41 @@ export default function HREmployeesPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-sm">
-                      {loading ? (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                            <div className="flex items-center justify-center gap-2">
-                              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-400 border-t-transparent"></div>
-                              <span>{t('Loading employees...')}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : error ? (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-6 text-center text-red-400">
-                            {t('Error loading employees. Please try again.')}
-                          </td>
-                        </tr>
-                      ) : paginatedEmployees.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
-                            {t('No employees found. Try adjusting your search.')}
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedEmployees.map((employee) => (
+                      {(() => {
+                        if (loading) {
+                          return (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-400 border-t-transparent"></div>
+                                  <span>{t('Loading employees...')}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+                        
+                        if (error) {
+                          return (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-6 text-center text-red-400">
+                                {t('Error loading employees. Please try again.')}
+                              </td>
+                            </tr>
+                          );
+                        }
+                        
+                        if (paginatedEmployees.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
+                                {t('No employees found. Try adjusting your search.')}
+                              </td>
+                            </tr>
+                          );
+                        }
+                        
+                        return paginatedEmployees.map((employee) => (
                           <tr 
                             key={employee.id} 
                             className={`hover:bg-white/[0.03] ${
@@ -353,8 +365,8 @@ export default function HREmployeesPage() {
                               </div>
                             </td>
                           </tr>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
