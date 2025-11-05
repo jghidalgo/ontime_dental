@@ -55,7 +55,7 @@ export default function DashboardPage() {
           <PageHeader
             category={t('Dashboard')}
             title={t('Welcome back, {name}.', { name: userName || t('team') })}
-            subtitle={t('Dashboard summary')}
+            // subtitle={t('Dashboard summary')}
             showEntitySelector={true}
             selectedEntityId={selectedEntityId}
             onEntityChange={setSelectedEntityId}

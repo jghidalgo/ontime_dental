@@ -12,6 +12,9 @@ export const GET_USERS = gql`
       position
       department
       isActive
+      permissions {
+        modules
+      }
       createdAt
       updatedAt
     }

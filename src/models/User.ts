@@ -10,6 +10,9 @@ export interface IUser {
   position?: string;
   department?: string;
   isActive: boolean;
+  permissions?: {
+    modules: string[];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +63,17 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true
+    },
+    permissions: {
+      type: {
+        modules: {
+          type: [String],
+          default: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+        }
+      },
+      default: () => ({
+        modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+      })
     }
   },
   {

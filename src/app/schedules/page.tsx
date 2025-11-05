@@ -151,6 +151,7 @@ export default function SchedulesPage() {
 
   const handleLogout = () => {
     window.localStorage.removeItem('ontime.authToken');
+    window.localStorage.removeItem('ontime.userPermissions');
     router.push('/login');
   };
 
@@ -404,7 +405,7 @@ export default function SchedulesPage() {
           <PageHeader
             category="Operations"
             title="Schedules"
-            subtitle="Review staffing coverage for front desk and chair-side teams."
+            // subtitle="Review staffing coverage for front desk and chair-side teams."
             showEntitySelector={true}
             entityLabel="Entity"
             selectedEntityId={selectedEntityId}

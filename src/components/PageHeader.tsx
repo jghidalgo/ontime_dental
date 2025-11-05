@@ -115,6 +115,7 @@ export default function PageHeader({
   const handleLogout = () => {
     localStorage.removeItem('ontime.authToken');
     localStorage.removeItem('ontime.userName');
+    localStorage.removeItem('ontime.userPermissions');
     router.push('/login');
   };
 

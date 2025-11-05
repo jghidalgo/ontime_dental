@@ -29,6 +29,9 @@ export const UPDATE_USER = gql`
       position
       department
       isActive
+      permissions {
+        modules
+      }
       updatedAt
     }
   }

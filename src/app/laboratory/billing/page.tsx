@@ -484,6 +484,7 @@ export default function LaboratoryBillingPage() {
                   type="button"
                   onClick={() => {
                     window.localStorage.removeItem('ontime.authToken');
+                    window.localStorage.removeItem('ontime.userPermissions');
                     router.push('/login');
                   }}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold text-slate-200 transition hover:border-primary-400/40 hover:text-white"

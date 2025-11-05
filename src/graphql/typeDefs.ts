@@ -11,8 +11,13 @@ const typeDefs = gql`
     position: String
     department: String
     isActive: Boolean!
+    permissions: UserPermissions
     createdAt: String!
     updatedAt: String!
+  }
+
+  type UserPermissions {
+    modules: [String!]!
   }
 
   type AuthPayload {
@@ -493,6 +498,11 @@ const typeDefs = gql`
     position: String
     department: String
     isActive: Boolean
+    permissions: UserPermissionsInput
+  }
+
+  input UserPermissionsInput {
+    modules: [String!]!
   }
 
   type LeaveType {

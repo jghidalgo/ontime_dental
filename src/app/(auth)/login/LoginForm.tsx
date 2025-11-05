@@ -12,6 +12,9 @@ type LoginResponse = {
         id: string;
         name: string;
         email: string;
+        permissions?: {
+          modules: string[];
+        };
       };
     };
   };
@@ -46,6 +49,9 @@ export default function LoginForm() {
                   id
                   name
                   email
+                  permissions {
+                    modules
+                  }
                 }
               }
             }`,
@@ -61,7 +67,13 @@ export default function LoginForm() {
 
         const token = payload.data?.login.token;
         if (token) {
-          window.localStorage.setItem('ontime.authToken', token);
+          globalThis.localStorage?.setItem('ontime.authToken', token);
+        }
+
+        // Store user permissions in localStorage
+        const userPermissions = payload.data?.login.user.permissions;
+        if (userPermissions) {
+          globalThis.localStorage?.setItem('ontime.userPermissions', JSON.stringify(userPermissions));
         }
 
         setSuccess(`Welcome back, ${payload.data?.login.user.name ?? 'clinician'}!`);

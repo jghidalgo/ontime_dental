@@ -157,6 +157,7 @@ export default function InsurancesPage() {
 
   const handleLogout = () => {
     window.localStorage.removeItem('ontime.authToken');
+    window.localStorage.removeItem('ontime.userPermissions');
     router.push('/login');
   };
 

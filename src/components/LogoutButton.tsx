@@ -9,6 +9,7 @@ export default function LogoutButton() {
 
   const handleLogout = () => {
     globalThis.localStorage.removeItem('ontime.authToken');
+    globalThis.localStorage.removeItem('ontime.userPermissions');
     router.push('/login');
   };
 

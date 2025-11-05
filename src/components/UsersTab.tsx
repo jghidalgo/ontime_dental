@@ -18,6 +18,9 @@ type User = {
   department?: string;
   isActive: boolean;
   createdAt?: string;
+  permissions?: {
+    modules: string[];
+  };
 };
 
 type UserFormData = {
@@ -47,11 +50,29 @@ const ROLES = [
   { value: 'lab_tech', label: 'Lab Technician' },
 ];
 
+const AVAILABLE_MODULES = [
+  { id: 'dashboard', name: 'Dashboard', description: 'View dashboard and analytics' },
+  { id: 'documents', name: 'Documents', description: 'Access document management' },
+  { id: 'contacts', name: 'Contacts', description: 'Manage contacts and directory' },
+  { id: 'schedules', name: 'Schedules', description: 'View and manage schedules' },
+  { id: 'tickets', name: 'Tickets', description: 'Access ticket system' },
+  { id: 'laboratory', name: 'Laboratory', description: 'Laboratory management' },
+  { id: 'hr', name: 'HR', description: 'Human resources module' },
+  { id: 'insurances', name: 'Insurances', description: 'Insurance management' },
+  { id: 'complaints', name: 'Complaints', description: 'Manage complaints and feedback' },
+  { id: 'licenses', name: 'Licenses', description: 'License management and tracking' },
+  { id: 'medication', name: 'Medication', description: 'Medication management system' },
+  { id: 'settings', name: 'Settings', description: 'System settings and configuration' },
+];
+
 export default function UsersTab() {
   const { t } = useTranslations();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [filterCompany, setFilterCompany] = useState<string>('');
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     show: false,
     message: '',
@@ -231,6 +252,78 @@ export default function UsersTab() {
     }
   };
 
+  const handleOpenPermissions = (user: User) => {
+    setPermissionsUser(user);
+    setSelectedModules(user.permissions?.modules || AVAILABLE_MODULES.map(m => m.id));
+    setShowPermissionsModal(true);
+  };
+
+  const handleClosePermissions = () => {
+    setShowPermissionsModal(false);
+    setPermissionsUser(null);
+    setSelectedModules([]);
+  };
+
+  const handleToggleModule = (moduleId: string) => {
+    setSelectedModules(prev => 
+      prev.includes(moduleId) 
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
+  };
+
+  const handleSavePermissions = async () => {
+    if (!permissionsUser) return;
+
+    // Validate at least one module is selected
+    if (selectedModules.length === 0) {
+      showSnackbar(t('Please select at least one module'), 'error');
+      return;
+    }
+
+    try {
+      console.log('=== SAVING PERMISSIONS ===');
+      console.log('User ID:', permissionsUser.id);
+      console.log('User Email:', permissionsUser.email);
+      console.log('Current permissions:', permissionsUser.permissions);
+      console.log('New selected modules:', selectedModules);
+      console.log('Mutation variables:', {
+        id: permissionsUser.id,
+        input: {
+          permissions: {
+            modules: selectedModules
+          }
+        }
+      });
+      
+      const result = await updateUser({
+        variables: {
+          id: permissionsUser.id,
+          input: {
+            permissions: {
+              modules: selectedModules
+            }
+          },
+        },
+      });
+      
+      console.log('=== UPDATE RESULT ===');
+      console.log('Full result:', JSON.stringify(result, null, 2));
+      console.log('Updated user permissions:', result.data?.updateUser?.permissions);
+      
+      await refetch();
+      showSnackbar(t('Permissions updated successfully!'), 'success');
+      handleClosePermissions();
+    } catch (error: any) {
+      console.error('=== ERROR UPDATING PERMISSIONS ===');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
+      console.error('GraphQL errors:', error.graphQLErrors);
+      console.error('Network error:', error.networkError);
+      showSnackbar(error.message || t('Failed to update permissions'), 'error');
+    }
+  };
+
   const getCompanyName = (companyId?: string) => {
     if (!companyId) return '-';
     const company = companies.find((c: any) => c.id === companyId);
@@ -359,6 +452,16 @@ export default function UsersTab() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenPermissions(user)}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-amber-400"
+                          title={t('Manage Permissions')}
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
                         <button
                           onClick={() => handleEdit(user)}
                           className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-primary-400"
@@ -545,6 +648,132 @@ export default function UsersTab() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Management Modal */}
+      {showPermissionsModal && permissionsUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-6xl rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                {t('Manage Permissions')}
+              </h2>
+              <p className="mt-2 text-sm text-slate-400">
+                {t('Configure module visibility for')} <span className="font-semibold text-primary-400">{permissionsUser.name}</span>
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                  {t('Module Access')}
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedModules(AVAILABLE_MODULES.map(m => m.id))}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                  >
+                    {t('Select All')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedModules([])}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                  >
+                    {t('Clear All')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                {AVAILABLE_MODULES.map((module) => {
+                  const isSelected = selectedModules.includes(module.id);
+                  return (
+                    <div
+                      key={module.id}
+                      className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-4 transition hover:border-slate-700 hover:bg-slate-800/50"
+                    >
+                      <label
+                        htmlFor={`module-${module.id}`}
+                        className="flex flex-1 cursor-pointer items-start gap-3"
+                        aria-label={`Toggle ${module.name} module`}
+                      >
+                        <div className="relative flex-shrink-0 pt-0.5">
+                          <input
+                            type="checkbox"
+                            id={`module-${module.id}`}
+                            checked={isSelected}
+                            onChange={() => handleToggleModule(module.id)}
+                            className="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-slate-600 bg-slate-800 checked:border-primary-500 checked:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          />
+                          <svg
+                            className="pointer-events-none absolute left-0.5 top-1 h-4 w-4 text-white opacity-0 peer-checked:opacity-100"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-white">{module.name}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{module.description}</div>
+                        </div>
+                      </label>
+                      <div className="flex-shrink-0">
+                        {isSelected ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            {t('On')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                            {t('Off')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+                <div className="flex gap-3">
+                  <svg className="h-5 w-5 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="text-xs text-amber-200">
+                    <p className="font-semibold">{t('Important')}</p>
+                    <p className="mt-1 text-amber-300/80">
+                      {t('Users without access to any modules will only see their profile settings. Ensure at least one module is enabled for normal operation.')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleClosePermissions}
+                className="rounded-lg border border-slate-700 px-6 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
+              >
+                {t('Cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePermissions}
+                disabled={updating}
+                className="rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
+              >
+                {updating ? t('Saving...') : t('Save Permissions')}
+              </button>
+            </div>
           </div>
         </div>
       )}

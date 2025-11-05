@@ -188,6 +188,9 @@ export const resolvers = {
         position: user.position || null,
         department: user.department || null,
         isActive: user.isActive ?? true,
+        permissions: user.permissions || {
+          modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+        },
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       }));
@@ -207,6 +210,9 @@ export const resolvers = {
         position: user.position || null,
         department: user.department || null,
         isActive: user.isActive ?? true,
+        permissions: user.permissions || {
+          modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+        },
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       };
@@ -671,7 +677,10 @@ export const resolvers = {
           id: user._id.toString(),
           name: user.name,
           email: user.email,
-          role: user.role
+          role: user.role,
+          permissions: user.permissions || {
+            modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+          }
         }
       };
     },
@@ -881,6 +890,9 @@ export const resolvers = {
         position: userObject.position || null,
         department: userObject.department || null,
         isActive: userObject.isActive ?? true,
+        permissions: userObject.permissions || {
+          modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+        },
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       };
@@ -937,6 +949,9 @@ export const resolvers = {
         position: userObject.position || null,
         department: userObject.department || null,
         isActive: userObject.isActive ?? true,
+        permissions: userObject.permissions || {
+          modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+        },
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       };

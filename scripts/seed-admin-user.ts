@@ -1,14 +1,21 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import path from 'node:path';
 import User from '../src/models/User';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ontime_dental';
+// Load environment variables
+dotenv.config({ path: path.join(process.cwd(), '.env.local') });
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+}
 
 async function seedAdminUser() {
   try {
     console.log('🔗 Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI, {
-      dbName: 'ontime_dental'
-    });
+    await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB');
 
     // Check if admin user already exists
