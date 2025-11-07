@@ -102,7 +102,8 @@ const ClinicLocationSchema = new Schema<IClinicLocation>(
     },
     description: {
       type: String,
-      required: true
+      required: false,
+      default: ''
     },
     mapCenter: {
       type: CoordinatesSchema,

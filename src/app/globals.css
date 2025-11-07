@@ -160,11 +160,7 @@ body.light .text-primary-100 {
 }
 
 body.light .bg-white\/5,
-body.light .bg-white\/10,
-body.light .bg-white\/[0.02],
-body.light .bg-white\/[0.03],
-body.light .bg-white\/[0.04],
-body.light .bg-white\/[0.05] {
+body.light .bg-white\/10 {
   background-color: var(--light-overlay) !important;
 }
 

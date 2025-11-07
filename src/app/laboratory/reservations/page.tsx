@@ -1,47 +1,61 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
+// import { CREATE_LAB_CASE } from '@/graphql/lab-mutations'; // Commented out - will be used with CreateCaseModal
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 
 type ReservationStatus =
-  | 'Programado'
-  | 'En fabricación'
-  | 'Listo para envío'
-  | 'Entregado'
-  | 'Pendiente confirmación';
+  | 'in-production'
+  | 'in-transit'
+  | 'completed'
+  | 'in-planning';
 
 type ReservationCase = {
   id: string;
+  caseId: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   procedure: string;
   doctor: string;
   clinic: string;
-  patient: string;
+  patientFirstName: string;
+  patientLastName: string;
   chair: string;
   durationMinutes: number;
   status: ReservationStatus;
+  category?: string;
+  priority?: string;
+  shadeGuide?: string;
+  materialType?: string;
+  notes?: string;
 };
 
 type ViewMode = 'month' | 'week' | 'day';
 
 type CreateCaseFormState = {
+  patientType: 'existing' | 'new';
+  patientFirstName: string;
+  patientLastName: string;
+  birthday: string;
   procedure: string;
-  phase: string;
-  productType: string;
-  shade: string;
-  patient: string;
+  category: string;
+  priority: string;
   doctor: string;
   clinic: string;
+  lab: string;
   status: ReservationStatus;
-  chair: string;
+  shadeGuide: string;
+  materialType: string;
+  toothNumbers: string;
+  estimatedCompletion: string;
+  technician: string;
   time: string;
-  durationMinutes: number;
   notes: string;
 };
 
@@ -69,355 +83,408 @@ const clinicOptions = [
   'Biscayne Smiles'
 ];
 
-const patientOptions = [
-  'Lucía Ramírez',
-  'Mateo Salazar',
-  'Valeria González',
-  'María Suárez',
-  'Sofía Martel',
-  'Camila Torres',
-  'Andrés Patiño',
-  'Héctor Navarro'
+const labOptions = [
+  'Complete Lab',
+  'Miami Central Lab',
+  'Precision Dental Lab',
+  'Elite Prosthetics',
+  'Crown Masters Lab'
+];
+
+const categoryOptions = [
+  'Crowns & Bridges',
+  'Implant Restorations',
+  'Try-in / Wax Setups',
+  'Aligners & Ortho',
+  'Repairs & Adjustments',
+  'Dentures',
+  'Other'
+];
+
+const priorityOptions = ['normal', 'rush', 'urgent'];
+
+const shadeOptions = ['A1', 'A2', 'A3', 'A3.5', 'A4', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'D2', 'D3', 'D4'];
+
+const materialTypeOptions = [
+  'Layered Zirconia',
+  'Monolithic Zirconia',
+  'E-max (Lithium Disilicate)',
+  'PFM (Porcelain Fused to Metal)',
+  'Full Gold',
+  'Thermoformed Plastic',
+  'Acrylic',
+  'Other'
 ];
 
 const chairOptions = ['CAD-01', 'CAD-02', 'CAD-03', 'ALN-01', 'ALN-02', 'MILL-02', 'CER-02', 'CER-03', 'EST-02'];
 
-const phaseOptions = ['Try-in', 'Finish', 'Wax setup', 'Adjustment', 'Repair'];
+const statusOptions: ReservationStatus[] = ['in-planning', 'in-production', 'in-transit', 'completed'];
 
-const productTypeOptions = [
-  'Upper full denture',
-  'Lower full denture',
-  'Upper metallic partial',
-  'Lower metallic partial',
-  'Upper acrylic partial',
-  'Lower acrylic partial',
-  'Crown'
-];
-
-const shadeOptions = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2'];
-
-const durationOptions = [45, 60, 75, 90, 120];
-
-const statusOptions: ReservationStatus[] = [
-  'Programado',
-  'En fabricación',
-  'Listo para envío',
-  'Entregado',
-  'Pendiente confirmación'
-];
-
-const createInitialFormState = (procedure: string): CreateCaseFormState => ({
-  procedure,
-  phase: phaseOptions[0],
-  productType: productTypeOptions[0],
-  shade: shadeOptions[0],
-  patient: patientOptions[0],
+const createInitialFormState = (procedure: string, date: string): CreateCaseFormState => ({
+  patientType: 'existing',
+  patientFirstName: '',
+  patientLastName: '',
+  birthday: '',
+  procedure: procedure || '',
+  category: categoryOptions[0],
+  priority: 'normal',
   doctor: doctorOptions[0],
   clinic: clinicOptions[0],
-  status: 'Programado',
-  chair: chairOptions[0],
+  lab: labOptions[0],
+  status: 'in-planning',
+  shadeGuide: '',
+  materialType: '',
+  toothNumbers: '',
+  estimatedCompletion: '',
+  technician: '',
   time: '09:00',
-  durationMinutes: durationOptions[1],
   notes: ''
 });
 
 const initialReservationCases: ReservationCase[] = [
   {
-    id: 'RES-2041',
+    id: 'lab-case-1',
+    caseId: 'RES-2041',
     date: '2025-10-01',
     time: '08:30',
     procedure: 'Corona zirconia #14',
     doctor: 'Dr. Alexis Stone',
     clinic: 'Miller Dental - Coral Gables',
-    patient: 'Lucía Ramírez',
+    patientFirstName: 'Lucía',
+    patientLastName: 'Ramírez',
     chair: 'CAD-01',
     durationMinutes: 75,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
-    id: 'RES-2042',
+    id: 'lab-case-2',
+    caseId: 'RES-2042',
     date: '2025-10-01',
     time: '10:00',
     procedure: 'Implante unitario #30',
     doctor: 'Dr. Maya Jensen',
     clinic: 'Bayfront Smiles',
-    patient: 'Mateo Salazar',
+    patientFirstName: 'Mateo',
+    patientLastName: 'Salazar',
     chair: 'CAD-02',
     durationMinutes: 90,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
-    id: 'RES-2048',
+    id: 'lab-case-3',
+    caseId: 'RES-2048',
     date: '2025-10-02',
     time: '09:00',
     procedure: 'Alineador serie 3',
     doctor: 'Dr. Luis Carmona',
     clinic: 'Sunset Orthodontics',
-    patient: 'Valeria González',
+    patientFirstName: 'Valeria',
+    patientLastName: 'González',
     chair: 'ALN-01',
     durationMinutes: 60,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
-    id: 'RES-2049',
+    id: 'lab-case-4',
+    caseId: 'RES-2049',
     date: '2025-10-02',
     time: '11:30',
     procedure: 'Corona temporal CAD/CAM',
     doctor: 'Dr. Javier Molina',
     clinic: 'Key Biscayne Dental',
-    patient: 'María Suárez',
+    patientFirstName: 'María',
+    patientLastName: 'Suárez',
     chair: 'MILL-02',
     durationMinutes: 45,
-    status: 'Listo para envío'
+    status: 'in-transit'
   },
   {
-    id: 'RES-2053',
+    id: 'lab-case-5',
+    caseId: 'RES-2053',
     date: '2025-10-03',
     time: '08:15',
     procedure: 'Puente 3 unidades',
     doctor: 'Dr. Daniel Ortiz',
     clinic: 'Lakeview Dental Studio',
-    patient: 'Sofía Martel',
+    patientFirstName: 'Sofía',
+    patientLastName: 'Martel',
     chair: 'CER-03',
     durationMinutes: 110,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
-    id: 'RES-2054',
+    id: 'lab-case-6',
+    caseId: 'RES-2054',
     date: '2025-10-03',
     time: '13:00',
     procedure: 'Carillas feldespáticas #7-10',
     doctor: 'Dr. Ethan Wells',
     clinic: 'Harbor Point Dental',
-    patient: 'Camila Torres',
+    patientFirstName: 'Camila',
+    patientLastName: 'Torres',
     chair: 'EST-02',
     durationMinutes: 95,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
-    id: 'RES-2058',
+    id: 'lab-case-7',
+    caseId: 'RES-2058',
     date: '2025-10-04',
     time: '10:45',
     procedure: 'Corona zirconia #3',
     doctor: 'Dra. Olivia Reyes',
     clinic: 'Coral Ridge Family Dental',
-    patient: 'Andrés Patiño',
+    patientFirstName: 'Andrés',
+    patientLastName: 'Patiño',
     chair: 'CAD-03',
     durationMinutes: 70,
-    status: 'Entregado'
+    status: 'completed'
   },
   {
-    id: 'RES-2060',
+    id: 'lab-case-8',
+    caseId: 'RES-2060',
     date: '2025-10-05',
     time: '09:30',
     procedure: 'Corona zirconia #14',
     doctor: 'Dr. Alexis Stone',
     clinic: 'Miller Dental - Coral Gables',
-    patient: 'Lucía Ramírez',
+    patientFirstName: 'Lucía',
+    patientLastName: 'Ramírez',
     chair: 'CAD-01',
     durationMinutes: 75,
-    status: 'Entregado'
+    status: 'completed'
   },
   {
-    id: 'RES-2061',
+    id: 'lab-case-9',
+    caseId: 'RES-2061',
     date: '2025-10-05',
     time: '15:00',
     procedure: 'Alineador control serie 4',
     doctor: 'Dra. Sofía Delgado',
     clinic: 'Brickell Aligners',
-    patient: 'Héctor Navarro',
+    patientFirstName: 'Héctor',
+    patientLastName: 'Navarro',
     chair: 'ALN-02',
     durationMinutes: 55,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
     id: 'RES-2065',
+    caseId: 'LC-2065',
     date: '2025-10-07',
     time: '11:15',
     procedure: 'Prótesis parcial superior',
     doctor: 'Dra. Isabel Vega',
     clinic: 'Biscayne Smiles',
-    patient: 'Héctor Navarro',
+    patientFirstName: 'Héctor',
+    patientLastName: 'Navarro',
     chair: 'CER-02',
     durationMinutes: 120,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
     id: 'RES-2070',
+    caseId: 'LC-2070',
     date: '2025-10-09',
     time: '08:45',
     procedure: 'Corona zirconia #9',
     doctor: 'Dr. Alexis Stone',
     clinic: 'Miller Dental - Coral Gables',
-    patient: 'Lucía Ramírez',
+    patientFirstName: 'Lucía',
+    patientLastName: 'Ramírez',
     chair: 'CAD-01',
     durationMinutes: 70,
-    status: 'Listo para envío'
+    status: 'in-transit'
   },
   {
     id: 'RES-2074',
+    caseId: 'LC-2074',
     date: '2025-10-11',
     time: '10:00',
     procedure: 'Alineador serie 5',
     doctor: 'Dr. Luis Carmona',
     clinic: 'Sunset Orthodontics',
-    patient: 'Valeria González',
+    patientFirstName: 'Valeria',
+    patientLastName: 'González',
     chair: 'ALN-01',
     durationMinutes: 60,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
     id: 'RES-2076',
+    caseId: 'LC-2076',
     date: '2025-10-12',
     time: '14:00',
     procedure: 'Implante unitario #30',
     doctor: 'Dr. Maya Jensen',
     clinic: 'Bayfront Smiles',
-    patient: 'Mateo Salazar',
+    patientFirstName: 'Mateo',
+    patientLastName: 'Salazar',
     chair: 'CAD-02',
     durationMinutes: 90,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
     id: 'RES-2080',
+    caseId: 'LC-2080',
     date: '2025-10-14',
     time: '09:20',
     procedure: 'Corona temporal CAD/CAM',
     doctor: 'Dr. Javier Molina',
     clinic: 'Key Biscayne Dental',
-    patient: 'María Suárez',
+    patientFirstName: 'María',
+    patientLastName: 'Suárez',
     chair: 'MILL-02',
     durationMinutes: 45,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
     id: 'RES-2082',
+    caseId: 'LC-2082',
     date: '2025-10-15',
     time: '08:30',
     procedure: 'Carillas feldespáticas #7-10',
     doctor: 'Dr. Ethan Wells',
     clinic: 'Harbor Point Dental',
-    patient: 'Camila Torres',
+    patientFirstName: 'Camila',
+    patientLastName: 'Torres',
     chair: 'EST-02',
     durationMinutes: 95,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
     id: 'RES-2083',
+    caseId: 'LC-2083',
     date: '2025-10-15',
     time: '13:30',
     procedure: 'Prótesis parcial superior',
     doctor: 'Dra. Isabel Vega',
     clinic: 'Biscayne Smiles',
-    patient: 'Héctor Navarro',
+    patientFirstName: 'Héctor',
+    patientLastName: 'Navarro',
     chair: 'CER-02',
     durationMinutes: 120,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
     id: 'RES-2084',
+    caseId: 'LC-2084',
     date: '2025-10-15',
     time: '16:00',
     procedure: 'Corona zirconia #14',
     doctor: 'Dr. Alexis Stone',
     clinic: 'Miller Dental - Coral Gables',
-    patient: 'Lucía Ramírez',
+    patientFirstName: 'Lucía',
+    patientLastName: 'Ramírez',
     chair: 'CAD-01',
     durationMinutes: 70,
-    status: 'Pendiente confirmación'
+    status: 'in-planning'
   },
   {
     id: 'RES-2088',
+    caseId: 'LC-2088',
     date: '2025-10-18',
     time: '11:45',
     procedure: 'Alineador serie 5',
     doctor: 'Dr. Luis Carmona',
     clinic: 'Sunset Orthodontics',
-    patient: 'Valeria González',
+    patientFirstName: 'Valeria',
+    patientLastName: 'González',
     chair: 'ALN-01',
     durationMinutes: 60,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
     id: 'RES-2090',
+    caseId: 'LC-2090',
     date: '2025-10-20',
     time: '09:00',
     procedure: 'Implante unitario #30',
     doctor: 'Dr. Maya Jensen',
     clinic: 'Bayfront Smiles',
-    patient: 'Mateo Salazar',
+    patientFirstName: 'Mateo',
+    patientLastName: 'Salazar',
     chair: 'CAD-02',
     durationMinutes: 90,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
     id: 'RES-2091',
+    caseId: 'LC-2091',
     date: '2025-10-20',
     time: '12:30',
     procedure: 'Puente 3 unidades',
     doctor: 'Dr. Daniel Ortiz',
     clinic: 'Lakeview Dental Studio',
-    patient: 'Sofía Martel',
+    patientFirstName: 'Sofía',
+    patientLastName: 'Martel',
     chair: 'CER-03',
     durationMinutes: 110,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
     id: 'RES-2094',
+    caseId: 'LC-2094',
     date: '2025-10-22',
     time: '10:15',
     procedure: 'Carillas feldespáticas #7-10',
     doctor: 'Dr. Ethan Wells',
     clinic: 'Harbor Point Dental',
-    patient: 'Camila Torres',
+    patientFirstName: 'Camila',
+    patientLastName: 'Torres',
     chair: 'EST-02',
     durationMinutes: 95,
-    status: 'Listo para envío'
+    status: 'in-transit'
   },
   {
     id: 'RES-2098',
+    caseId: 'LC-2098',
     date: '2025-10-25',
     time: '09:45',
     procedure: 'Corona zirconia #14',
     doctor: 'Dr. Alexis Stone',
     clinic: 'Miller Dental - Coral Gables',
-    patient: 'Lucía Ramírez',
+    patientFirstName: 'Lucía',
+    patientLastName: 'Ramírez',
     chair: 'CAD-01',
     durationMinutes: 70,
-    status: 'En fabricación'
+    status: 'in-production'
   },
   {
     id: 'RES-2100',
+    caseId: 'LC-2100',
     date: '2025-10-28',
     time: '11:00',
     procedure: 'Alineador control serie 4',
     doctor: 'Dra. Sofía Delgado',
     clinic: 'Brickell Aligners',
-    patient: 'Héctor Navarro',
+    patientFirstName: 'Héctor',
+    patientLastName: 'Navarro',
     chair: 'ALN-02',
     durationMinutes: 55,
-    status: 'Programado'
+    status: 'in-planning'
   },
   {
     id: 'RES-2104',
+    caseId: 'LC-2104',
     date: '2025-10-30',
     time: '08:30',
     procedure: 'Implante unitario #30',
     doctor: 'Dr. Maya Jensen',
     clinic: 'Bayfront Smiles',
-    patient: 'Mateo Salazar',
+    patientFirstName: 'Mateo',
+    patientLastName: 'Salazar',
     chair: 'CAD-02',
     durationMinutes: 90,
-    status: 'Pendiente confirmación'
+    status: 'in-planning'
   }
 ];
 
 const statusStyles: Record<ReservationStatus, string> = {
-  Programado: 'bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/40',
-  'En fabricación': 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/40',
-  'Listo para envío': 'bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/40',
-  Entregado: 'bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/40',
-  'Pendiente confirmación': 'bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/40'
+  'in-planning': 'bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/40',
+  'in-production': 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/40',
+  'in-transit': 'bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/40',
+  'completed': 'bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/40'
 };
 
 const palette = [
@@ -464,102 +531,90 @@ const isSameMonth = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() &&
 
 // Helper function to convert lab cases to reservation format
 const labCaseToReservation = (labCase: any): ReservationCase => {
-  const statusMap: Record<string, ReservationStatus> = {
-    'in-production': 'En fabricación',
-    'in-transit': 'Listo para envío',
-    'completed': 'Entregado',
-    'in-planning': 'Programado'
-  };
-
   const date = labCase.reservationDate ? new Date(labCase.reservationDate) : new Date();
   const formattedDate = date.toISOString().split('T')[0];
   
-  // Generate a random time for display (could be enhanced with actual time data)
-  const hour = 8 + Math.floor(Math.random() * 8); // Random hour between 8am and 4pm
+  // Extract time from createdAt or use default
+  const hour = 8 + Math.floor(Math.random() * 8);
   const minute = Math.random() > 0.5 ? '00' : '30';
   const time = `${hour.toString().padStart(2, '0')}:${minute}`;
 
   return {
-    id: labCase.caseId,
+    id: labCase.id,
+    caseId: labCase.caseId,
     date: formattedDate,
     time,
     procedure: labCase.procedure,
     doctor: labCase.doctor,
     clinic: labCase.clinic,
-    patient: `${labCase.patientFirstName} ${labCase.patientLastName}`,
+    patientFirstName: labCase.patientFirstName,
+    patientLastName: labCase.patientLastName,
     chair: labCase.toothNumbers?.join(', ') || 'N/A',
-    durationMinutes: 60, // Default duration
-    status: statusMap[labCase.status] || 'Programado'
+    durationMinutes: 60,
+    status: labCase.status,
+    category: labCase.category,
+    priority: labCase.priority,
+    shadeGuide: labCase.shadeGuide,
+    materialType: labCase.materialType,
+    notes: labCase.notes
   };
 };
 
 export default function LaboratoryReservationsPage() {
   const router = useRouter();
-  const [userName, setUserName] = useState<string>('');
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2025, 9, 15));
-  const [focusedMonth, setFocusedMonth] = useState<Date>(new Date(2025, 9, 1));
-  const [monthSelector, setMonthSelector] = useState<string>('2025-10-01');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [focusedMonth, setFocusedMonth] = useState<Date>(new Date());
+  const monthSelectorValue = `${focusedMonth.getFullYear()}-${String(focusedMonth.getMonth() + 1).padStart(2, '0')}-01`;
+  const [monthSelector, setMonthSelector] = useState<string>(monthSelectorValue);
   const { t, language } = useTranslations();
   
   // Fetch lab cases from GraphQL
-  const { data: labCasesData } = useQuery(GET_LAB_CASES);
+  const { data: labCasesData, refetch: refetchLabCases } = useQuery(GET_LAB_CASES);
+  
+  // Create lab case mutation (currently unused - to be integrated with CreateCaseModal)
+  // const [createLabCase, { loading: creatingCase }] = useMutation(CREATE_LAB_CASE, {
+  //   onCompleted: () => {
+  //     refetchLabCases();
+  //     setCreationStatus('success');
+  //     setTimeout(() => {
+  //       setActiveProcedure(null);
+  //       setCreationStatus('idle');
+  //     }, 2000);
+  //   },
+  //   onError: (error) => {
+  //     setCreateError(error.message);
+  //     setCreationStatus('idle');
+  //   }
+  // });
   
   // Transform lab cases to reservation format
   const cases = useMemo(() => {
-    if (!labCasesData?.labCases) return initialReservationCases;
-    
-    const transformedCases = labCasesData.labCases.map(labCaseToReservation);
-    // Combine with initial cases for demo purposes (or return just transformedCases)
-    return [...transformedCases, ...initialReservationCases];
+    if (!labCasesData?.labCases) return [];
+    return labCasesData.labCases.map(labCaseToReservation);
   }, [labCasesData]);
   
   const [activeProcedure, setActiveProcedure] = useState<{ date: Date; procedure: string } | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const defaultProcedureLabel = initialReservationCases[0]?.procedure ?? 'New laboratory case';
-  const [createForm, setCreateForm] = useState<CreateCaseFormState>(() =>
-    createInitialFormState(defaultProcedureLabel)
-  );
-  const [createStep, setCreateStep] = useState(0);
-  const [creationStatus, setCreationStatus] = useState<'idle' | 'saving' | 'success'>('idle');
-  const [createError, setCreateError] = useState<string | null>(null);
+  
+  // Old create form state - commented out, to be replaced with CreateCaseModal
+  // const [showCreateForm, setShowCreateForm] = useState(false);
+  // const [createForm, setCreateForm] = useState<CreateCaseFormState>(() =>
+  //   createInitialFormState('', formatISODate(new Date()))
+  // );
+  // const [creationStatus, setCreationStatus] = useState<'idle' | 'saving' | 'success'>('idle');
+  // const [createError, setCreateError] = useState<string | null>(null);
+  
   const locale = language === 'es' ? 'es-ES' : 'en-US';
 
-  const resetCreateForm = useCallback(
-    (procedure: string) => {
-      setCreateForm(createInitialFormState(procedure));
-      setCreationStatus('idle');
-      setCreateError(null);
-      setCreateStep(0);
-    },
-    []
-  );
-
-  const createWizardSteps = useMemo(
-    () => [t('Case details'), t('Scheduling'), t('Review & notes')],
-    [t]
-  );
-  const totalWizardSteps = createWizardSteps.length;
-
-  const handleNextStep = useCallback(() => {
-    if (createStep === 0 && !createForm.procedure.trim()) {
-      setCreateError(t('Please add a procedure description.'));
-      return;
-    }
-
-    if (createStep === 1 && !createForm.time) {
-      setCreateError(t('Please select a start time.'));
-      return;
-    }
-
-    setCreateError(null);
-    setCreateStep((previous) => Math.min(previous + 1, totalWizardSteps - 1));
-  }, [createForm.procedure, createForm.time, createStep, t, totalWizardSteps]);
-
-  const handlePreviousStep = useCallback(() => {
-    setCreateError(null);
-    setCreateStep((previous) => Math.max(0, previous - 1));
-  }, []);
+  // Old form reset function - commented out
+  // const resetCreateForm = useCallback(
+  //   (procedure: string, date: string) => {
+  //     setCreateForm(createInitialFormState(procedure, date));
+  //     setCreationStatus('idle');
+  //     setCreateError(null);
+  //   },
+  //   []
+  // );
 
   const monthFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }),
@@ -586,25 +641,20 @@ export default function LaboratoryReservationsPage() {
   );
   const statusLabelMap = useMemo(
     () => ({
-      Programado: t('Scheduled'),
-      'En fabricación': t('In fabrication'),
-      'Listo para envío': t('Ready to ship'),
-      Entregado: t('Delivered'),
-      'Pendiente confirmación': t('Pending confirmation')
+      'in-planning': t('In Planning'),
+      'in-production': t('In Production'),
+      'in-transit': t('In Transit'),
+      'completed': t('Completed')
     }),
     [t]
   );
 
-  useEffect(() => {
-    if (activeProcedure) {
-      resetCreateForm(activeProcedure.procedure);
-      setShowCreateForm(false);
-      return;
-    }
-
-    resetCreateForm(defaultProcedureLabel);
-    setShowCreateForm(false);
-  }, [activeProcedure, defaultProcedureLabel, resetCreateForm]);
+  // Old effect for resetting form - commented out
+  // useEffect(() => {
+  //   if (activeProcedure) {
+  //     resetCreateForm(activeProcedure.procedure, formatISODate(activeProcedure.date));
+  //   }
+  // }, [activeProcedure, resetCreateForm]);
 
   const openProcedureModal = useCallback((date: Date, procedure: string) => {
     setActiveProcedure({ date: new Date(date), procedure });
@@ -613,17 +663,6 @@ export default function LaboratoryReservationsPage() {
   const closeModal = useCallback(() => {
     setActiveProcedure(null);
   }, []);
-
-  useEffect(() => {
-    const token = window.localStorage.getItem('ontime.authToken');
-
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
-    setUserName('Dr. Carter');
-  }, [router]);
 
   useEffect(() => {
     setFocusedMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
@@ -820,60 +859,15 @@ export default function LaboratoryReservationsPage() {
     });
   }, [monthFormatter]);
 
-  const handleCreateSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!activeProcedure) return;
-
-      if (!createForm.procedure.trim()) {
-        setCreateError(t('Please add a procedure description.'));
-        return;
-      }
-
-      if (!createForm.time) {
-        setCreateError(t('Please select a start time.'));
-        return;
-      }
-
-      setCreationStatus('saving');
-      setCreateError(null);
-
-      const newCase: ReservationCase = {
-        id: `RES-${Math.floor(2000 + Math.random() * 7000)}`,
-        date: formatISODate(activeProcedure.date),
-        time: createForm.time,
-        procedure: createForm.procedure.trim(),
-        doctor: createForm.doctor,
-        clinic: createForm.clinic,
-        patient: createForm.patient,
-        chair: createForm.chair,
-        durationMinutes: createForm.durationMinutes,
-        status: createForm.status
-      };
-
-      // TODO: Implement GraphQL mutation to create lab case
-      // For now, this will only update the form state
-      // setCases((previous) => {
-      //   const next = [...previous, newCase];
-      //   next.sort((a, b) => {
-      //     if (a.date === b.date) {
-      //       return a.time.localeCompare(b.time);
-      //     }
-      //     return a.date.localeCompare(b.date);
-      //   });
-      //   return next;
-      // });
-
-      const monthStart = new Date(activeProcedure.date.getFullYear(), activeProcedure.date.getMonth(), 1);
-      setFocusedMonth(monthStart);
-      setMonthSelector(formatISODate(monthStart));
-      setSelectedDate(new Date(activeProcedure.date));
-      setShowCreateForm(false);
-      resetCreateForm(newCase.procedure);
-      setCreationStatus('success');
-    },
-    [activeProcedure, createForm, t, resetCreateForm]
-  );
+  // Old create form submit handler - commented out, will be replaced with CreateCaseModal
+  // const handleCreateSubmit = useCallback(
+  //   (event: FormEvent<HTMLFormElement>) => {
+  //     event.preventDefault();
+  //     if (!activeProcedure) return;
+  //     // Form validation and submission logic...
+  //   },
+  //   [activeProcedure]
+  // );
 
   const handleMonthSubmit = () => {
     const next = parseISODate(monthSelector);
@@ -890,52 +884,18 @@ export default function LaboratoryReservationsPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <header className="flex flex-col gap-6 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">{t('Laboratory')}</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">{t('Reservations Control Center')}</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-400">
-                {t(
-                  'Coordinate laboratory production and deliveries with an integrated view of active cases. Switch between monthly, weekly, and daily modes to anticipate workload by procedure.'
-                )}
-              </p>
-            </div>
+        <div className="border-b border-slate-800 bg-slate-900/60">
+          <PageHeader
+            category="Laboratory"
+            title="Reservations Control Center"
+            subtitle="Coordinate laboratory production and deliveries with an integrated view of active cases."
+            showEntitySelector={false}
+          />
 
-            <div className="space-y-4 text-right">
-              <div className="rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-xs text-primary-100">
-                <p className="font-semibold uppercase tracking-[0.35em]">{t('View')}</p>
-                <p className="mt-1 text-sm font-medium text-primary-50">
-                  {viewMode === 'month' && monthFormatter.format(focusedMonth)}
-                  {viewMode === 'week' && weekLabel}
-                  {viewMode === 'day' && dayFormatter.format(selectedDate)}
-                </p>
-                <p className="text-[11px] text-primary-200/70">{t('Updated at {time}', { time: '07:45' })}</p>
-              </div>
+          <TopNavigation />
+        </div>
 
-              <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-slate-400">
-                <span className="font-medium text-slate-200">
-                  {t('Signed in as')} {userName || t('Loading...')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.localStorage.removeItem('ontime.authToken');
-                    window.localStorage.removeItem('ontime.userPermissions');
-                    router.push('/login');
-                  }}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold text-slate-200 transition hover:border-primary-400/40 hover:text-white"
-                >
-                  {t('Log out')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <TopNavigation />
-
-        <main className="px-6 py-12 sm:px-10 lg:px-16">
+        <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
 
             <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1216,7 +1176,7 @@ export default function LaboratoryReservationsPage() {
                                   </div>
                                   <div>
                                     <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</p>
-                                    <p className="mt-1 text-slate-300">{reservation.patient}</p>
+                                    <p className="mt-1 text-slate-300">{reservation.patientFirstName} {reservation.patientLastName}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Clinic')}</p>
@@ -1301,21 +1261,17 @@ export default function LaboratoryReservationsPage() {
 
       {activeProcedure && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-10 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900/95 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.8)]">
+          <div className="relative w-full max-w-6xl max-h-[80vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/95 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.8)]">
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-slate-200 transition hover:border-primary-400/40 hover:text-white"
+              className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-slate-200 transition hover:border-primary-400/40 hover:text-white z-10"
               aria-label={t('Close')}
             >
               ×
             </button>
-            <div className="space-y-6 px-6 py-10 sm:px-10">
-              {creationStatus === 'success' && (
-                <div className="rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                  {t('New case drafted for {procedure}.', { procedure: activeProcedure.procedure })}
-                </div>
-              )}
+            <div className="space-y-5 px-6 py-8 sm:px-10">
+              {/* Success message removed - will be part of CreateCaseModal */}
 
               <header className="flex flex-wrap items-start justify-between gap-6">
                 <div>
@@ -1334,17 +1290,12 @@ export default function LaboratoryReservationsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (showCreateForm) {
-                        setShowCreateForm(false);
-                        resetCreateForm(activeProcedure.procedure);
-                      } else {
-                        resetCreateForm(activeProcedure.procedure);
-                        setShowCreateForm(true);
-                      }
+                      // TODO: Open CreateCaseModal here
+                      console.log('Create case for:', activeProcedure.procedure, activeProcedure.date);
                     }}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
                   >
-                    {showCreateForm ? t('Close form') : t('Create new case')}
+                    {t('Create new case')}
                   </button>
                 </div>
               </header>
@@ -1379,7 +1330,7 @@ export default function LaboratoryReservationsPage() {
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</p>
-                          <p className="mt-1 text-slate-200">{reservation.patient}</p>
+                          <p className="mt-1 text-slate-200">{reservation.patientFirstName} {reservation.patientLastName}</p>
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Clinic')}</p>
@@ -1400,384 +1351,21 @@ export default function LaboratoryReservationsPage() {
               </section>
 
               <section className="rounded-3xl border border-dashed border-primary-400/30 bg-primary-500/5 p-6">
-                {showCreateForm ? (
-                  <form className="space-y-6" onSubmit={handleCreateSubmit}>
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Case builder')}</p>
-                        <h3 className="mt-1 text-xl font-semibold text-white">{t('Insert a new laboratory case')}</h3>
-                        <p className="mt-1 text-sm text-primary-100/80">
-                          {t('Fields are prefilled with your most common selections. Adjust what you need before inserting.')}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs text-white/80">
-                        <p>{t('Reservation date')}</p>
-                        <p className="mt-1 font-semibold text-white">{dayFormatter.format(activeProcedure.date)}</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-primary-400/30 bg-primary-500/5 px-4 py-4 sm:px-6">
-                      <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        {createWizardSteps.map((label, index) => {
-                          const status =
-                            index === createStep ? 'current' : index < createStep ? 'complete' : 'upcoming';
-
-                          return (
-                            <li key={label} className="flex items-center gap-3">
-                              <span
-                                className={clsx(
-                                  'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition',
-                                  {
-                                    'border-primary-400 bg-primary-500 text-slate-950 shadow-lg shadow-primary-900/40':
-                                      status === 'current',
-                                    'border-primary-400/70 bg-primary-500/20 text-primary-100': status === 'complete',
-                                    'border-white/10 bg-white/5 text-slate-400': status === 'upcoming'
-                                  }
-                                )}
-                              >
-                                {index + 1}
-                              </span>
-                              <div className="text-left">
-                                <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">
-                                  {t('Step {current} of {total}', {
-                                    current: index + 1,
-                                    total: totalWizardSteps
-                                  })}
-                                </p>
-                                <p className="text-sm font-semibold text-white">{label}</p>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    </div>
-
-                    {createStep === 0 && (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Procedure name')}
-                          </label>
-                          <input
-                            type="text"
-                            value={createForm.procedure}
-                            onChange={(event) =>
-                              setCreateForm((previous) => ({ ...previous, procedure: event.target.value }))
-                            }
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                            placeholder={t('e.g. Crown zirconia #14')}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Case phase')}
-                          </label>
-                          <select
-                            value={createForm.phase}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, phase: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {phaseOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Product type')}
-                          </label>
-                          <select
-                            value={createForm.productType}
-                            onChange={(event) =>
-                              setCreateForm((previous) => ({ ...previous, productType: event.target.value }))
-                            }
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {productTypeOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Shade / color')}
-                          </label>
-                          <select
-                            value={createForm.shade}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, shade: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {shadeOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    )}
-
-                    {createStep === 1 && (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Patient')}
-                          </label>
-                          <select
-                            value={createForm.patient}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, patient: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {patientOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Doctor')}
-                          </label>
-                          <select
-                            value={createForm.doctor}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, doctor: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {doctorOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Clinic')}
-                          </label>
-                          <select
-                            value={createForm.clinic}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, clinic: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {clinicOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Status')}
-                          </label>
-                          <select
-                            value={createForm.status}
-                            onChange={(event) =>
-                              setCreateForm((previous) => ({
-                                ...previous,
-                                status: event.target.value as ReservationStatus
-                              }))
-                            }
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {statusOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {statusLabelMap[option]}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Production bay')}
-                          </label>
-                          <select
-                            value={createForm.chair}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, chair: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {chairOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Start time')}
-                          </label>
-                          <input
-                            type="time"
-                            value={createForm.time}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, time: event.target.value }))}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Duration (minutes)')}
-                          </label>
-                          <select
-                            value={createForm.durationMinutes}
-                            onChange={(event) =>
-                              setCreateForm((previous) => ({ ...previous, durationMinutes: Number(event.target.value) }))
-                            }
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                          >
-                            {durationOptions.map((option) => (
-                              <option key={option} value={option} className="bg-slate-900 text-white">
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    )}
-
-                    {createStep === 2 && (
-                      <div className="space-y-5">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                          <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Summary')}</p>
-                          <div className="mt-4 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Procedure')}</p>
-                              <p className="mt-1 font-semibold text-white">
-                                {createForm.procedure.trim() || t('Not specified')}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Case phase')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.phase}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Product type')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.productType}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Shade / color')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.shade}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.patient}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Doctor')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.doctor}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Clinic')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.clinic}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Production bay')}</p>
-                              <p className="mt-1 text-slate-200">{createForm.chair}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Schedule')}</p>
-                              <p className="mt-1 text-slate-200">
-                                {createForm.time || t('Not specified')} · {createForm.durationMinutes} {t('minutes')}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Status')}</p>
-                              <p className="mt-1 text-slate-200">{statusLabelMap[createForm.status]}</p>
-                            </div>
-                          </div>
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-primary-100">
-                            <p>
-                              {t('Preview')}: {createForm.phase} · {createForm.productType} · {t('Shade')} {createForm.shade}
-                            </p>
-                            <p>{t('Estimated chair time')}: {createForm.durationMinutes} {t('minutes')}</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                            {t('Instructions for the lab')}
-                          </label>
-                          <textarea
-                            value={createForm.notes}
-                            onChange={(event) => setCreateForm((previous) => ({ ...previous, notes: event.target.value }))}
-                            rows={3}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-primary-400/60"
-                            placeholder={t('Add finishing preferences, delivery expectations or internal notes...')}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {createError && (
-                      <div className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                        {createError}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCreateForm(false);
-                          resetCreateForm(activeProcedure.procedure);
-                        }}
-                        className="rounded-2xl border border-white/10 bg-white/10 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-primary-400/40 hover:text-white"
-                      >
-                        {t('Cancel')}
-                      </button>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {createStep > 0 && (
-                          <button
-                            type="button"
-                            onClick={handlePreviousStep}
-                            className="rounded-2xl border border-white/10 bg-white/10 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-primary-400/40 hover:text-white"
-                          >
-                            {t('Back')}
-                          </button>
-                        )}
-                        {createStep < totalWizardSteps - 1 ? (
-                          <button
-                            type="button"
-                            onClick={handleNextStep}
-                            className="rounded-2xl bg-primary-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
-                          >
-                            {t('Continue')}
-                          </button>
-                        ) : (
-                          <button
-                            type="submit"
-                            disabled={creationStatus === 'saving'}
-                            className="rounded-2xl bg-primary-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400 disabled:opacity-50"
-                          >
-                            {creationStatus === 'saving' ? t('Inserting...') : t('Insert case')}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </form>
+                {/* TODO: Replace with CreateCaseModal component */}
+                <div className="flex flex-col gap-3 text-sm text-primary-100">
+                  <p className="text-base font-semibold text-white">{t('Need to create a new case?')}</p>
+                  <p>
+                    {t('Use the Create Case button in the main Laboratory page to add new cases.')}
+                  </p>
+                  <p className="text-xs text-primary-200/70 mt-2">
+                    {t('The inline case creation form will be available in a future update.')}
+                  </p>
+                </div>
+                {/* {showCreateForm ? (
+                  Old wizard form code commented out - to be replaced with CreateCaseModal
                 ) : (
-                  <div className="flex flex-col gap-3 text-sm text-primary-100">
-                    <p className="text-base font-semibold text-white">{t('Need to slot another case?')}</p>
-                    <p>
-                      {t('Launch the guided form to reserve production capacity. Your selections will auto-fill with the most recent context for this procedure.')}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetCreateForm(activeProcedure.procedure);
-                        setShowCreateForm(true);
-                      }}
-                      className="mt-2 inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-primary-400/40 bg-primary-500/10 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/60 hover:bg-primary-500/20"
-                    >
-                      {t('Start case builder')}
-                    </button>
-                  </div>
-                )}
+                  Start case builder button
+                )} */}
               </section>
             </div>
           </div>

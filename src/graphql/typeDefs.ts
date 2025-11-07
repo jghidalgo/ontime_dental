@@ -77,7 +77,7 @@ const typeDefs = gql`
     companyId: String!
     companyName: String!
     headquarters: String!
-    description: String!
+    description: String
     mapCenter: Coordinates!
     clinics: [Clinic!]!
   }
@@ -114,6 +114,12 @@ const typeDefs = gql`
   type EmployeeBasic {
     id: String!
     name: String!
+  }
+
+  type LocationDistribution {
+    location: String!
+    count: Int!
+    color: String!
   }
 
   type PTO {
@@ -313,6 +319,15 @@ const typeDefs = gql`
     email: String!
     hours: String!
     coordinates: CoordinatesInput!
+  }
+
+  input ClinicLocationInput {
+    companyId: String!
+    companyName: String!
+    headquarters: String!
+    description: String
+    mapCenter: CoordinatesInput!
+    clinics: [ClinicInput!]!
   }
 
   input DirectoryEntryInput {
@@ -582,6 +597,7 @@ const typeDefs = gql`
     ): [Employee!]!
     employee(id: ID!): Employee
     employeeByEmployeeId(employeeId: String!, companyId: ID): Employee
+    employeeLocationDistribution(companyId: ID): [LocationDistribution!]!
     
     # PTO queries
     ptos(employeeId: String, companyId: ID, status: String): [PTO!]!
@@ -603,14 +619,7 @@ const typeDefs = gql`
     reorderDirectoryEntries(entityId: String!, group: String!, entryIds: [ID!]!, companyId: ID): [DirectoryEntry!]!
     
     # Clinic location mutations
-    createClinicLocation(
-      companyId: String!
-      companyName: String!
-      headquarters: String!
-      description: String!
-      mapCenter: CoordinatesInput!
-      clinics: [ClinicInput!]!
-    ): ClinicLocation!
+    createClinicLocation(input: ClinicLocationInput!): ClinicLocation!
     updateClinicLocation(
       companyId: String!
       companyName: String
@@ -620,6 +629,7 @@ const typeDefs = gql`
       clinics: [ClinicInput!]
     ): ClinicLocation!
     addClinic(companyId: String!, clinic: ClinicInput!): ClinicLocation!
+    updateClinic(companyId: String!, clinicId: String!, clinic: ClinicInput!): ClinicLocation!
     removeClinic(companyId: String!, clinicId: String!): ClinicLocation!
     
     # Company mutations

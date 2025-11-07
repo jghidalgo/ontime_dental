@@ -68,6 +68,32 @@ const ADD_CLINIC = gql`
   }
 `;
 
+const UPDATE_CLINIC = gql`
+  mutation UpdateClinic($companyId: String!, $clinicId: String!, $clinic: ClinicInput!) {
+    updateClinic(companyId: $companyId, clinicId: $clinicId, clinic: $clinic) {
+      id
+      companyId
+      clinics {
+        clinicId
+        name
+      }
+    }
+  }
+`;
+
+const REMOVE_CLINIC = gql`
+  mutation RemoveClinic($companyId: String!, $clinicId: String!) {
+    removeClinic(companyId: $companyId, clinicId: $clinicId) {
+      id
+      companyId
+      clinics {
+        clinicId
+        name
+      }
+    }
+  }
+`;
+
 type Clinic = {
   clinicId: string;
   name: string;
@@ -106,6 +132,8 @@ export default function ClinicsTab() {
   const { t } = useTranslations();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddClinicModal, setShowAddClinicModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingClinicId, setEditingClinicId] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState(''); // For filtering
   const [snackbar, setSnackbar] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -160,6 +188,31 @@ export default function ClinicsTab() {
     },
   });
 
+  const [updateClinic, { loading: updatingClinic }] = useMutation(UPDATE_CLINIC, {
+    onCompleted: () => {
+      setSnackbar({ message: t('Clinic updated successfully'), type: 'success' });
+      setTimeout(() => setSnackbar(null), 4000);
+      refetch();
+      handleCloseAddClinicModal();
+    },
+    onError: (error) => {
+      setSnackbar({ message: error.message, type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+    },
+  });
+
+  const [removeClinic, { loading: removingClinic }] = useMutation(REMOVE_CLINIC, {
+    onCompleted: () => {
+      setSnackbar({ message: t('Clinic deleted successfully'), type: 'success' });
+      setTimeout(() => setSnackbar(null), 4000);
+      refetch();
+    },
+    onError: (error) => {
+      setSnackbar({ message: error.message, type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+    },
+  });
+
   const clinicLocations: ClinicLocation[] = locationsData?.clinicLocations || [];
   const companies: Company[] = companiesData?.companies || [];
 
@@ -169,6 +222,8 @@ export default function ClinicsTab() {
     : clinicLocations;
 
   const handleOpenAddClinic = (companyId: string) => {
+    setIsEditMode(false);
+    setEditingClinicId('');
     setSelectedCompanyId(companyId);
     setClinicFormData({
       clinicId: '',
@@ -182,6 +237,29 @@ export default function ClinicsTab() {
       coordinates: { lat: 0, lng: 0 },
     });
     setShowAddClinicModal(true);
+  };
+
+  const handleOpenEditClinic = (companyId: string, clinic: Clinic) => {
+    setIsEditMode(true);
+    setEditingClinicId(clinic.clinicId);
+    setSelectedCompanyId(companyId);
+    setClinicFormData(clinic);
+    setShowAddClinicModal(true);
+  };
+
+  const handleDeleteClinic = async (companyId: string, clinicId: string) => {
+    if (globalThis.confirm(t('Are you sure you want to delete this clinic?'))) {
+      try {
+        await removeClinic({
+          variables: {
+            companyId,
+            clinicId,
+          },
+        });
+      } catch (error) {
+        console.error('Error deleting clinic:', error);
+      }
+    }
   };
 
   const handleCreateLocation = () => {
@@ -208,6 +286,8 @@ export default function ClinicsTab() {
 
   const handleCloseAddClinicModal = () => {
     setShowAddClinicModal(false);
+    setIsEditMode(false);
+    setEditingClinicId('');
     setSelectedCompanyId('');
     setClinicFormData({
       clinicId: '',
@@ -219,6 +299,17 @@ export default function ClinicsTab() {
       email: '',
       hours: '',
       coordinates: { lat: 0, lng: 0 },
+    });
+  };
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setNewLocationFormData({
+      companyId: '',
+      companyName: '',
+      headquarters: '',
+      description: '',
+      mapCenter: { lat: 0, lng: 0 },
     });
   };
 
@@ -236,15 +327,31 @@ export default function ClinicsTab() {
   const handleSubmitClinic = async (e: FormEvent) => {
     e.preventDefault();
 
+    if (!selectedCompanyId) {
+      setSnackbar({ message: t('Please select a company location'), type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+      return;
+    }
+
     try {
-      await addClinic({
-        variables: {
-          companyId: selectedCompanyId,
-          clinic: clinicFormData,
-        },
-      });
+      if (isEditMode) {
+        await updateClinic({
+          variables: {
+            companyId: selectedCompanyId,
+            clinicId: editingClinicId,
+            clinic: clinicFormData,
+          },
+        });
+      } else {
+        await addClinic({
+          variables: {
+            companyId: selectedCompanyId,
+            clinic: clinicFormData,
+          },
+        });
+      }
     } catch (error) {
-      console.error('Error adding clinic:', error);
+      console.error('Error saving clinic:', error);
     }
   };
 
@@ -370,9 +477,27 @@ export default function ClinicsTab() {
                               {clinic.city}, {clinic.zip}
                             </p>
                           </div>
-                          <span className="rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400">
-                            Active
-                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleOpenEditClinic(location.companyId, clinic)}
+                              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-700 hover:text-blue-400"
+                              title={t('Edit clinic')}
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClinic(location.companyId, clinic.clinicId)}
+                              disabled={removingClinic}
+                              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-700 hover:text-red-400 disabled:opacity-50"
+                              title={t('Delete clinic')}
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         <div className="mt-4 space-y-2 border-t border-slate-700 pt-4">
                           <div className="flex items-center gap-2 text-xs text-slate-300">
@@ -537,12 +662,14 @@ export default function ClinicsTab() {
         </div>
       )}
 
-      {/* Add Clinic to Existing Location Modal */}
+      {/* Add/Edit Clinic Modal */}
       {showAddClinicModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
-              <h2 className="text-xl font-bold text-white">{t('Add New Clinic')}</h2>
+              <h2 className="text-xl font-bold text-white">
+                {isEditMode ? t('Edit Clinic') : t('Add New Clinic')}
+              </h2>
               <button
                 onClick={handleCloseAddClinicModal}
                 className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
@@ -556,6 +683,26 @@ export default function ClinicsTab() {
             <form onSubmit={handleSubmitClinic}>
               <div className="max-h-[600px] overflow-y-auto p-6">
                 <div className="grid gap-4 md:grid-cols-2">
+                  {/* Company Selection */}
+                  <div className="md:col-span-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-200">
+                      {t('Select Company Location')} <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      required
+                      value={selectedCompanyId}
+                      onChange={(e) => setSelectedCompanyId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    >
+                      <option value="">{t('-- Select a company location --')}</option>
+                      {clinicLocations.map((location) => (
+                        <option key={location.id} value={location.companyId}>
+                          {location.companyName} - {location.headquarters}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="mb-2 block text-sm font-semibold text-slate-200">
                       {t('Clinic ID')} <span className="text-red-400">*</span>
@@ -565,9 +712,13 @@ export default function ClinicsTab() {
                       required
                       value={clinicFormData.clinicId}
                       onChange={(e) => handleInputChange('clinicId', e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      readOnly={isEditMode}
+                      className={`w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
                       placeholder={t('e.g., CLN001')}
                     />
+                    {isEditMode && (
+                      <p className="mt-1 text-xs text-slate-500">{t('Clinic ID cannot be changed')}</p>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -698,17 +849,20 @@ export default function ClinicsTab() {
                 <button
                   type="button"
                   onClick={handleCloseAddClinicModal}
-                  disabled={addingClinic}
+                  disabled={addingClinic || updatingClinic}
                   className="rounded-lg border border-slate-700 px-6 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t('Cancel')}
                 </button>
                 <button
                   type="submit"
-                  disabled={addingClinic}
+                  disabled={addingClinic || updatingClinic}
                   className="rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {addingClinic ? t('Adding...') : t('Add Clinic')}
+                  {isEditMode 
+                    ? (updatingClinic ? t('Updating...') : t('Update Clinic'))
+                    : (addingClinic ? t('Adding...') : t('Add Clinic'))
+                  }
                 </button>
               </div>
             </form>

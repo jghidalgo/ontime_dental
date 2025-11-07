@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_EMPLOYEE_LOCATION_DISTRIBUTION } from '@/graphql/hr-dashboard-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
@@ -230,11 +232,23 @@ const momentBadges: Record<EmployeeMoment['type'], { label: string; style: strin
 export default function HRDashboardPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(companies[0]?.id ?? '');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
 
+  // Fetch employee location distribution from database
+  const { data: locationData, loading } = useQuery(GET_EMPLOYEE_LOCATION_DISTRIBUTION, {
+    variables: {
+      companyId: selectedCompanyId || undefined
+    },
+    pollInterval: 30000 // Refresh every 30 seconds
+  });
+
+  const locationDistribution = useMemo(() => {
+    return locationData?.employeeLocationDistribution || [];
+  }, [locationData]);
+
   useEffect(() => {
-    const token = window.localStorage.getItem('ontime.authToken');
+    const token = globalThis.localStorage.getItem('ontime.authToken');
 
     if (!token) {
       router.push('/login');
@@ -243,6 +257,11 @@ export default function HRDashboardPage() {
 
     setUserName('Admin');
   }, [router]);
+
+  // Calculate total headcount from location distribution
+  const totalHeadcount = useMemo(() => {
+    return locationDistribution.reduce((sum: number, item: any) => sum + item.count, 0);
+  }, [locationDistribution]);
 
   const company = useMemo(
     () => companies.find((entry) => entry.id === selectedCompanyId) ?? companies[0],
@@ -315,41 +334,53 @@ export default function HRDashboardPage() {
 
               {/* Main Content Grid */}
               <div className="grid gap-6 lg:grid-cols-2">
-                {/* Employees by Department */}
+                {/* Employees by Location */}
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Headcount')}</p>
-                      <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Employees by department')}</h2>
-                      <p className="mt-1 text-sm text-slate-400">{t('Visualize distribution across your teams')}</p>
+                      <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Employees by clinic location')}</h2>
+                      <p className="mt-1 text-sm text-slate-400">{t('Visualize distribution across your clinics')}</p>
                     </div>
                     <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200">
-                      {company.headcount} {t('people')}
+                      {loading ? '...' : totalHeadcount} {t('people')}
                     </div>
                   </div>
 
-                  <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
-                    <div className="mx-auto h-48 w-48 rounded-full border border-white/10 bg-white/[0.02] p-6">
-                      <div
-                        className="relative h-full w-full rounded-full"
-                        style={{ backgroundImage: `conic-gradient(${departmentGradient})` }}
-                      >
-                        <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/90" />
-                      </div>
+                  {loading ? (
+                    <div className="mt-8 flex items-center justify-center py-12">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500/20 border-t-primary-500" />
                     </div>
-                    <ul className="space-y-3">
-                      {company.departmentDistribution.map((item) => (
-                        <li key={item.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-100">{item.label}</p>
-                            <p className="text-xs text-slate-400">{Math.round((item.value / company.headcount) * 100)}% {t('of team')}</p>
-                          </div>
-                          <p className="text-sm font-semibold text-slate-100">{item.value}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  ) : locationDistribution.length === 0 ? (
+                    <div className="mt-8 text-center text-sm text-slate-400">
+                      {t('No employee data available')}
+                    </div>
+                  ) : (
+                    <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
+                      <div className="mx-auto h-48 w-48 rounded-full border border-white/10 bg-white/[0.02] p-6">
+                        <div
+                          className="relative h-full w-full rounded-full"
+                          style={{ backgroundImage: `conic-gradient(${departmentGradient})` }}
+                        >
+                          <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/90" />
+                        </div>
+                      </div>
+                      <ul className="space-y-3">
+                        {locationDistribution.map((item: any) => (
+                          <li key={item.location} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-slate-100">{item.location}</p>
+                              <p className="text-xs text-slate-400">
+                                {totalHeadcount > 0 ? Math.round((item.count / totalHeadcount) * 100) : 0}% {t('of team')}
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-100">{item.count}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {/* PTO Activity */}

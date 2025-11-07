@@ -1212,8 +1212,8 @@ export default function LaboratoryPage() {
       {/* Create Case Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-6xl max-h-[80vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-slate-900/95 backdrop-blur-xl px-6 sm:px-8 py-6">
+          <div className="relative w-full max-w-7xl max-h-[75vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-slate-900/95 backdrop-blur-xl px-6 sm:px-8 py-5">
               <div>
                 <h2 className="text-xl sm:text-2xl font-semibold text-white">{t('Create New Lab Case')}</h2>
                 <p className="mt-1 text-xs sm:text-sm text-slate-400">{t('Fill in the details below to create a new laboratory case')}</p>
@@ -1260,12 +1260,12 @@ export default function LaboratoryPage() {
                   },
                 });
               }}
-              className="p-6 sm:p-8 space-y-6"
+              className="p-6 sm:p-8 space-y-5"
             >
               {/* Patient Information */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Patient Information')}</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <label className="block">
                     <span className="text-sm font-medium text-slate-300">{t('First Name')} *</span>
                     <input
@@ -1308,9 +1308,9 @@ export default function LaboratoryPage() {
               </div>
 
               {/* Case Details */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Case Details')}</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <label className="block">
                     <span className="text-sm font-medium text-slate-300">{t('Lab')} *</span>
                     <input
@@ -1382,9 +1382,9 @@ export default function LaboratoryPage() {
               </div>
 
               {/* Technical Specifications */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Technical Specifications')}</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <label className="block">
                     <span className="text-sm font-medium text-slate-300">{t('Shade Guide')}</span>
                     <input
@@ -1420,7 +1420,7 @@ export default function LaboratoryPage() {
                       className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
                     />
                   </label>
-                  <label className="block sm:col-span-2">
+                  <label className="block lg:col-span-2">
                     <span className="text-sm font-medium text-slate-300">{t('Technician')}</span>
                     <input
                       type="text"
@@ -1433,13 +1433,13 @@ export default function LaboratoryPage() {
               </div>
 
               {/* Notes */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Additional Notes')}</h3>
                 <label className="block">
                   <span className="text-sm font-medium text-slate-300">{t('Notes')}</span>
                   <textarea
                     name="notes"
-                    rows={4}
+                    rows={3}
                     className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none resize-none"
                     placeholder="Any special instructions or notes..."
                   />

@@ -430,6 +430,46 @@ export const resolvers = {
       };
     },
 
+    employeeLocationDistribution: async (_: unknown, { companyId }: { companyId?: string }) => {
+      await connectToDatabase();
+      
+      // Build filter
+      const filter: any = { status: 'active' };
+      if (companyId) filter.companyId = companyId;
+      
+      // Aggregate employees by location
+      const distribution = await Employee.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$location',
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+      
+      // Define colors for each location
+      const colors = [
+        '#34d399', // emerald
+        '#60a5fa', // blue
+        '#f97316', // orange
+        '#a855f7', // purple
+        '#f472b6', // pink
+        '#38bdf8', // sky
+        '#fb923c', // orange-400
+        '#4ade80', // green-400
+        '#818cf8', // indigo-400
+        '#fbbf24'  // amber-400
+      ];
+      
+      return distribution.map((item: any, index: number) => ({
+        location: item._id || 'Not Assigned',
+        count: item.count,
+        color: colors[index % colors.length]
+      }));
+    },
+
     // PTO Queries
     ptos: async (_: unknown, { employeeId, companyId, status }: { employeeId?: string; companyId?: string; status?: string }) => {
       await connectToDatabase();
@@ -749,9 +789,9 @@ export const resolvers = {
     },
 
     // Clinic Location Mutations
-    createClinicLocation: async (_: unknown, args: any) => {
+    createClinicLocation: async (_: unknown, { input }: { input: any }) => {
       await connectToDatabase();
-      const location = await ClinicLocation.create(args);
+      const location = await ClinicLocation.create(input);
       return {
         ...location.toObject(),
         id: location._id.toString()
@@ -783,6 +823,25 @@ export const resolvers = {
       );
       if (!location) {
         throw new Error('Clinic location not found');
+      }
+      return {
+        ...location.toObject(),
+        id: location._id.toString()
+      };
+    },
+
+    updateClinic: async (
+      _: unknown,
+      { companyId, clinicId, clinic }: { companyId: string; clinicId: string; clinic: any }
+    ) => {
+      await connectToDatabase();
+      const location = await ClinicLocation.findOneAndUpdate(
+        { companyId, 'clinics.clinicId': clinicId },
+        { $set: { 'clinics.$': clinic } },
+        { new: true }
+      );
+      if (!location) {
+        throw new Error('Clinic location or clinic not found');
       }
       return {
         ...location.toObject(),
