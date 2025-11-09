@@ -1,9 +1,38 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { useMutation } from '@apollo/client';
+import { useState, type FormEvent, useEffect } from 'react';
+import { useMutation, useQuery, gql } from '@apollo/client';
 import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
 import { useTranslations } from '@/lib/i18n';
+
+const GET_LABORATORIES = gql`
+  query GetLaboratories {
+    laboratories {
+      id
+      name
+      procedures {
+        name
+        dailyCapacity
+      }
+    }
+  }
+`;
+
+const GET_ALL_CLINICS = gql`
+  query GetAllClinics {
+    clinicLocations {
+      id
+      companyId
+      companyName
+      clinics {
+        clinicId
+        name
+        address
+        city
+      }
+    }
+  }
+`;
 
 type CreateCaseModalProps = {
   procedure: string;
@@ -19,30 +48,26 @@ const doctorOptions = [
   'Dr. Javier Molina'
 ];
 
-const clinicOptions = [
-  'Miller Dental - Coral Gables',
-  'Bayfront Smiles',
-  'Sunset Orthodontics'
-];
-
-const labOptions = [
-  'Complete Lab',
-  'Miami Central Lab',
-  'Precision Dental Lab'
-];
-
-const categoryOptions = [
-  'Crowns & Bridges',
-  'Implant Restorations',
-  'Dentures',
-  'Aligners & Ortho',
-  'Other'
-];
-
 export default function CreateCaseModal({ procedure, date, onClose, onSuccess }: CreateCaseModalProps) {
   const { t } = useTranslations();
   const [patientType, setPatientType] = useState<'existing' | 'new'>('new');
+  const [selectedLab, setSelectedLab] = useState<string>('');
+  const [availableProcedures, setAvailableProcedures] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: labsData, loading: labsLoading } = useQuery(GET_LABORATORIES);
+  const { data: clinicsData, loading: clinicsLoading } = useQuery(GET_ALL_CLINICS);
+  
+  const laboratories = labsData?.laboratories || [];
+  const clinicLocations = clinicsData?.clinicLocations || [];
+  
+  // Flatten all clinics from all companies
+  const allClinics = clinicLocations.flatMap((location: any) => 
+    location.clinics.map((clinic: any) => ({
+      ...clinic,
+      companyName: location.companyName
+    }))
+  );
 
   const [createLabCase, { loading }] = useMutation(CREATE_LAB_CASE, {
     onCompleted: () => {
@@ -52,6 +77,24 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
       setError(err.message);
     }
   });
+
+  // Update available procedures when lab is selected
+  useEffect(() => {
+    if (selectedLab) {
+      const lab = laboratories.find((l: any) => l.id === selectedLab);
+      if (lab && lab.procedures) {
+        setAvailableProcedures(lab.procedures.map((p: any) => p.name));
+      } else {
+        setAvailableProcedures([]);
+      }
+    } else {
+      setAvailableProcedures([]);
+    }
+  }, [selectedLab, laboratories]);
+
+  const handleLabChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedLab(e.target.value);
+  };
 
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -65,17 +108,21 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
       ? toothNumbersValue.split(',').map(t => t.trim()).filter(Boolean)
       : [];
 
+    // Get lab name from selected lab ID
+    const selectedLabObj = laboratories.find((l: any) => l.id === selectedLab);
+    const labName = selectedLabObj ? selectedLabObj.name : '';
+
     createLabCase({
       variables: {
         input: {
-          lab: formData.get('lab'),
+          lab: labName,
           clinic: formData.get('clinic'),
           patientFirstName: formData.get('patientFirstName'),
           patientLastName: formData.get('patientLastName'),
           birthday: formData.get('birthday'),
           reservationDate: formatDate(date),
           doctor: formData.get('doctor'),
-          procedure: formData.get('procedure'),
+          procedure: formData.get('category'), // Using category (procedure from lab) as the procedure
           category: formData.get('category'),
           priority: formData.get('priority') || 'normal',
           shadeGuide: formData.get('shadeGuide') || undefined,
@@ -187,29 +234,46 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
           <div className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Case Details')}</h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Lab - First */}
               <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('Procedure')} *</span>
-                <input
-                  type="text"
-                  name="procedure"
-                  required
-                  defaultValue={procedure}
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
-                  placeholder="Crown - Anterior"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('Category')} *</span>
+                <span className="text-sm font-medium text-slate-300">{t('Lab')} *</span>
                 <select
-                  name="category"
+                  name="lab"
                   required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                  value={selectedLab}
+                  onChange={handleLabChange}
+                  disabled={labsLoading}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {categoryOptions.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                  <option value="">{labsLoading ? t('Loading...') : t('Select a laboratory')}</option>
+                  {laboratories.map((lab: any) => (
+                    <option key={lab.id} value={lab.id}>{lab.name}</option>
                   ))}
                 </select>
               </label>
+
+              {/* Category/Procedure - Disabled until lab is selected */}
+              <label className="block">
+                <span className="text-sm font-medium text-slate-300">{t('Procedure/Category')} *</span>
+                <select
+                  name="category"
+                  required
+                  disabled={!selectedLab || availableProcedures.length === 0}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!selectedLab 
+                      ? t('Select a lab first') 
+                      : availableProcedures.length === 0 
+                      ? t('No procedures configured') 
+                      : t('Select a procedure')}
+                  </option>
+                  {availableProcedures.map((proc) => (
+                    <option key={proc} value={proc}>{proc}</option>
+                  ))}
+                </select>
+              </label>
+
               <label className="block">
                 <span className="text-sm font-medium text-slate-300">{t('Priority')}</span>
                 <select
@@ -221,27 +285,20 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
                   <option value="urgent">Urgent</option>
                 </select>
               </label>
-              <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('Lab')} *</span>
-                <select
-                  name="lab"
-                  required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
-                >
-                  {labOptions.map((lab) => (
-                    <option key={lab} value={lab}>{lab}</option>
-                  ))}
-                </select>
-              </label>
+
               <label className="block">
                 <span className="text-sm font-medium text-slate-300">{t('Clinic')} *</span>
                 <select
                   name="clinic"
                   required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                  disabled={clinicsLoading}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {clinicOptions.map((clinic) => (
-                    <option key={clinic} value={clinic}>{clinic}</option>
+                  <option value="">{clinicsLoading ? t('Loading clinics...') : t('Select a clinic')}</option>
+                  {allClinics.map((clinic: any) => (
+                    <option key={clinic.clinicId} value={clinic.name}>
+                      {clinic.name} ({clinic.companyName})
+                    </option>
                   ))}
                 </select>
               </label>

@@ -4,6 +4,7 @@ import User from '@/models/User';
 import DirectoryEntity from '@/models/DirectoryEntity';
 import DirectoryEntry from '@/models/DirectoryEntry';
 import ClinicLocation from '@/models/ClinicLocation';
+import Laboratory from '@/models/Laboratory';
 import FrontDeskSchedule from '@/models/FrontDeskSchedule';
 import DoctorSchedule from '@/models/DoctorSchedule';
 import Ticket from '@/models/Ticket';
@@ -236,6 +237,30 @@ export const resolvers = {
       return {
         ...location,
         id: location._id.toString()
+      };
+    },
+
+    // Laboratory Queries
+    laboratories: async () => {
+      await connectToDatabase();
+      const laboratories = await Laboratory.find().sort({ name: 1 }).lean();
+      return laboratories.map((lab: any) => ({
+        ...lab,
+        id: lab._id.toString(),
+        createdAt: lab.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: lab.updatedAt?.toISOString() || new Date().toISOString()
+      }));
+    },
+
+    laboratory: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const laboratory: any = await Laboratory.findById(id).lean();
+      if (!laboratory) return null;
+      return {
+        ...laboratory,
+        id: laboratory._id.toString(),
+        createdAt: laboratory.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: laboratory.updatedAt?.toISOString() || new Date().toISOString()
       };
     },
 
@@ -865,6 +890,51 @@ export const resolvers = {
       return {
         ...location.toObject(),
         id: location._id.toString()
+      };
+    },
+
+    // Laboratory Mutations
+    createLaboratory: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      const laboratory = await Laboratory.create(input);
+      return {
+        ...laboratory.toObject(),
+        id: laboratory._id.toString(),
+        createdAt: laboratory.createdAt.toISOString(),
+        updatedAt: laboratory.updatedAt.toISOString(),
+      };
+    },
+
+    updateLaboratory: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      const laboratory = await Laboratory.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true }
+      );
+      if (!laboratory) {
+        throw new Error('Laboratory not found');
+      }
+      return {
+        ...laboratory.toObject(),
+        id: laboratory._id.toString(),
+        createdAt: laboratory.createdAt.toISOString(),
+        updatedAt: laboratory.updatedAt.toISOString(),
+      };
+    },
+
+    deleteLaboratory: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const laboratory = await Laboratory.findByIdAndDelete(id);
+      if (!laboratory) {
+        return {
+          success: false,
+          message: 'Laboratory not found'
+        };
+      }
+      return {
+        success: true,
+        message: 'Laboratory deleted successfully'
       };
     },
 

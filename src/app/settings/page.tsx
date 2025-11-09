@@ -7,6 +7,7 @@ import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import UsersTab from '@/components/UsersTab';
 import ClinicsTab from '@/components/ClinicsTab';
+import LaboratoriesTab from '@/components/LaboratoriesTab';
 import CompanySettingsModal from '@/components/CompanySettingsModal';
 import { useTranslations } from '@/lib/i18n';
 
@@ -86,7 +87,7 @@ type CompanyFormData = {
 export default function SettingsPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'system'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'laboratories' | 'system'>('companies');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -238,6 +239,16 @@ export default function SettingsPage() {
             {t('Clinics')}
           </button>
           <button
+            onClick={() => setActiveTab('laboratories')}
+            className={`px-6 py-3 text-sm font-medium transition ${
+              activeTab === 'laboratories'
+                ? 'border-b-2 border-primary-500 text-primary-400'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t('Laboratories')}
+          </button>
+          <button
             onClick={() => setActiveTab('system')}
             className={`px-6 py-3 text-sm font-medium transition ${
               activeTab === 'system'
@@ -387,6 +398,9 @@ export default function SettingsPage() {
 
         {/* Clinics Tab */}
         {activeTab === 'clinics' && <ClinicsTab />}
+
+        {/* Laboratories Tab */}
+        {activeTab === 'laboratories' && <LaboratoriesTab />}
 
         {/* System Tab - Placeholder */}
         {activeTab === 'system' && (

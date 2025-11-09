@@ -25,6 +25,11 @@ const typeDefs = gql`
     user: User!
   }
 
+  type DeleteResult {
+    success: Boolean!
+    message: String
+  }
+
   type DirectoryEntity {
     id: ID!
     entityId: String!
@@ -80,6 +85,39 @@ const typeDefs = gql`
     description: String
     mapCenter: Coordinates!
     clinics: [Clinic!]!
+  }
+
+  type TurnaroundTime {
+    standard: Int!
+    rush: Int!
+  }
+
+  type Laboratory {
+    id: ID!
+    name: String!
+    shortName: String!
+    contactPerson: String!
+    phone: String!
+    email: String!
+    address: String!
+    city: String!
+    state: String!
+    zip: String!
+    country: String!
+    website: String
+    taxId: String
+    specialties: [String!]!
+    turnaroundTime: TurnaroundTime!
+    procedures: [Procedure!]
+    notes: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type Procedure {
+    name: String!
+    dailyCapacity: Int!
   }
 
   type EmergencyContact {
@@ -330,6 +368,55 @@ const typeDefs = gql`
     clinics: [ClinicInput!]!
   }
 
+  input TurnaroundTimeInput {
+    standard: Int!
+    rush: Int!
+  }
+
+  input CreateLaboratoryInput {
+    name: String!
+    shortName: String!
+    contactPerson: String!
+    phone: String!
+    email: String!
+    address: String!
+    city: String!
+    state: String!
+    zip: String!
+    country: String!
+    website: String
+    taxId: String
+    specialties: [String!]
+    turnaroundTime: TurnaroundTimeInput!
+    notes: String
+    isActive: Boolean
+  }
+
+  input UpdateLaboratoryInput {
+    name: String
+    shortName: String
+    contactPerson: String
+    phone: String
+    email: String
+    address: String
+    city: String
+    state: String
+    zip: String
+    country: String
+    website: String
+    taxId: String
+    specialties: [String!]
+    turnaroundTime: TurnaroundTimeInput
+    procedures: [ProcedureInput!]
+    notes: String
+    isActive: Boolean
+  }
+
+  input ProcedureInput {
+    name: String!
+    dailyCapacity: Int!
+  }
+
   input DirectoryEntryInput {
     entityId: String!
     companyId: String!
@@ -568,6 +655,10 @@ const typeDefs = gql`
     clinicLocations(companyId: ID): [ClinicLocation!]!
     clinicLocation(companyId: String!): ClinicLocation
     
+    # Laboratory queries
+    laboratories: [Laboratory!]!
+    laboratory(id: ID!): Laboratory
+    
     # Schedule queries
     frontDeskSchedules(companyId: ID): [FrontDeskSchedule!]!
     doctorSchedules(companyId: ID): [DoctorSchedule!]!
@@ -631,6 +722,11 @@ const typeDefs = gql`
     addClinic(companyId: String!, clinic: ClinicInput!): ClinicLocation!
     updateClinic(companyId: String!, clinicId: String!, clinic: ClinicInput!): ClinicLocation!
     removeClinic(companyId: String!, clinicId: String!): ClinicLocation!
+    
+    # Laboratory mutations
+    createLaboratory(input: CreateLaboratoryInput!): Laboratory!
+    updateLaboratory(id: ID!, input: UpdateLaboratoryInput!): Laboratory!
+    deleteLaboratory(id: ID!): DeleteResult!
     
     # Company mutations
     createCompany(input: CreateCompanyInput!): Company!

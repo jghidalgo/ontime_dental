@@ -9,6 +9,7 @@ import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import CreateCaseModal from './CreateCaseModal';
 
 type ReservationStatus =
   | 'in-production'
@@ -595,6 +596,8 @@ export default function LaboratoryReservationsPage() {
   }, [labCasesData]);
   
   const [activeProcedure, setActiveProcedure] = useState<{ date: Date; procedure: string } | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createModalDate, setCreateModalDate] = useState<Date | null>(null);
   
   // Old create form state - commented out, to be replaced with CreateCaseModal
   // const [showCreateForm, setShowCreateForm] = useState(false);
@@ -662,6 +665,16 @@ export default function LaboratoryReservationsPage() {
 
   const closeModal = useCallback(() => {
     setActiveProcedure(null);
+  }, []);
+
+  const openCreateModal = useCallback((date: Date) => {
+    setCreateModalDate(date);
+    setShowCreateModal(true);
+  }, []);
+
+  const closeCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    setCreateModalDate(null);
   }, []);
 
   useEffect(() => {
@@ -1021,6 +1034,11 @@ export default function LaboratoryReservationsPage() {
                                   key={key}
                                   type="button"
                                   onClick={() => setSelectedDate(date)}
+                                  onDoubleClick={() => {
+                                    if (cases.length === 0) {
+                                      openCreateModal(date);
+                                    }
+                                  }}
                                   className={clsx(
                                     'flex min-h-[8.5rem] flex-col gap-2 bg-slate-950/40 p-3 text-left transition',
                                     isCurrentMonth ? 'text-slate-100' : 'text-slate-500',
@@ -1290,8 +1308,8 @@ export default function LaboratoryReservationsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      // TODO: Open CreateCaseModal here
-                      console.log('Create case for:', activeProcedure.procedure, activeProcedure.date);
+                      openCreateModal(activeProcedure.date);
+                      closeModal();
                     }}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
                   >
@@ -1370,6 +1388,19 @@ export default function LaboratoryReservationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Case Modal */}
+      {showCreateModal && createModalDate && (
+        <CreateCaseModal
+          procedure="New Case"
+          date={createModalDate}
+          onClose={closeCreateModal}
+          onSuccess={() => {
+            closeCreateModal();
+            refetchLabCases();
+          }}
+        />
       )}
     </div>
   );
