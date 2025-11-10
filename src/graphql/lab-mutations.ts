@@ -29,6 +29,8 @@ export const CREATE_LAB_CASE = gql`
       actualCompletion
       technicianId
       technician
+      qrCode
+      qrCodeData
       createdAt
       updatedAt
     }

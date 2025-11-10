@@ -23,6 +23,8 @@ export const GET_LAB_CASES = gql`
       estimatedCompletion
       actualCompletion
       technician
+      qrCode
+      qrCodeData
       createdAt
       updatedAt
     }
@@ -52,6 +54,8 @@ export const GET_LAB_CASE = gql`
       estimatedCompletion
       actualCompletion
       technician
+      qrCode
+      qrCodeData
       createdAt
       updatedAt
     }
@@ -81,6 +85,8 @@ export const GET_LAB_CASE_BY_NUMBER = gql`
       estimatedCompletion
       actualCompletion
       technician
+      qrCode
+      qrCodeData
       createdAt
       updatedAt
     }

@@ -15,6 +15,7 @@ import Employee from '@/models/Employee';
 import Company from '@/models/Company';
 import PTO from '@/models/PTO';
 import CompanyPTOPolicy from '@/models/CompanyPTOPolicy';
+import QRCode from 'qrcode';
 
 export const resolvers = {
   Query: {
@@ -1592,11 +1593,35 @@ export const resolvers = {
       const count = await LabCase.countDocuments();
       const caseId = `LAB-${String(count + 1).padStart(6, '0')}`;
       
-      // Create lab case with patient reference
+      // Generate QR Code data
+      // Include: Case ID, Patient Name, Lab, Procedure, Date, and a verification hash
+      const qrCodeData = JSON.stringify({
+        caseId,
+        patient: `${input.patientFirstName} ${input.patientLastName}`,
+        lab: input.lab,
+        procedure: input.procedure,
+        date: input.reservationDate,
+        clinic: input.clinic,
+        timestamp: new Date().toISOString(),
+        // You could add a hash here for verification if needed
+        verify: Buffer.from(`${caseId}-${input.companyId}-${Date.now()}`).toString('base64').substring(0, 16)
+      });
+      
+      // Generate QR Code as base64 image
+      const qrCodeImage = await QRCode.toDataURL(qrCodeData, {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        width: 300,
+        margin: 2,
+      });
+      
+      // Create lab case with patient reference and QR code
       const labCase = new LabCase({
         ...input,
         caseId,
         patientId,
+        qrCode: qrCodeImage,
+        qrCodeData,
         status: 'in-planning'
       });
       

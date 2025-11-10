@@ -26,6 +26,8 @@ export interface ILabCase extends Document {
   actualCompletion?: string;
   technicianId?: string; // Reference to User (technician)
   technician?: string;
+  qrCode?: string; // Base64 encoded QR code image
+  qrCodeData?: string; // The data encoded in the QR code
   createdAt: Date;
   updatedAt: Date;
 }
@@ -141,6 +143,12 @@ const LabCaseSchema: Schema = new Schema(
     technician: {
       type: String,
       trim: true,
+    },
+    qrCode: {
+      type: String, // Base64 encoded QR code image
+    },
+    qrCodeData: {
+      type: String, // The data encoded in the QR code
     },
   },
   {

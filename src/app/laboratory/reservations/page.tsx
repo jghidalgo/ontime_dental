@@ -35,6 +35,8 @@ type ReservationCase = {
   shadeGuide?: string;
   materialType?: string;
   notes?: string;
+  qrCode?: string;
+  qrCodeData?: string;
 };
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -1051,18 +1053,20 @@ export default function LaboratoryReservationsPage() {
                                   </div>
                                   <div className="space-y-1">
                                     {sortedProcedures.map(({ procedure, total }) => (
-                                      <button
+                                      <div
                                         key={procedure}
-                                        type="button"
-                                        onClick={() => openProcedureModal(date, procedure)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openProcedureModal(date, procedure);
+                                        }}
                                         className={clsx(
-                                          'flex w-full items-center justify-between rounded-lg px-2 py-1 text-left text-[11px] font-medium transition hover:shadow-lg hover:shadow-primary-900/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400/60',
+                                          'flex w-full items-center justify-between rounded-lg px-2 py-1 text-left text-[11px] font-medium transition hover:shadow-lg hover:shadow-primary-900/20 focus:outline-none cursor-pointer',
                                           procedureColorMap.get(procedure) ?? palette[0]
                                         )}
                                       >
                                         <span className="truncate pr-2">{procedure}</span>
                                         <span className="font-semibold">{total}</span>
-                                      </button>
+                                      </div>
                                     ))}
                                     {cases.length === 0 && (
                                       <p className="rounded-lg border border-dashed border-white/10 bg-white/[0.01] px-2 py-3 text-center text-[11px] text-slate-500">
@@ -1359,6 +1363,41 @@ export default function LaboratoryReservationsPage() {
                           <p className="mt-1 text-slate-200">{reservation.chair}</p>
                         </div>
                       </div>
+                      
+                      {/* QR Code Display */}
+                      {reservation.qrCode && (
+                        <div className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                          <div className="text-center">
+                            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{t('Case QR Code')}</p>
+                            <p className="mt-1 text-xs text-slate-500">{t('Scan to identify this case')}</p>
+                          </div>
+                          <div className="rounded-xl border border-white/10 bg-white p-3">
+                            <img 
+                              src={reservation.qrCode} 
+                              alt={`QR Code for case ${reservation.caseId}`}
+                              className="h-48 w-48"
+                            />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-semibold text-primary-200">{reservation.caseId}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = reservation.qrCode!;
+                              link.download = `${reservation.caseId}-QRCode.png`;
+                              link.click();
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:bg-white/10 hover:text-white"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            {t('Download QR Code')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (

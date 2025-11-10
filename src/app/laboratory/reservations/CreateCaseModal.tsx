@@ -56,6 +56,19 @@ const GET_ALL_LAB_TECHNICIANS = gql`
   }
 `;
 
+const GET_PATIENTS = gql`
+  query GetPatients($companyId: ID, $search: String) {
+    patients(companyId: $companyId, search: $search) {
+      id
+      firstName
+      lastName
+      birthday
+      email
+      phone
+    }
+  }
+`;
+
 type CreateCaseModalProps = {
   procedure: string;
   date: Date;
@@ -66,6 +79,11 @@ type CreateCaseModalProps = {
 export default function CreateCaseModal({ procedure, date, onClose, onSuccess }: CreateCaseModalProps) {
   const { t } = useTranslations();
   const [patientType, setPatientType] = useState<'existing' | 'new'>('new');
+  const [selectedPatient, setSelectedPatient] = useState<string>('');
+  const [patientSearch, setPatientSearch] = useState<string>('');
+  const [patientFirstName, setPatientFirstName] = useState<string>('');
+  const [patientLastName, setPatientLastName] = useState<string>('');
+  const [patientBirthday, setPatientBirthday] = useState<string>('');
   const [selectedLab, setSelectedLab] = useState<string>('');
   const [selectedClinic, setSelectedClinic] = useState<string>('');
   const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -84,11 +102,19 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     skip: !selectedCompanyId, // Don't fetch until a clinic is selected
   });
   const { data: techData, loading: techLoading } = useQuery(GET_ALL_LAB_TECHNICIANS);
+  const { data: patientsData, loading: patientsLoading } = useQuery(GET_PATIENTS, {
+    variables: { 
+      companyId: selectedCompanyId,
+      search: patientSearch || undefined 
+    },
+    skip: patientType === 'new' || !selectedCompanyId,
+  });
   
   const laboratories = labsData?.laboratories || [];
   const clinicLocations = clinicsData?.clinicLocations || [];
   const users = usersData?.users || [];
   const allUsers = techData?.users || [];
+  const patients = patientsData?.patients || [];
   
   // Flatten all clinics from all companies
   const allClinics = clinicLocations.flatMap((location: any) => 
@@ -179,6 +205,18 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
 
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
+  const formatBirthday = (birthday: any) => {
+    if (!birthday) return 'N/A';
+    try {
+      // Handle different date formats
+      const date = new Date(birthday);
+      if (Number.isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleDateString();
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -186,6 +224,12 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     // Validate that clinic is selected (which provides companyId)
     if (!selectedCompanyId) {
       setError('Please select a clinic first');
+      return;
+    }
+
+    // Validate patient selection for existing patient
+    if (patientType === 'existing' && !selectedPatient) {
+      setError('Please select an existing patient');
       return;
     }
 
@@ -199,6 +243,26 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     const selectedLabObj = laboratories.find((l: any) => l.id === selectedLab);
     const labName = selectedLabObj ? selectedLabObj.name : '';
 
+    // Get patient information based on type
+    let patientInfo: any = {};
+    if (patientType === 'existing') {
+      const patient = patients.find((p: any) => p.id === selectedPatient);
+      if (patient) {
+        patientInfo = {
+          patientId: patient.id,
+          patientFirstName: patient.firstName,
+          patientLastName: patient.lastName,
+          birthday: patient.birthday,
+        };
+      }
+    } else {
+      patientInfo = {
+        patientFirstName: patientFirstName,
+        patientLastName: patientLastName,
+        birthday: patientBirthday,
+      };
+    }
+
     createLabCase({
       variables: {
         input: {
@@ -207,9 +271,7 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
           lab: labName,
           clinicId: selectedClinicId,
           clinic: selectedClinic,
-          patientFirstName: formData.get('patientFirstName'),
-          patientLastName: formData.get('patientLastName'),
-          birthday: formData.get('birthday'),
+          ...patientInfo,
           reservationDate: formatDate(date),
           doctorId: selectedDoctorId,
           doctor: selectedDoctor,
@@ -286,40 +348,136 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
             </div>
           </div>
 
+          {/* Clinic Selection - Moved here so it comes before patient search */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Clinic')}</h3>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-300">{t('Clinic')} *</span>
+              <select
+                name="clinic"
+                required
+                value={selectedClinicId}
+                onChange={handleClinicChange}
+                disabled={clinicsLoading}
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">{clinicsLoading ? t('Loading clinics...') : t('Select a clinic')}</option>
+                {allClinics.map((clinic: any) => (
+                  <option key={clinic.clinicId} value={clinic.clinicId}>
+                    {clinic.name} ({clinic.companyName})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           {/* Patient Information */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Patient Information')}</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('First Name')} *</span>
-                <input
-                  type="text"
-                  name="patientFirstName"
-                  required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
-                  placeholder="John"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('Last Name')} *</span>
-                <input
-                  type="text"
-                  name="patientLastName"
-                  required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
-                  placeholder="Doe"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('Birthday')} *</span>
-                <input
-                  type="date"
-                  name="birthday"
-                  required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
-                />
-              </label>
-            </div>
+            
+            {patientType === 'existing' ? (
+              <div className="space-y-4">
+                {/* Patient Search */}
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-300">{t('Search Patient')} *</span>
+                  <input
+                    type="text"
+                    value={patientSearch}
+                    onChange={(e) => setPatientSearch(e.target.value)}
+                    placeholder={t('Search by name, email, or phone...')}
+                    disabled={!selectedCompanyId}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  {!selectedCompanyId && (
+                    <p className="mt-1 text-xs text-slate-500">{t('Please select a clinic first')}</p>
+                  )}
+                </label>
+
+                {/* Patient Selection */}
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-300">{t('Select Patient')} *</span>
+                  <select
+                    value={selectedPatient}
+                    onChange={(e) => setSelectedPatient(e.target.value)}
+                    required
+                    disabled={!selectedCompanyId || patientsLoading}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {!selectedCompanyId 
+                        ? t('Select clinic first')
+                        : patientsLoading 
+                        ? t('Loading patients...') 
+                        : patients.length === 0 
+                        ? t('No patients found') 
+                        : t('Select a patient')}
+                    </option>
+                    {patients.map((patient: any) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.firstName} {patient.lastName} - {formatBirthday(patient.birthday)}
+                        {patient.email && ` - ${patient.email}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Show selected patient details */}
+                {selectedPatient && patients.find((p: any) => p.id === selectedPatient) && (
+                  <div className="rounded-xl border border-primary-400/30 bg-primary-500/5 p-4">
+                    <h4 className="text-sm font-semibold text-primary-300 mb-2">{t('Patient Details')}</h4>
+                    {(() => {
+                      const patient = patients.find((p: any) => p.id === selectedPatient);
+                      return (
+                        <div className="space-y-1 text-sm text-slate-300">
+                          <p><span className="text-slate-500">{t('Name')}:</span> {patient.firstName} {patient.lastName}</p>
+                          <p><span className="text-slate-500">{t('Birthday')}:</span> {formatBirthday(patient.birthday)}</p>
+                          {patient.email && <p><span className="text-slate-500">{t('Email')}:</span> {patient.email}</p>}
+                          {patient.phone && <p><span className="text-slate-500">{t('Phone')}:</span> {patient.phone}</p>}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-300">{t('First Name')} *</span>
+                  <input
+                    type="text"
+                    name="patientFirstName"
+                    value={patientFirstName}
+                    onChange={(e) => setPatientFirstName(e.target.value)}
+                    required
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                    placeholder="John"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-300">{t('Last Name')} *</span>
+                  <input
+                    type="text"
+                    name="patientLastName"
+                    value={patientLastName}
+                    onChange={(e) => setPatientLastName(e.target.value)}
+                    required
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
+                    placeholder="Doe"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-300">{t('Birthday')} *</span>
+                  <input
+                    type="date"
+                    name="birthday"
+                    value={patientBirthday}
+                    onChange={(e) => setPatientBirthday(e.target.value)}
+                    required
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Case Details */}
@@ -378,24 +536,6 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
                 </select>
               </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-slate-300">{t('Clinic')} *</span>
-                <select
-                  name="clinic"
-                  required
-                  value={selectedClinicId}
-                  onChange={handleClinicChange}
-                  disabled={clinicsLoading}
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="">{clinicsLoading ? t('Loading clinics...') : t('Select a clinic')}</option>
-                  {allClinics.map((clinic: any) => (
-                    <option key={clinic.clinicId} value={clinic.clinicId}>
-                      {clinic.name} ({clinic.companyName})
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label className="block">
                 <span className="text-sm font-medium text-slate-300">{t('Doctor')} *</span>
                 <select

@@ -521,6 +521,8 @@ const typeDefs = gql`
     actualCompletion: String
     technicianId: String
     technician: String
+    qrCode: String
+    qrCodeData: String
     createdAt: String!
     updatedAt: String!
   }
