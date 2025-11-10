@@ -5,12 +5,17 @@ export const CREATE_LAB_CASE = gql`
     createLabCase(input: $input) {
       id
       caseId
+      companyId
+      patientId
+      labId
       lab
+      clinicId
       clinic
       patientFirstName
       patientLastName
       birthday
       reservationDate
+      doctorId
       doctor
       procedure
       status
@@ -22,6 +27,7 @@ export const CREATE_LAB_CASE = gql`
       toothNumbers
       estimatedCompletion
       actualCompletion
+      technicianId
       technician
       createdAt
       updatedAt

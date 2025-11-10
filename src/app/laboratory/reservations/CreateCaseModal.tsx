@@ -34,6 +34,28 @@ const GET_ALL_CLINICS = gql`
   }
 `;
 
+const GET_USERS_BY_COMPANY = gql`
+  query GetUsersByCompany($companyId: ID!) {
+    users(companyId: $companyId) {
+      id
+      name
+      email
+      role
+    }
+  }
+`;
+
+const GET_ALL_LAB_TECHNICIANS = gql`
+  query GetAllLabTechnicians {
+    users {
+      id
+      name
+      email
+      role
+    }
+  }
+`;
+
 type CreateCaseModalProps = {
   procedure: string;
   date: Date;
@@ -41,33 +63,47 @@ type CreateCaseModalProps = {
   onSuccess: () => void;
 };
 
-const doctorOptions = [
-  'Dr. Alexis Stone',
-  'Dr. Maya Jensen',
-  'Dr. Luis Carmona',
-  'Dr. Javier Molina'
-];
-
 export default function CreateCaseModal({ procedure, date, onClose, onSuccess }: CreateCaseModalProps) {
   const { t } = useTranslations();
   const [patientType, setPatientType] = useState<'existing' | 'new'>('new');
   const [selectedLab, setSelectedLab] = useState<string>('');
+  const [selectedClinic, setSelectedClinic] = useState<string>('');
+  const [selectedClinicId, setSelectedClinicId] = useState<string>('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [selectedDoctor, setSelectedDoctor] = useState<string>('');
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [selectedTechnician, setSelectedTechnician] = useState<string>('');
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [availableProcedures, setAvailableProcedures] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const { data: labsData, loading: labsLoading } = useQuery(GET_LABORATORIES);
   const { data: clinicsData, loading: clinicsLoading } = useQuery(GET_ALL_CLINICS);
+  const { data: usersData, loading: usersLoading } = useQuery(GET_USERS_BY_COMPANY, {
+    variables: { companyId: selectedCompanyId },
+    skip: !selectedCompanyId, // Don't fetch until a clinic is selected
+  });
+  const { data: techData, loading: techLoading } = useQuery(GET_ALL_LAB_TECHNICIANS);
   
   const laboratories = labsData?.laboratories || [];
   const clinicLocations = clinicsData?.clinicLocations || [];
+  const users = usersData?.users || [];
+  const allUsers = techData?.users || [];
   
   // Flatten all clinics from all companies
   const allClinics = clinicLocations.flatMap((location: any) => 
     location.clinics.map((clinic: any) => ({
       ...clinic,
-      companyName: location.companyName
+      companyName: location.companyName,
+      companyId: location.companyId
     }))
   );
+
+  // Filter users with dentist role only
+  const doctors = users.filter((user: any) => user.role === 'dentist');
+
+  // Filter users with lab_tech role only
+  const technicians = allUsers.filter((user: any) => user.role === 'lab_tech');
 
   const [createLabCase, { loading }] = useMutation(CREATE_LAB_CASE, {
     onCompleted: () => {
@@ -96,11 +132,62 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     setSelectedLab(e.target.value);
   };
 
+  const handleClinicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const clinicId = e.target.value;
+    setSelectedClinicId(clinicId);
+    
+    // Find the selected clinic and get its details
+    const clinic = allClinics.find((c: any) => c.clinicId === clinicId);
+    if (clinic) {
+      setSelectedClinic(clinic.name);
+      setSelectedCompanyId(clinic.companyId);
+    } else {
+      setSelectedClinic('');
+      setSelectedCompanyId('');
+    }
+    
+    // Reset doctor selection when clinic changes
+    setSelectedDoctor('');
+    setSelectedDoctorId('');
+  };
+
+  const handleDoctorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const doctorId = e.target.value;
+    setSelectedDoctorId(doctorId);
+    
+    // Find the selected doctor and get their name
+    const doctor = doctors.find((d: any) => d.id === doctorId);
+    if (doctor) {
+      setSelectedDoctor(doctor.name);
+    } else {
+      setSelectedDoctor('');
+    }
+  };
+
+  const handleTechnicianChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const technicianId = e.target.value;
+    setSelectedTechnicianId(technicianId);
+    
+    // Find the selected technician and get their name
+    const technician = technicians.find((t: any) => t.id === technicianId);
+    if (technician) {
+      setSelectedTechnician(technician.name);
+    } else {
+      setSelectedTechnician('');
+    }
+  };
+
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+
+    // Validate that clinic is selected (which provides companyId)
+    if (!selectedCompanyId) {
+      setError('Please select a clinic first');
+      return;
+    }
 
     const formData = new FormData(e.currentTarget);
     const toothNumbersValue = formData.get('toothNumbers');
@@ -115,13 +202,17 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     createLabCase({
       variables: {
         input: {
+          companyId: selectedCompanyId,
+          labId: selectedLab,
           lab: labName,
-          clinic: formData.get('clinic'),
+          clinicId: selectedClinicId,
+          clinic: selectedClinic,
           patientFirstName: formData.get('patientFirstName'),
           patientLastName: formData.get('patientLastName'),
           birthday: formData.get('birthday'),
           reservationDate: formatDate(date),
-          doctor: formData.get('doctor'),
+          doctorId: selectedDoctorId,
+          doctor: selectedDoctor,
           procedure: formData.get('category'), // Using category (procedure from lab) as the procedure
           category: formData.get('category'),
           priority: formData.get('priority') || 'normal',
@@ -130,7 +221,8 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
           notes: formData.get('notes') || undefined,
           toothNumbers: toothNumbers.length > 0 ? toothNumbers : undefined,
           estimatedCompletion: formData.get('estimatedCompletion') || undefined,
-          technician: formData.get('technician') || undefined,
+          technicianId: selectedTechnicianId || undefined,
+          technician: selectedTechnician || undefined,
         },
       },
     });
@@ -291,12 +383,14 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
                 <select
                   name="clinic"
                   required
+                  value={selectedClinicId}
+                  onChange={handleClinicChange}
                   disabled={clinicsLoading}
                   className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">{clinicsLoading ? t('Loading clinics...') : t('Select a clinic')}</option>
                   {allClinics.map((clinic: any) => (
-                    <option key={clinic.clinicId} value={clinic.name}>
+                    <option key={clinic.clinicId} value={clinic.clinicId}>
                       {clinic.name} ({clinic.companyName})
                     </option>
                   ))}
@@ -307,10 +401,24 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
                 <select
                   name="doctor"
                   required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                  value={selectedDoctorId}
+                  onChange={handleDoctorChange}
+                  disabled={!selectedClinicId || usersLoading}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {doctorOptions.map((doc) => (
-                    <option key={doc} value={doc}>{doc}</option>
+                  <option value="">
+                    {!selectedClinicId 
+                      ? t('Select a clinic first') 
+                      : usersLoading 
+                      ? t('Loading doctors...') 
+                      : doctors.length === 0 
+                      ? t('No doctors found') 
+                      : t('Select a doctor')}
+                  </option>
+                  {doctors.map((doctor: any) => (
+                    <option key={doctor.id} value={doctor.id}>
+                      {doctor.name}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -358,12 +466,26 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
               </label>
               <label className="block lg:col-span-2">
                 <span className="text-sm font-medium text-slate-300">{t('Technician')}</span>
-                <input
-                  type="text"
+                <select
                   name="technician"
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
-                  placeholder="Technician name"
-                />
+                  value={selectedTechnicianId}
+                  onChange={handleTechnicianChange}
+                  disabled={techLoading}
+                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {techLoading 
+                      ? t('Loading technicians...') 
+                      : technicians.length === 0 
+                      ? t('No technicians found') 
+                      : t('Select a technician (optional)')}
+                  </option>
+                  {technicians.map((tech: any) => (
+                    <option key={tech.id} value={tech.id}>
+                      {tech.name}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
           </div>

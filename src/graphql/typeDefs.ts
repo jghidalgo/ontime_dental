@@ -477,16 +477,37 @@ const typeDefs = gql`
     documents: [DocumentRecordInput!]
   }
 
+  type Patient {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    birthday: String!
+    email: String
+    phone: String
+    address: String
+    city: String
+    state: String
+    zip: String
+    notes: String
+    companyId: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type LabCase {
     id: ID!
     caseId: String!
     companyId: String!
+    patientId: String!
+    labId: String
     lab: String!
+    clinicId: String
     clinic: String!
     patientFirstName: String!
     patientLastName: String!
     birthday: String!
     reservationDate: String!
+    doctorId: String
     doctor: String!
     procedure: String!
     status: String!
@@ -498,19 +519,38 @@ const typeDefs = gql`
     toothNumbers: [String!]
     estimatedCompletion: String
     actualCompletion: String
+    technicianId: String
     technician: String
     createdAt: String!
     updatedAt: String!
   }
 
+  input PatientInput {
+    firstName: String!
+    lastName: String!
+    birthday: String!
+    email: String
+    phone: String
+    address: String
+    city: String
+    state: String
+    zip: String
+    notes: String
+    companyId: String
+  }
+
   input LabCaseInput {
     companyId: String!
+    labId: String
     lab: String!
+    clinicId: String
     clinic: String!
+    patientId: String
     patientFirstName: String!
     patientLastName: String!
     birthday: String!
     reservationDate: String!
+    doctorId: String
     doctor: String!
     procedure: String!
     category: String!
@@ -520,16 +560,20 @@ const typeDefs = gql`
     notes: String
     toothNumbers: [String!]
     estimatedCompletion: String
+    technicianId: String
     technician: String
   }
 
   input LabCaseUpdateInput {
+    labId: String
     lab: String
+    clinicId: String
     clinic: String
     patientFirstName: String
     patientLastName: String
     birthday: String
     reservationDate: String
+    doctorId: String
     doctor: String
     procedure: String
     status: String
@@ -541,6 +585,7 @@ const typeDefs = gql`
     toothNumbers: [String!]
     estimatedCompletion: String
     actualCompletion: String
+    technicianId: String
     technician: String
   }
 
@@ -676,6 +721,10 @@ const typeDefs = gql`
     labCase(id: ID!): LabCase
     labCaseByNumber(caseId: String!, companyId: ID): LabCase
     
+    # Patient queries
+    patients(companyId: ID, search: String): [Patient!]!
+    patient(id: ID!): Patient
+    
     # Employee queries
     employees(
       companyId: ID
@@ -776,6 +825,11 @@ const typeDefs = gql`
     createLabCase(input: LabCaseInput!): LabCase!
     updateLabCase(id: ID!, input: LabCaseUpdateInput!): LabCase!
     deleteLabCase(id: ID!): Boolean!
+    
+    # Patient mutations
+    createPatient(input: PatientInput!): Patient!
+    updatePatient(id: ID!, input: PatientInput!): Patient!
+    deletePatient(id: ID!): Boolean!
     
     # Employee mutations
     createEmployee(input: EmployeeCreateInput!): Employee!

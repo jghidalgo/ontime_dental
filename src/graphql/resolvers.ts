@@ -8,8 +8,9 @@ import Laboratory from '@/models/Laboratory';
 import FrontDeskSchedule from '@/models/FrontDeskSchedule';
 import DoctorSchedule from '@/models/DoctorSchedule';
 import Ticket from '@/models/Ticket';
-import DocumentEntity from '@/models/Document';
+import Patient from '@/models/Patient';
 import LabCase from '@/models/LabCase';
+import DocumentEntity from '@/models/Document';
 import Employee from '@/models/Employee';
 import Company from '@/models/Company';
 import PTO from '@/models/PTO';
@@ -359,6 +360,42 @@ export const resolvers = {
       return {
         ...labCase,
         id: labCase._id.toString()
+      };
+    },
+
+    // Patient Queries
+    patients: async (_: unknown, { companyId, search }: { companyId?: string; search?: string }) => {
+      await connectToDatabase();
+      const filter: any = {};
+      
+      if (companyId) {
+        filter.companyId = companyId;
+      }
+      
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        filter.$or = [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { phone: searchRegex }
+        ];
+      }
+      
+      const patients = await Patient.find(filter).sort({ lastName: 1, firstName: 1 }).lean();
+      return patients.map((patient: any) => ({
+        ...patient,
+        id: patient._id.toString()
+      }));
+    },
+
+    patient: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const patient: any = await Patient.findById(id).lean();
+      if (!patient) return null;
+      return {
+        ...patient,
+        id: patient._id.toString()
       };
     },
 
@@ -1519,13 +1556,47 @@ export const resolvers = {
     createLabCase: async (_: unknown, { input }: { input: any }) => {
       await connectToDatabase();
       
+      let patientId = input.patientId;
+      
+      // If no patientId provided, check if patient exists or create new one
+      if (!patientId) {
+        const { patientFirstName, patientLastName, birthday, companyId } = input;
+        
+        if (!patientFirstName || !patientLastName || !birthday) {
+          throw new Error('Patient information is required');
+        }
+        
+        // Check if patient exists (same name and birthday)
+        let existingPatient: any = await Patient.findOne({
+          firstName: patientFirstName,
+          lastName: patientLastName,
+          birthday: new Date(birthday)
+        }).lean();
+        
+        if (existingPatient) {
+          // Use existing patient
+          patientId = existingPatient._id.toString();
+        } else {
+          // Create new patient
+          const newPatient = await Patient.create({
+            firstName: patientFirstName,
+            lastName: patientLastName,
+            birthday: new Date(birthday),
+            companyId: companyId || undefined
+          });
+          patientId = newPatient._id.toString();
+        }
+      }
+      
       // Generate unique case ID
       const count = await LabCase.countDocuments();
       const caseId = `LAB-${String(count + 1).padStart(6, '0')}`;
       
+      // Create lab case with patient reference
       const labCase = new LabCase({
         ...input,
         caseId,
+        patientId,
         status: 'in-planning'
       });
       
@@ -1560,6 +1631,50 @@ export const resolvers = {
       await connectToDatabase();
       
       const result = await LabCase.findByIdAndDelete(id);
+      return !!result;
+    },
+
+    // Patient Mutations
+    createPatient: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      
+      const patient = await Patient.create(input);
+      
+      return {
+        ...patient.toObject(),
+        id: patient._id.toString()
+      };
+    },
+
+    updatePatient: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      const patient: any = await Patient.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true, runValidators: true }
+      );
+      
+      if (!patient) {
+        throw new Error('Patient not found');
+      }
+      
+      return {
+        ...patient.toObject(),
+        id: patient._id.toString()
+      };
+    },
+
+    deletePatient: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      
+      // Check if patient has any lab cases
+      const labCaseCount = await LabCase.countDocuments({ patientId: id });
+      if (labCaseCount > 0) {
+        throw new Error('Cannot delete patient with existing lab cases');
+      }
+      
+      const result = await Patient.findByIdAndDelete(id);
       return !!result;
     },
 

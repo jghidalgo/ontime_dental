@@ -3,12 +3,16 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ILabCase extends Document {
   caseId: string;
   companyId: string;
+  patientId: string; // Reference to Patient
+  labId?: string; // Reference to Laboratory
   lab: string;
+  clinicId?: string; // Reference to ClinicLocation
   clinic: string;
   patientFirstName: string;
   patientLastName: string;
   birthday: string;
   reservationDate: string;
+  doctorId?: string; // Reference to User (doctor)
   doctor: string;
   procedure: string;
   status: 'in-production' | 'in-transit' | 'completed' | 'in-planning';
@@ -20,6 +24,7 @@ export interface ILabCase extends Document {
   toothNumbers?: string[];
   estimatedCompletion?: string;
   actualCompletion?: string;
+  technicianId?: string; // Reference to User (technician)
   technician?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -38,10 +43,23 @@ const LabCaseSchema: Schema = new Schema(
       required: true,
       index: true,
     },
+    patientId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    labId: {
+      type: String,
+      index: true,
+    },
     lab: {
       type: String,
       required: true,
       trim: true,
+    },
+    clinicId: {
+      type: String,
+      index: true,
     },
     clinic: {
       type: String,
@@ -66,6 +84,10 @@ const LabCaseSchema: Schema = new Schema(
       type: String,
       required: true,
     },
+    doctorId: {
+      type: String,
+      index: true,
+    },
     doctor: {
       type: String,
       required: true,
@@ -84,7 +106,7 @@ const LabCaseSchema: Schema = new Schema(
     category: {
       type: String,
       required: true,
-      enum: ['Crowns & Bridges', 'Implant Restorations', 'Try-in / Wax Setups', 'Aligners & Ortho', 'Repairs & Adjustments', 'Other'],
+      trim: true,
     },
     priority: {
       type: String,
@@ -112,6 +134,10 @@ const LabCaseSchema: Schema = new Schema(
     actualCompletion: {
       type: String,
     },
+    technicianId: {
+      type: String,
+      index: true,
+    },
     technician: {
       type: String,
       trim: true,
@@ -128,7 +154,13 @@ LabCaseSchema.index({ companyId: 1 });
 LabCaseSchema.index({ companyId: 1, status: 1 });
 LabCaseSchema.index({ companyId: 1, reservationDate: -1 });
 LabCaseSchema.index({ clinic: 1, status: 1 });
+LabCaseSchema.index({ clinicId: 1 });
+LabCaseSchema.index({ clinicId: 1, status: 1 });
 LabCaseSchema.index({ doctor: 1 });
+LabCaseSchema.index({ doctorId: 1 });
+LabCaseSchema.index({ labId: 1 });
+LabCaseSchema.index({ technicianId: 1 });
+LabCaseSchema.index({ patientId: 1 });
 LabCaseSchema.index({ status: 1, createdAt: -1 });
 
 export default mongoose.models.LabCase || mongoose.model<ILabCase>('LabCase', LabCaseSchema);
