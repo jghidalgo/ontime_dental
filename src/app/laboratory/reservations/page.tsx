@@ -559,7 +559,9 @@ const labCaseToReservation = (labCase: any): ReservationCase => {
     priority: labCase.priority,
     shadeGuide: labCase.shadeGuide,
     materialType: labCase.materialType,
-    notes: labCase.notes
+    notes: labCase.notes,
+    qrCode: labCase.qrCode,
+    qrCodeData: labCase.qrCodeData
   };
 };
 
