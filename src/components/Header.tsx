@@ -3,34 +3,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, useTranslations } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 
 export default function Header() {
   const router = useRouter();
   const { language, setLanguage } = useLanguage();
   const { t } = useTranslations();
-  const [isDark, setIsDark] = useState(true);
+  const { mode, toggleMode } = useTheme();
+  const isDark = mode === 'dark';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Check theme on mount and set up observer
-    const root = document.documentElement;
-    const checkTheme = () => {
-      setIsDark(root.classList.contains('dark'));
-    };
-    
-    checkTheme();
-    
-    // Watch for theme changes
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
-
-    // Get user name from token or local storage
     const name = globalThis.localStorage.getItem('ontime.userName') || 'User';
     setUserName(name);
+  }, []);
 
-    // Close dropdown when clicking outside
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
@@ -38,25 +28,13 @@ export default function Header() {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     return () => {
-      observer.disconnect();
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
-  const toggleTheme = () => {
-    const root = document.documentElement;
-    if (root.classList.contains('dark')) {
-      root.classList.remove('dark');
-      setIsDark(false);
-      globalThis.localStorage.setItem('theme', 'light');
-    } else {
-      root.classList.add('dark');
-      setIsDark(true);
-      globalThis.localStorage.setItem('theme', 'dark');
-    }
-  };
+  const toggleTheme = () => toggleMode();
 
   const handleLogout = () => {
     globalThis.localStorage.removeItem('ontime.authToken');
