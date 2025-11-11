@@ -334,19 +334,35 @@ export default function ClinicsTab() {
     }
 
     try {
+      // Remove __typename from the data before sending to mutation
+      const cleanClinicData = {
+        clinicId: clinicFormData.clinicId,
+        name: clinicFormData.name,
+        address: clinicFormData.address,
+        city: clinicFormData.city,
+        zip: clinicFormData.zip,
+        phone: clinicFormData.phone,
+        email: clinicFormData.email,
+        hours: clinicFormData.hours,
+        coordinates: {
+          lat: clinicFormData.coordinates.lat,
+          lng: clinicFormData.coordinates.lng,
+        },
+      };
+
       if (isEditMode) {
         await updateClinic({
           variables: {
             companyId: selectedCompanyId,
             clinicId: editingClinicId,
-            clinic: clinicFormData,
+            clinic: cleanClinicData,
           },
         });
       } else {
         await addClinic({
           variables: {
             companyId: selectedCompanyId,
-            clinic: clinicFormData,
+            clinic: cleanClinicData,
           },
         });
       }
