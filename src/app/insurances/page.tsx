@@ -1,165 +1,204 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { GET_INSURANCES } from '@/graphql/insurance-queries';
+import { CREATE_INSURANCE, UPDATE_INSURANCE, DELETE_INSURANCE } from '@/graphql/insurance-mutations';
 
-const insurers = [
-  {
-    id: 'solis',
-    name: 'SOLIS',
-    summary:
-      'SOLIS partners with OnTime Dental to provide flexible coverage for preventive and specialty dentistry for Puerto Rico-based clinics.',
-    contact: {
-      phone: '(787) 555-1200',
-      fax: '(787) 555-1299',
-      email: 'support@solisdental.com',
-      website: 'https://solisdental.com'
-    },
-    accountManager: {
-      name: 'Luisa Fernández',
-      phone: '(787) 555-2211',
-      email: 'lfernandez@solisdental.com'
-    },
-    plans: [
-      {
-        id: '893',
-        name: 'SOLIS ELITE PLUS 5000',
-        year: '2025',
-        url: '#'
-      },
-      {
-        id: '894',
-        name: 'SOLIS SELF-INSURED PLANS 3500',
-        year: '2024',
-        url: '#'
-      },
-      {
-        id: '896',
-        name: 'SOLIS SELECT FAMILY ANNUAL',
-        year: '2023',
-        url: '#'
-      }
-    ],
-    updates: [
-      {
-        title: 'Digital claims pilot',
-        description: 'Submit pre-authorizations electronically starting October 1st.',
-        badge: 'Operations'
-      },
-      {
-        title: 'Fee schedule refresh',
-        description: 'Updated reimbursement codes for orthodontics effective January 2025.',
-        badge: 'Finance'
-      }
-    ]
-  },
-  {
-    id: 'mediatech',
-    name: 'Mediatech',
-    summary:
-      'Mediatech offers nationwide employer plans with high utilization of orthodontics and restorative dentistry.',
-    contact: {
-      phone: '(305) 555-0045',
-      fax: '(305) 555-0099',
-      email: 'providerrelations@mediatechhealth.com',
-      website: 'https://mediatechhealth.com'
-    },
-    accountManager: {
-      name: 'Andrew Collins',
-      phone: '(305) 555-0102',
-      email: 'acollins@mediatechhealth.com'
-    },
-    plans: [
-      {
-        id: '741',
-        name: 'Mediatech Premium 2000',
-        year: '2025',
-        url: '#'
-      },
-      {
-        id: '742',
-        name: 'Mediatech Hybrid PPO',
-        year: '2024',
-        url: '#'
-      }
-    ],
-    updates: [
-      {
-        title: 'Quarterly utilization report',
-        description: 'Shared usage trends for adult orthodontics and whitening add-ons.',
-        badge: 'Analytics'
-      }
-    ]
-  },
-  {
-    id: 'medicare',
-    name: 'Medicare',
-    summary:
-      'Federal coverage program with supplemental dental riders for senior patients.',
-    contact: {
-      phone: '(800) 633-4227',
-      fax: '(877) 486-2048',
-      email: 'medicare@cms.gov',
-      website: 'https://www.medicare.gov'
-    },
-    accountManager: {
-      name: 'Provider Services',
-      phone: '(800) 633-4227',
-      email: 'provider.services@cms.gov'
-    },
-    plans: [
-      {
-        id: '512',
-        name: 'Medicare Advantage Dental Rider',
-        year: '2025',
-        url: '#'
-      },
-      {
-        id: '513',
-        name: 'Medicare Preventive Only',
-        year: '2023',
-        url: '#'
-      }
-    ],
-    updates: [
-      {
-        title: 'CY 2025 coverage notice',
-        description: 'Review the annual notice of changes for preventive coverage allowances.',
-        badge: 'Compliance'
-      }
-    ]
-  }
-];
+interface Insurance {
+  id: string;
+  insurerId: string;
+  name: string;
+  companyId: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  policyPrefix?: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FormData {
+  insurerId: string;
+  name: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  website: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  policyPrefix: string;
+  notes: string;
+  isActive: boolean;
+}
 
 export default function InsurancesPage() {
   const router = useRouter();
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
-  const [userName, setUserName] = useState<string>('');
-  const [selectedInsurerId, setSelectedInsurerId] = useState<string>(insurers[0]?.id ?? '');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingInsurance, setEditingInsurance] = useState<Insurance | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  const [formData, setFormData] = useState<FormData>({
+    insurerId: '',
+    name: '',
+    contactName: '',
+    phone: '',
+    email: '',
+    website: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    policyPrefix: '',
+    notes: '',
+    isActive: true,
+  });
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
-
     if (!token) {
       router.push('/login');
+    }
+  }, [router]);
+
+  const { data, loading, error, refetch } = useQuery(GET_INSURANCES, {
+    variables: { 
+      companyId: selectedEntityId || undefined,
+      isActive: showInactive ? undefined : true
+    },
+    skip: !selectedEntityId,
+  });
+
+  const [createInsurance, { loading: creating }] = useMutation(CREATE_INSURANCE, {
+    onCompleted: () => {
+      refetch();
+      closeModal();
+    },
+    onError: (err) => {
+      alert(err.message);
+    },
+  });
+
+  const [updateInsurance, { loading: updating }] = useMutation(UPDATE_INSURANCE, {
+    onCompleted: () => {
+      refetch();
+      closeModal();
+    },
+    onError: (err) => {
+      alert(err.message);
+    },
+  });
+
+  const [deleteInsurance] = useMutation(DELETE_INSURANCE, {
+    onCompleted: () => {
+      refetch();
+      setDeleteConfirmId(null);
+    },
+    onError: (err) => {
+      alert(err.message);
+    },
+  });
+
+  const openCreateModal = () => {
+    setEditingInsurance(null);
+    setFormData({
+      insurerId: '',
+      name: '',
+      contactName: '',
+      phone: '',
+      email: '',
+      website: '',
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      policyPrefix: '',
+      notes: '',
+      isActive: true,
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (insurance: Insurance) => {
+    setEditingInsurance(insurance);
+    setFormData({
+      insurerId: insurance.insurerId,
+      name: insurance.name,
+      contactName: insurance.contactName || '',
+      phone: insurance.phone || '',
+      email: insurance.email || '',
+      website: insurance.website || '',
+      address: insurance.address || '',
+      city: insurance.city || '',
+      state: insurance.state || '',
+      zip: insurance.zip || '',
+      policyPrefix: insurance.policyPrefix || '',
+      notes: insurance.notes || '',
+      isActive: insurance.isActive,
+    });
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingInsurance(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedEntityId) {
+      alert('Please select a company');
       return;
     }
 
-    setUserName('Dr. Carter');
-  }, [router]);
+    const input = {
+      insurerId: formData.insurerId,
+      name: formData.name,
+      companyId: selectedEntityId,
+      contactName: formData.contactName || undefined,
+      phone: formData.phone || undefined,
+      email: formData.email || undefined,
+      website: formData.website || undefined,
+      address: formData.address || undefined,
+      city: formData.city || undefined,
+      state: formData.state || undefined,
+      zip: formData.zip || undefined,
+      policyPrefix: formData.policyPrefix || undefined,
+      notes: formData.notes || undefined,
+      isActive: formData.isActive,
+    };
 
-  const selectedInsurer = useMemo(
-    () => insurers.find((insurer) => insurer.id === selectedInsurerId) ?? insurers[0],
-    [selectedInsurerId]
-  );
-
-  const handleLogout = () => {
-    window.localStorage.removeItem('ontime.authToken');
-    window.localStorage.removeItem('ontime.userPermissions');
-    router.push('/login');
+    if (editingInsurance) {
+      await updateInsurance({ variables: { id: editingInsurance.id, input } });
+    } else {
+      await createInsurance({ variables: { input } });
+    }
   };
+
+  const handleDelete = async (id: string) => {
+    await deleteInsurance({ variables: { id } });
+  };
+
+  const filteredInsurances = (data?.insurances || []).filter((insurance: Insurance) =>
+    insurance.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    insurance.insurerId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
@@ -170,142 +209,328 @@ export default function InsurancesPage() {
         <div className="flex-1">
           <div className="border-b border-white/5 bg-white/[0.02] backdrop-blur-2xl">
             <PageHeader
-              category="Insurance hub"
-              title="Manage payer documents"
-              subtitle="Review carrier-specific documentation, credentialing requirements, and plan summaries."
+              category="Insurance Management"
+              title="Insurance Providers"
+              subtitle="Manage insurance companies and payer information"
               showEntitySelector={true}
               entityLabel="Entity"
               selectedEntityId={selectedEntityId}
               onEntityChange={(id) => setSelectedEntityId(id)}
             />
-
             <TopNavigation />
           </div>
 
           <main className="mx-auto max-w-7xl px-6 py-10">
-            <div className="space-y-8">
-              <section className="space-y-8">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                  <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Active insurer</p>
-                        <h2 className="mt-2 text-3xl font-semibold text-slate-50">{selectedInsurer?.name}</h2>
-                        <p className="mt-4 text-sm text-slate-400">{selectedInsurer?.summary}</p>
-                      </div>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-1 gap-4">
+                <input
+                  type="text"
+                  placeholder="Search insurances..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none backdrop-blur-xl transition focus:border-primary-400/60"
+                />
+                <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 backdrop-blur-xl">
+                  <input
+                    type="checkbox"
+                    checked={showInactive}
+                    onChange={(e) => setShowInactive(e.target.checked)}
+                    className="h-4 w-4 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-2 focus:ring-primary-500/50"
+                  />
+                  Show Inactive
+                </label>
+              </div>
+              <button
+                onClick={openCreateModal}
+                className="rounded-xl border border-primary-400/30 bg-primary-500/20 px-6 py-2 text-sm font-semibold text-primary-100 transition hover:bg-primary-500/30"
+              >
+                + Add Insurance
+              </button>
+            </div>
 
-                      <div className="grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                          <p className="text-xs uppercase tracking-widest text-white/40">Phone</p>
-                          <p className="mt-1 font-semibold text-slate-100">{selectedInsurer?.contact.phone}</p>
-                        </div>
-                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                          <p className="text-xs uppercase tracking-widest text-white/40">Fax</p>
-                          <p className="mt-1 font-semibold text-slate-100">{selectedInsurer?.contact.fax}</p>
-                        </div>
-                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                          <p className="text-xs uppercase tracking-widest text-white/40">Email</p>
-                          <a
-                            href={`mailto:${selectedInsurer?.contact.email}`}
-                            className="mt-1 block font-semibold text-primary-100 hover:text-primary-200"
-                          >
-                            {selectedInsurer?.contact.email}
-                          </a>
-                        </div>
-                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                          <p className="text-xs uppercase tracking-widest text-white/40">Website</p>
-                          <a
-                            href={selectedInsurer?.contact.website}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-1 block font-semibold text-primary-100 hover:text-primary-200"
-                          >
-                            {selectedInsurer?.contact.website.replace('https://', '')}
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-full max-w-xs">
-                      <label className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">
-                        Select insurer
-                      </label>
-                      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3 shadow-inner shadow-slate-950/40">
-                        <select
-                          value={selectedInsurerId}
-                          onChange={(event) => setSelectedInsurerId(event.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm font-medium text-slate-200 outline-none transition focus:border-primary-400/60 focus:text-white"
-                        >
-                          {insurers.map((insurer) => (
-                            <option key={insurer.id} value={insurer.id}>
-                              {insurer.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="mt-6 space-y-2 rounded-2xl border border-primary-400/20 bg-primary-500/10 p-4 text-sm text-primary-100">
-                        <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Account manager</p>
-                        <p className="text-base font-semibold text-slate-50">{selectedInsurer?.accountManager.name}</p>
-                        <p className="text-slate-100">{selectedInsurer?.accountManager.phone}</p>
-                        <a
-                          href={`mailto:${selectedInsurer?.accountManager.email}`}
-                          className="block text-sm font-medium text-primary-100 underline-offset-4 hover:underline"
-                        >
-                          {selectedInsurer?.accountManager.email}
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">Plans</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-slate-50">Plan documentation</h3>
-                      <p className="mt-1 text-sm text-slate-400">Download benefit summaries, credentialing packets, and fee schedules by plan.</p>
-                    </div>
-                    <button className="self-start rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-primary-400/30 hover:text-white">
-                      Export list
-                    </button>
-                  </div>
-
-                  <div className="mt-6 overflow-hidden rounded-2xl border border-white/5">
-                    <table className="min-w-full divide-y divide-white/5 text-left text-sm text-slate-200">
-                      <thead className="bg-white/[0.03] text-xs uppercase tracking-wider text-white/50">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl backdrop-blur-xl">
+              {loading && <p className="text-center text-slate-400">Loading insurances...</p>}
+              {error && <p className="text-center text-red-400">Error: {error.message}</p>}
+              {!loading && !error && (
+                <div className="overflow-hidden rounded-2xl border border-white/5">
+                  <table className="min-w-full divide-y divide-white/5 text-left text-sm">
+                    <thead className="bg-white/[0.03] text-xs uppercase tracking-wider text-white/50">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Insurance ID</th>
+                        <th className="px-4 py-3 font-medium">Name</th>
+                        <th className="px-4 py-3 font-medium">Contact</th>
+                        <th className="px-4 py-3 font-medium">Phone</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                        <th className="px-4 py-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredInsurances.length === 0 ? (
                         <tr>
-                          <th className="px-4 py-3 font-medium">ID</th>
-                          <th className="px-4 py-3 font-medium">Plan</th>
-                          <th className="px-4 py-3 font-medium">Year</th>
+                          <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                            No insurances found. Click "Add Insurance" to create one.
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {selectedInsurer?.plans.map((plan) => (
-                          <tr key={plan.id} className="transition hover:bg-primary-500/10">
-                            <td className="px-4 py-3 text-xs font-semibold uppercase tracking-widest text-white/60">{plan.id}</td>
-                            <td className="px-4 py-3">
-                              <a
-                                href={plan.url}
-                                className="font-semibold text-primary-100 hover:text-primary-200"
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {plan.name}
-                              </a>
+                      ) : (
+                        filteredInsurances.map((insurance: Insurance) => (
+                          <tr key={insurance.id} className="transition hover:bg-white/[0.02]">
+                            <td className="px-4 py-3 font-mono text-xs font-semibold text-primary-200">
+                              {insurance.insurerId}
                             </td>
-                            <td className="px-4 py-3 text-sm text-slate-300">{plan.year}</td>
+                            <td className="px-4 py-3 font-semibold text-slate-100">{insurance.name}</td>
+                            <td className="px-4 py-3 text-slate-300">{insurance.contactName || '—'}</td>
+                            <td className="px-4 py-3 text-slate-300">{insurance.phone || '—'}</td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={'inline-flex rounded-full px-3 py-1 text-xs font-medium ' + 
+                                  (insurance.isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-500/20 text-slate-400')}
+                              >
+                                {insurance.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => openEditModal(insurance)}
+                                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 transition hover:border-primary-400/30 hover:text-primary-200"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirmId(insurance.id)}
+                                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 transition hover:bg-red-500/20"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </section>
+              )}
             </div>
           </main>
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-900 p-8 shadow-2xl">
+            <h2 className="mb-6 text-2xl font-bold text-slate-50">
+              {editingInsurance ? 'Edit Insurance' : 'Create New Insurance'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Insurance ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.insurerId}
+                    onChange={(e) => setFormData({ ...formData, insurerId: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contactName}
+                    onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    ZIP
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.zip}
+                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Policy Prefix
+                </label>
+                <input
+                  type="text"
+                  value={formData.policyPrefix}
+                  onChange={(e) => setFormData({ ...formData, policyPrefix: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                  placeholder="e.g., XYZ-"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-primary-400/60"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="h-5 w-5 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-2 focus:ring-primary-500/50"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium text-slate-300">
+                  Active Insurance
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-xl border border-white/10 bg-white/5 px-6 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || updating}
+                  className="rounded-xl border border-primary-400/30 bg-primary-500/20 px-6 py-2 text-sm font-semibold text-primary-100 transition hover:bg-primary-500/30 disabled:opacity-50"
+                >
+                  {creating || updating ? 'Saving...' : editingInsurance ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-slate-900 p-8 shadow-2xl">
+            <h2 className="mb-4 text-2xl font-bold text-slate-50">Delete Insurance</h2>
+            <p className="mb-6 text-sm text-slate-400">
+              Are you sure you want to delete this insurance? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="rounded-xl border border-white/10 bg-white/5 px-6 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="rounded-xl border border-red-500/30 bg-red-500/20 px-6 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/30"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

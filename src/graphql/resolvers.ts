@@ -15,6 +15,7 @@ import Employee from '@/models/Employee';
 import Company from '@/models/Company';
 import PTO from '@/models/PTO';
 import CompanyPTOPolicy from '@/models/CompanyPTOPolicy';
+import Insurance from '@/models/Insurance';
 import QRCode from 'qrcode';
 
 export const resolvers = {
@@ -591,6 +592,49 @@ export const resolvers = {
       return {
         ...employee,
         id: employee._id.toString()
+      };
+    },
+
+    // Insurance Queries
+    insurances: async (_: unknown, { companyId, isActive }: { companyId?: string; isActive?: boolean }) => {
+      await connectToDatabase();
+      const filter: any = {};
+      if (companyId) filter.companyId = companyId;
+      if (isActive !== undefined) filter.isActive = isActive;
+      
+      const insurances = await Insurance.find(filter).sort({ name: 1 }).lean();
+      return insurances.map((ins: any) => ({
+        ...ins,
+        id: ins._id.toString(),
+        createdAt: ins.createdAt.toISOString(),
+        updatedAt: ins.updatedAt.toISOString()
+      }));
+    },
+
+    insurance: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const insurance: any = await Insurance.findById(id).lean();
+      if (!insurance) return null;
+      return {
+        ...insurance,
+        id: insurance._id.toString(),
+        createdAt: insurance.createdAt.toISOString(),
+        updatedAt: insurance.updatedAt.toISOString()
+      };
+    },
+
+    insuranceByInsurerId: async (_: unknown, { insurerId, companyId }: { insurerId: string; companyId: string }) => {
+      await connectToDatabase();
+      const insurance: any = await Insurance.findOne({ 
+        insurerId: insurerId.toUpperCase(), 
+        companyId 
+      }).lean();
+      if (!insurance) return null;
+      return {
+        ...insurance,
+        id: insurance._id.toString(),
+        createdAt: insurance.createdAt.toISOString(),
+        updatedAt: insurance.updatedAt.toISOString()
       };
     },
 
@@ -1998,6 +2042,80 @@ export const resolvers = {
         createdAt: policy.createdAt?.toISOString(),
         updatedAt: policy.updatedAt?.toISOString(),
       };
+    },
+
+    // Insurance Mutations
+    createInsurance: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      
+      // Check uniqueness of insurerId per company
+      const existing = await Insurance.findOne({ 
+        insurerId: input.insurerId.toUpperCase(), 
+        companyId: input.companyId 
+      }).lean();
+      
+      if (existing) {
+        throw new Error('Insurance with this ID already exists for this company');
+      }
+      
+      const insuranceData = { ...input, insurerId: input.insurerId.toUpperCase() };
+      const insurance: any = await Insurance.create(insuranceData);
+      
+      return {
+        ...insurance.toObject(),
+        id: insurance._id.toString(),
+        createdAt: insurance.createdAt.toISOString(),
+        updatedAt: insurance.updatedAt.toISOString()
+      };
+    },
+
+    updateInsurance: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      // If updating insurerId, ensure uniqueness
+      if (input.insurerId) {
+        input.insurerId = input.insurerId.toUpperCase();
+        const existing: any = await Insurance.findById(id).lean();
+        
+        if (!existing) {
+          throw new Error('Insurance not found');
+        }
+        
+        if (input.insurerId !== existing.insurerId) {
+          const duplicate = await Insurance.findOne({
+            insurerId: input.insurerId,
+            companyId: existing.companyId,
+            _id: { $ne: id }
+          }).lean();
+          
+          if (duplicate) {
+            throw new Error('Insurance with this ID already exists for this company');
+          }
+        }
+      }
+      
+      const insurance: any = await Insurance.findByIdAndUpdate(
+        id, 
+        { $set: input }, 
+        { new: true, runValidators: true }
+      );
+      
+      if (!insurance) {
+        throw new Error('Insurance not found');
+      }
+      
+      return {
+        ...insurance.toObject(),
+        id: insurance._id.toString(),
+        createdAt: insurance.createdAt.toISOString(),
+        updatedAt: insurance.updatedAt.toISOString()
+      };
+    },
+
+    deleteInsurance: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const result = await Insurance.findByIdAndDelete(id);
+      return !!result;
     }
   }
 };

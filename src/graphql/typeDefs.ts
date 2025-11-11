@@ -677,6 +677,59 @@ const typeDefs = gql`
     isActive: Boolean!
   }
 
+  type Insurance {
+    id: ID!
+    insurerId: String!
+    name: String!
+    companyId: ID!
+    contactName: String
+    phone: String
+    email: String
+    address: String
+    city: String
+    state: String
+    zip: String
+    website: String
+    policyPrefix: String
+    notes: String
+    isActive: Boolean!
+    createdAt: String
+    updatedAt: String
+  }
+
+  input InsuranceInput {
+    insurerId: String!
+    name: String!
+    companyId: ID!
+    contactName: String
+    phone: String
+    email: String
+    address: String
+    city: String
+    state: String
+    zip: String
+    website: String
+    policyPrefix: String
+    notes: String
+    isActive: Boolean
+  }
+
+  input InsuranceUpdateInput {
+    insurerId: String
+    name: String
+    contactName: String
+    phone: String
+    email: String
+    address: String
+    city: String
+    state: String
+    zip: String
+    website: String
+    policyPrefix: String
+    notes: String
+    isActive: Boolean
+  }
+
   type Query {
     health: String!
     
@@ -745,6 +798,11 @@ const typeDefs = gql`
     ptos(employeeId: String, companyId: ID, status: String): [PTO!]!
     pto(id: ID!): PTO
     employeePTOBalance(employeeId: String!): Employee
+    
+    # Insurance queries
+    insurances(companyId: ID, isActive: Boolean): [Insurance!]!
+    insurance(id: ID!): Insurance
+    insuranceByInsurerId(insurerId: String!, companyId: ID!): Insurance
     
     # Dashboard query
     dashboardData: DashboardData!
@@ -849,6 +907,11 @@ const typeDefs = gql`
     createLeaveType(companyId: ID!, input: LeaveTypeInput!): CompanyPTOPolicy!
     updateLeaveType(companyId: ID!, leaveTypeId: ID!, input: LeaveTypeInput!): CompanyPTOPolicy!
     deleteLeaveType(companyId: ID!, leaveTypeId: ID!): CompanyPTOPolicy!
+    
+    # Insurance mutations
+    createInsurance(input: InsuranceInput!): Insurance!
+    updateInsurance(id: ID!, input: InsuranceUpdateInput!): Insurance!
+    deleteInsurance(id: ID!): Boolean!
   }
 `;
 
