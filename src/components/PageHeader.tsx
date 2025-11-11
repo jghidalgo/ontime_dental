@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import Image from 'next/image';
 import { useLanguage } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 import { GET_COMPANIES } from '@/graphql/company-queries';
 
 type EntityOption = {
@@ -42,7 +43,8 @@ export default function PageHeader({
 }: Readonly<PageHeaderProps>) {
   const router = useRouter();
   const { language, setLanguage } = useLanguage();
-  const [isDark, setIsDark] = useState(true);
+  const { mode, toggleMode } = useTheme();
+  const isDark = mode === 'dark';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -75,22 +77,6 @@ export default function PageHeader({
     setUserName(name);
   }, []);
 
-  // Detect theme changes
-  useEffect(() => {
-    const updateTheme = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    };
-
-    updateTheme();
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
   // Handle click outside dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,11 +92,7 @@ export default function PageHeader({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProfileOpen]);
 
-  const toggleTheme = () => {
-    const newTheme = isDark ? 'light' : 'dark';
-    document.documentElement.classList.toggle('dark');
-    localStorage.setItem('ontime.theme', newTheme);
-  };
+  const toggleTheme = () => toggleMode();
 
   const handleLogout = () => {
     localStorage.removeItem('ontime.authToken');
