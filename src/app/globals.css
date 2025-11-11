@@ -126,6 +126,10 @@ body.light .border-white\/20 {
   border-color: var(--light-border) !important;
 }
 
+body.light .text-white {
+  color: var(--light-text) !important;
+}
+
 body.light .text-slate-100 {
   color: var(--light-text) !important;
 }
@@ -169,10 +173,73 @@ body.light .bg-white\/40 {
   background-color: var(--light-overlay-strong) !important;
 }
 
+body.light .bg-white\/\[0\.01\],
+body.light .bg-white\/\[0\.02\],
+body.light .bg-white\/\[0\.03\],
+body.light .bg-white\/\[0\.04\] {
+  background-color: var(--light-surface) !important;
+  border-color: var(--light-border) !important;
+}
+
+body.light .bg-slate-500\/10,
+body.light .bg-slate-500\/15 {
+  background-color: rgba(241, 245, 249, 0.9) !important;
+}
+
+body.light .bg-slate-400\/30 {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+}
+
+body.light .border-slate-400\/30,
+body.light .border-slate-400\/40 {
+  border-color: rgba(37, 99, 235, 0.3) !important;
+}
+
+body.light .ring-slate-400\/40 {
+  --tw-ring-color: rgba(37, 99, 235, 0.3) !important;
+}
+
+body.light .hover\:bg-white\/10:hover {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+}
+
+body.light .hover\:text-white:hover {
+  color: var(--light-text) !important;
+}
+
+body.light .hover\:border-primary-400\/40:hover {
+  border-color: rgba(37, 99, 235, 0.4) !important;
+}
+
+body.light .hover\:text-primary-100:hover {
+  color: #1d4ed8 !important;
+}
+
+body.light .focus-visible\:ring-primary-400\/60:focus-visible {
+  --tw-ring-color: rgba(37, 99, 235, 0.6) !important;
+}
+
 body.light .bg-primary-500\/20,
 body.light .bg-primary-500\/15,
 body.light .bg-primary-500\/10 {
   background-color: rgba(37, 99, 235, 0.14) !important;
+}
+
+body.light .bg-primary-500 {
+  background-color: #2563eb !important;
+}
+
+body.light .bg-primary-400 {
+  background-color: #3b82f6 !important;
+}
+
+body.light .hover\:bg-primary-400:hover {
+  background-color: #3b82f6 !important;
+}
+
+body.light .bg-primary-500 .text-slate-950,
+body.light .bg-primary-400 .text-slate-950 {
+  color: #ffffff !important;
 }
 
 body.light .text-primary-200,
@@ -280,6 +347,14 @@ body.light .shadow-slate-950\/40,
 body.light .shadow-slate-950\/50,
 body.light .shadow-primary-900\/40 {
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12) !important;
+}
+
+body.light .shadow-\[0_40px_120px_-40px_rgba\(15\,23\,42\,0\.8\)\] {
+  box-shadow: 0 40px 120px -40px rgba(15, 23, 42, 0.15) !important;
+}
+
+body.light .backdrop-blur-sm {
+  backdrop-filter: blur(8px) !important;
 }
 
 body.light .bg-gradient-to-br.from-slate-900.via-slate-950.to-slate-900,

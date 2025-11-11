@@ -1567,16 +1567,18 @@ export const resolvers = {
           throw new Error('Patient information is required');
         }
         
-        // Check if patient exists (same name and birthday)
+        // Check if patient exists (same name, birthday, and company)
         let existingPatient: any = await Patient.findOne({
           firstName: patientFirstName,
           lastName: patientLastName,
-          birthday: new Date(birthday)
+          birthday: new Date(birthday),
+          companyId: companyId
         }).lean();
         
         if (existingPatient) {
           // Use existing patient
           patientId = existingPatient._id.toString();
+          console.log(`Using existing patient: ${patientId} for ${patientFirstName} ${patientLastName}`);
         } else {
           // Create new patient
           const newPatient = await Patient.create({
@@ -1586,6 +1588,7 @@ export const resolvers = {
             companyId: companyId || undefined
           });
           patientId = newPatient._id.toString();
+          console.log(`Created new patient: ${patientId} for ${patientFirstName} ${patientLastName}`);
         }
       }
       
