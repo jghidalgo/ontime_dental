@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Language, useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_LAB_CASES } from '@/graphql/lab-queries';
+import { GET_LAB_CASES, GET_LABORATORIES } from '@/graphql/lab-queries';
 import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
+import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
+import { GET_USERS } from '@/graphql/user-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 
@@ -94,6 +96,8 @@ type CaseSearchRecord = {
   doctor: string;
   procedure: string;
   status: CaseStatus;
+  qrCode?: string;
+  qrCodeData?: string;
 };
 
 type LocalizedField = Record<Language, string>;
@@ -468,8 +472,35 @@ export default function LaboratoryPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [searchFeedback, setSearchFeedback] = useState(() => t('Please perform a search.'));
   const [lastEmptyMessageKey, setLastEmptyMessageKey] = useState<string | undefined>(undefined);
+  const [selectedCase, setSelectedCase] = useState<CaseSearchRecord | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  const { refetch: refetchCases } = useQuery(GET_LAB_CASES);
+  console.log('=== SELECTED ENTITY ID ===', selectedEntityId);
+
+  const { data: labCasesData, loading: loadingCases, refetch: refetchCases } = useQuery(GET_LAB_CASES, {
+    variables: { companyId: selectedEntityId },
+  });
+  
+  console.log('Lab cases loading:', loadingCases, 'data:', labCasesData);
+  
+  const { data: laboratoriesData, loading: loadingLabs } = useQuery(GET_LABORATORIES);
+  
+  console.log('Laboratories loading:', loadingLabs, 'data:', laboratoriesData);
+  
+  const { data: clinicsData, loading: loadingClinics } = useQuery(GET_CLINIC_LOCATIONS, {
+    variables: { companyId: undefined }, // Temporarily fetch all clinics to debug
+    onCompleted: (data) => {
+      console.log('GET_CLINIC_LOCATIONS query completed:', data);
+    },
+    onError: (error) => {
+      console.error('GET_CLINIC_LOCATIONS query error:', error);
+    }
+  });
+  
+  const { data: usersData, loading: loadingUsers } = useQuery(GET_USERS, {
+    variables: { companyId: selectedEntityId },
+  });
+  
   const [createLabCase] = useMutation(CREATE_LAB_CASE, {
     onCompleted: () => {
       refetchCases();
@@ -477,10 +508,41 @@ export default function LaboratoryPage() {
     },
   });
 
-  const caseSearchRecords = useMemo(
+  // Transform lab cases from GraphQL to search format
+  const caseSearchRecords = useMemo(() => {
+    if (!labCasesData?.labCases) {
+      console.log('No lab cases data:', labCasesData);
+      return [];
+    }
+    console.log('Lab cases data:', labCasesData.labCases);
+    
+    return labCasesData.labCases.map((labCase: any) => ({
+      caseId: labCase.caseId,
+      lab: labCase.lab,
+      clinic: labCase.clinic,
+      patientFirstName: labCase.patientFirstName,
+      patientLastName: labCase.patientLastName,
+      birthday: new Date(labCase.birthday).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+      reservationDate: new Date(labCase.reservationDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+      doctor: labCase.doctor,
+      procedure: labCase.procedure,
+      status: labCase.status as CaseStatus,
+      qrCode: labCase.qrCode,
+      qrCodeData: labCase.qrCodeData
+    }));
+  }, [labCasesData]);
+
+  // Fallback to mock data if no real data is available
+  const caseSearchRecordsFallback = useMemo(
     () => caseSearchRecordsByLanguage[language],
     [language]
   );
+
+  const activeCaseRecords = caseSearchRecords.length > 0 ? caseSearchRecords : caseSearchRecordsFallback;
+
+  useEffect(() => {
+    console.log('Active case records:', activeCaseRecords);
+  }, [activeCaseRecords]);
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -503,19 +565,71 @@ export default function LaboratoryPage() {
     []
   );
 
-  const availableLabs = useMemo(
-    () => Array.from(new Set(caseSearchRecords.map((record) => record.lab))).sort((a, b) => a.localeCompare(b)),
-    [caseSearchRecords]
-  );
+  // Get laboratories from database
+  const availableLabs = useMemo(() => {
+    if (!laboratoriesData?.laboratories) return [];
+    return laboratoriesData.laboratories
+      .map((lab: any) => lab.name)
+      .sort((a: string, b: string) => a.localeCompare(b));
+  }, [laboratoriesData]);
 
-  const availableClinics = useMemo(
-    () => Array.from(new Set(caseSearchRecords.map((record) => record.clinic))).sort((a, b) => a.localeCompare(b)),
-    [caseSearchRecords]
-  );
+  // Get clinics from database
+  const availableClinics = useMemo(() => {
+    console.log('=== CLINIC SELECTOR DEBUG ===');
+    console.log('Raw clinicsData:', clinicsData);
+    
+    if (!clinicsData) {
+      console.log('clinicsData is undefined or null');
+      return [];
+    }
+    
+    if (!clinicsData.clinicLocations) {
+      console.log('clinicLocations property is missing');
+      return [];
+    }
+    
+    console.log('Number of clinic locations:', clinicsData.clinicLocations.length);
+    console.log('Clinic locations data:', JSON.stringify(clinicsData.clinicLocations, null, 2));
+    
+    const allClinics: string[] = [];
+    
+    for (const location of clinicsData.clinicLocations) {
+      console.log('Processing location:', location);
+      
+      if (!location.clinics || !Array.isArray(location.clinics)) {
+        console.log('Location has no clinics array:', location);
+        continue;
+      }
+      
+      console.log('Location has', location.clinics.length, 'clinics');
+      
+      for (const clinic of location.clinics) {
+        console.log('Processing clinic:', clinic);
+        if (clinic && clinic.name) {
+          allClinics.push(clinic.name);
+          console.log('Added clinic:', clinic.name);
+        } else {
+          console.log('Clinic has no name:', clinic);
+        }
+      }
+    }
+    
+    console.log('Final available clinics:', allClinics);
+    return allClinics.sort((a, b) => a.localeCompare(b));
+  }, [clinicsData]);
+
+  // Get doctors from database (users with position="Dentist")
+  const availableDoctors = useMemo(() => {
+    if (!usersData?.users) return [];
+    return usersData.users
+      .filter((user: any) => user.position === 'Dentist')
+      .map((user: any) => user.name)
+      .sort((a: string, b: string) => a.localeCompare(b));
+  }, [usersData]);
 
   const availableStatuses = useMemo(
-    () => statusOrder.filter((status) => caseSearchRecords.some((record) => record.status === status)),
-    [caseSearchRecords]
+    () => statusOrder.filter((status) => activeCaseRecords.some((record) => record.status === status)),
+    [activeCaseRecords]
   );
 
   const caseStatusLabels: Record<CaseStatus, string> = {
@@ -559,44 +673,55 @@ export default function LaboratoryPage() {
   }, [formatFeedback, hasSearched, lastEmptyMessageKey, searchResults.length, t]);
 
   const matchesSearchCriteria = (record: any) => {
-    if (searchForm.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
+    console.log('Checking record:', record);
+    
+    if (searchForm.caseId && record.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
+      console.log('Failed on caseId:', searchForm.caseId, 'vs', record.caseId);
       return false;
     }
 
-    if (searchForm.lab && record.lab !== searchForm.lab) {
+    if (searchForm.lab && searchForm.lab.trim() !== '' && record.lab && !record.lab.toLowerCase().includes(searchForm.lab.toLowerCase())) {
+      console.log('Failed on lab:', searchForm.lab, 'vs', record.lab);
       return false;
     }
 
-    if (searchForm.clinic && record.clinic !== searchForm.clinic) {
+    if (searchForm.clinic && searchForm.clinic.trim() !== '' && record.clinic && !record.clinic.toLowerCase().includes(searchForm.clinic.toLowerCase())) {
+      console.log('Failed on clinic:', searchForm.clinic, 'vs', record.clinic);
       return false;
     }
 
     if (
-      searchForm.patientFirstName &&
+      searchForm.patientFirstName && record.patientFirstName &&
       !record.patientFirstName.toLowerCase().includes(searchForm.patientFirstName.toLowerCase())
     ) {
+      console.log('Failed on patientFirstName:', searchForm.patientFirstName, 'vs', record.patientFirstName);
       return false;
     }
 
     if (
-      searchForm.patientLastName &&
+      searchForm.patientLastName && record.patientLastName &&
       !record.patientLastName.toLowerCase().includes(searchForm.patientLastName.toLowerCase())
     ) {
+      console.log('Failed on patientLastName:', searchForm.patientLastName, 'vs', record.patientLastName);
       return false;
     }
 
-    if (searchForm.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
+    if (searchForm.doctor && record.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
+      console.log('Failed on doctor:', searchForm.doctor, 'vs', record.doctor);
       return false;
     }
 
-    if (searchForm.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
+    if (searchForm.procedure && record.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
+      console.log('Failed on procedure:', searchForm.procedure, 'vs', record.procedure);
       return false;
     }
 
-    if (searchForm.status && record.status !== searchForm.status) {
+    if (searchForm.status && record.status && record.status !== searchForm.status) {
+      console.log('Failed on status:', searchForm.status, 'vs', record.status);
       return false;
     }
 
+    console.log('Record matches!');
     return true;
   };
 
@@ -623,13 +748,9 @@ export default function LaboratoryPage() {
           <thead>
             <tr className="text-left text-xs uppercase tracking-[0.35em] text-slate-400">
               <th className="px-6 py-4">{t('Case ID')}</th>
+              <th className="px-6 py-4">{t('Patient')}</th>
               <th className="px-6 py-4">{t('Lab')}</th>
               <th className="px-6 py-4">{t('Clinic')}</th>
-              <th className="px-6 py-4">{t('Patient')}</th>
-              <th className="px-6 py-4">{t('Birthdate')}</th>
-              <th className="px-6 py-4">{t('Reservation')}</th>
-              <th className="px-6 py-4">{t('Doctor')}</th>
-              <th className="px-6 py-4">{t('Procedure')}</th>
               <th className="px-6 py-4">{t('Status')}</th>
               <th className="px-6 py-4 text-center">{t('Action')}</th>
             </tr>
@@ -638,15 +759,11 @@ export default function LaboratoryPage() {
             {searchResults.map((record) => (
               <tr key={record.caseId} className="hover:bg-white/5">
                 <td className="px-6 py-4 font-semibold text-white">{record.caseId}</td>
-                <td className="px-6 py-4">{record.lab}</td>
-                <td className="px-6 py-4">{record.clinic}</td>
                 <td className="px-6 py-4">
                   {record.patientFirstName} {record.patientLastName}
                 </td>
-                <td className="px-6 py-4 text-slate-400">{record.birthday}</td>
-                <td className="px-6 py-4 text-slate-400">{record.reservationDate}</td>
-                <td className="px-6 py-4">{record.doctor}</td>
-                <td className="px-6 py-4">{record.procedure}</td>
+                <td className="px-6 py-4">{record.lab}</td>
+                <td className="px-6 py-4">{record.clinic}</td>
                 <td className="px-6 py-4">
                   <span
                     className={clsx(
@@ -660,6 +777,10 @@ export default function LaboratoryPage() {
                 <td className="px-6 py-4 text-center">
                   <button
                     type="button"
+                    onClick={() => {
+                      setSelectedCase(record);
+                      setShowDetailsModal(true);
+                    }}
                     className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
                   >
                     {t('View details')}
@@ -714,7 +835,10 @@ export default function LaboratoryPage() {
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const results = caseSearchRecords.filter(matchesSearchCriteria);
+    console.log('Search form:', searchForm);
+    console.log('Active case records to filter:', activeCaseRecords);
+    const results = activeCaseRecords.filter(matchesSearchCriteria);
+    console.log('Search results:', results);
 
     updateResults(results);
   };
@@ -728,7 +852,7 @@ export default function LaboratoryPage() {
       return;
     }
 
-    const results = caseSearchRecords.filter((record) => {
+    const results = activeCaseRecords.filter((record) => {
       const matchesFirst = first ? record.patientFirstName.toLowerCase().includes(first) : true;
       const matchesLast = last ? record.patientLastName.toLowerCase().includes(last) : true;
 
@@ -1034,9 +1158,14 @@ export default function LaboratoryPage() {
                         <h2 className="mt-2 text-2xl font-semibold text-white">{t('Case Search')}</h2>
                         <p className="mt-2 max-w-2xl text-sm text-slate-400">
                           {t(
-                            'Filter by lab, clinic, doctor or procedure to locate an active case. The data below is sample information to validate the workflow.'
+                            'Filter by lab, clinic, doctor or procedure to locate an active case. Search through all laboratory cases in real-time.'
                           )}
                         </p>
+                        {loadingCases && (
+                          <p className="mt-2 text-sm text-primary-400">
+                            {t('Loading cases...')}
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
                         <button
@@ -1148,13 +1277,18 @@ export default function LaboratoryPage() {
 
                         <label className="space-y-2">
                           <span className="block text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{t('Doctor')}</span>
-                          <input
-                            type="text"
+                          <select
                             value={searchForm.doctor}
                             onChange={handleInputChange('doctor')}
-                            placeholder={t('Doctor placeholder')}
-                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-400/70 focus:outline-none"
-                          />
+                            className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none"
+                          >
+                            <option value="">{t('All')}</option>
+                            {availableDoctors.map((doctor) => (
+                              <option key={doctor} value={doctor}>
+                                {doctor}
+                              </option>
+                            ))}
+                          </select>
                         </label>
 
                         <label className="space-y-2">
@@ -1172,17 +1306,52 @@ export default function LaboratoryPage() {
                       <div className="flex flex-wrap items-center gap-3">
                         <button
                           type="submit"
-                          className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                          disabled={loadingCases}
+                          className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
                           {t('Search')}
                         </button>
                         <button
                           type="button"
                           onClick={handleNameSearch}
-                          className="inline-flex items-center gap-2 rounded-xl border border-primary-400/50 bg-transparent px-4 py-2 text-sm font-semibold text-primary-100 transition hover:border-primary-300 hover:text-primary-50"
+                          disabled={loadingCases}
+                          className="inline-flex items-center gap-2 rounded-xl border border-primary-400/50 bg-transparent px-4 py-2 text-sm font-semibold text-primary-100 transition hover:border-primary-300 hover:text-primary-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
                           {t('Search by name')}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchForm({
+                              caseId: '',
+                              lab: '',
+                              clinic: '',
+                              patientFirstName: '',
+                              patientLastName: '',
+                              doctor: '',
+                              procedure: '',
+                              status: ''
+                            });
+                            setSearchResults([]);
+                            setHasSearched(false);
+                            setSearchFeedback(t('Please perform a search.'));
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-transparent px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-slate-500 hover:text-slate-200"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          {t('Reset')}
+                        </button>
+                        <div className="ml-auto text-sm text-slate-400">
+                          {activeCaseRecords.length} {t('total cases')}
+                        </div>
                       </div>
                     </form>
                   </div>
@@ -1463,6 +1632,136 @@ export default function LaboratoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Case Details Modal */}
+      {showDetailsModal && selectedCase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl">
+            <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-900/95 px-6 py-4 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">{t('Case Details')}</h2>
+                  <p className="mt-1 text-sm text-slate-400">{selectedCase.caseId}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedCase(null);
+                  }}
+                  className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Status */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t('Status')}:</span>
+                <span
+                  className={clsx(
+                    'inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
+                    statusBadgeClass(selectedCase.status)
+                  )}
+                >
+                  {t(caseStatusLabels[selectedCase.status])}
+                </span>
+              </div>
+
+              {/* Patient Information */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Patient Information')}</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-400">{t('First Name')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.patientFirstName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Last Name')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.patientLastName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Birthday')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.birthday}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Case Information */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Case Information')}</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Laboratory')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.lab}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Clinic')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.clinic}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Doctor')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.doctor}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Procedure')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.procedure}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{t('Reservation Date')}</p>
+                    <p className="mt-1 text-sm font-medium text-white">{selectedCase.reservationDate}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              {selectedCase.qrCode && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('QR Code')}</h3>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="rounded-lg bg-white p-4">
+                      <img 
+                        src={selectedCase.qrCode} 
+                        alt="Case QR Code" 
+                        className="w-48 h-48"
+                      />
+                    </div>
+                    {selectedCase.qrCodeData && (
+                      <div className="w-full">
+                        <p className="text-xs text-slate-400 mb-1">{t('QR Code Data')}</p>
+                        <p className="text-sm font-mono text-white bg-slate-950/60 rounded-lg px-3 py-2 break-all">{selectedCase.qrCodeData}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"
+                >
+                  {t('Edit Case')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedCase(null);
+                  }}
+                  className="flex-1 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                >
+                  {t('Close')}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

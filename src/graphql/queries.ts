@@ -69,8 +69,8 @@ export const GET_DIRECTORY_ENTITY_WITH_ENTRIES = gql`
 `;
 
 export const GET_CLINIC_LOCATIONS = gql`
-  query GetClinicLocations {
-    clinicLocations {
+  query GetClinicLocations($companyId: ID) {
+    clinicLocations(companyId: $companyId) {
       id
       companyId
       companyName

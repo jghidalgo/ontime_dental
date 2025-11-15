@@ -13,6 +13,12 @@ const UPDATE_LABORATORY = gql`
         name
         dailyCapacity
       }
+      departments {
+        id
+        name
+        description
+        order
+      }
     }
   }
 `;
@@ -21,6 +27,13 @@ type Procedure = {
   id: string;
   name: string;
   dailyCapacity: number;
+};
+
+type Department = {
+  id: string;
+  name: string;
+  description: string;
+  order: number;
 };
 
 type SnackbarState = {
@@ -34,6 +47,7 @@ type Laboratory = {
   name: string;
   shortName: string;
   procedures?: Procedure[];
+  departments?: Department[];
 };
 
 type LaboratorySettingsModalProps = {
@@ -48,7 +62,7 @@ export default function LaboratorySettingsModal({
   onSuccess,
 }: LaboratorySettingsModalProps) {
   const { t } = useTranslations();
-  const [activeTab, setActiveTab] = useState<'procedures' | 'pricing' | 'materials'>('procedures');
+  const [activeTab, setActiveTab] = useState<'procedures' | 'departments' | 'pricing' | 'materials'>('procedures');
   const [procedures, setProcedures] = useState<Procedure[]>(
     (laboratory.procedures || []).map((proc, index) => ({
       ...proc,
@@ -57,6 +71,26 @@ export default function LaboratorySettingsModal({
   );
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedureCapacity, setNewProcedureCapacity] = useState('10');
+  
+  // Departments state
+  const [departments, setDepartments] = useState<Department[]>(
+    (laboratory.departments || []).length > 0
+      ? laboratory.departments.map((dept, index) => ({
+          ...dept,
+          id: dept.id || `${Date.now()}-${index}`,
+        }))
+      : [
+          { id: '1', name: 'Reception', description: 'Initial case intake and registration', order: 1 },
+          { id: '2', name: 'Design', description: 'Digital design and planning', order: 2 },
+          { id: '3', name: 'Milling', description: 'CAD/CAM milling operations', order: 3 },
+          { id: '4', name: 'Ceramics', description: 'Ceramic layering and staining', order: 4 },
+          { id: '5', name: 'Finishing', description: 'Final polishing and adjustments', order: 5 },
+          { id: '6', name: 'Quality Control', description: 'Final inspection and approval', order: 6 },
+        ]
+  );
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptDescription, setNewDeptDescription] = useState('');
+  
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     show: false,
     message: '',
@@ -112,13 +146,25 @@ export default function LaboratorySettingsModal({
           dailyCapacity: Number(rest.dailyCapacity)
         }));
 
+      // Prepare departments data
+      const validDepartments = departments
+        .filter(dept => dept.name.trim())
+        .map((dept) => ({
+          id: dept.id,
+          name: dept.name.trim(),
+          description: dept.description.trim(),
+          order: dept.order
+        }));
+
       console.log('Saving procedures:', validProcedures);
+      console.log('Saving departments:', validDepartments);
 
       const result = await updateLaboratory({
         variables: {
           id: laboratory.id,
           input: {
             procedures: validProcedures,
+            departments: validDepartments,
           },
         },
       });
@@ -165,6 +211,16 @@ export default function LaboratorySettingsModal({
               }`}
             >
               {t('Procedures')}
+            </button>
+            <button
+              onClick={() => setActiveTab('departments')}
+              className={`px-4 py-2 text-sm font-medium transition ${
+                activeTab === 'departments'
+                  ? 'border-b-2 border-primary-500 text-primary-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {t('Departments')}
             </button>
             <button
               onClick={() => setActiveTab('pricing')}
@@ -290,6 +346,182 @@ export default function LaboratorySettingsModal({
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'departments' && (
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-semibold text-white mb-2">{t('Production Departments')}</h4>
+                <p className="text-sm text-slate-400">
+                  {t('Define the departments that cases move through in your laboratory. This enables tracking cases from start to finish.')}
+                </p>
+              </div>
+
+              {/* Add New Department */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newDeptName.trim()) return;
+                  
+                  const newDept: Department = {
+                    id: Date.now().toString(),
+                    name: newDeptName.trim(),
+                    description: newDeptDescription.trim(),
+                    order: departments.length + 1,
+                  };
+                  
+                  setDepartments([...departments, newDept]);
+                  setNewDeptName('');
+                  setNewDeptDescription('');
+                  showSnackbar(t(`Department "${newDept.name}" added.`), 'success');
+                }}
+                className="rounded-xl border border-slate-700 bg-slate-800/40 p-4"
+              >
+                <h5 className="text-sm font-semibold text-slate-300 mb-3">{t('Add New Department')}</h5>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                      {t('Department Name')}
+                    </label>
+                    <input
+                      type="text"
+                      value={newDeptName}
+                      onChange={(e) => setNewDeptName(e.target.value)}
+                      placeholder={t('e.g., Milling, Design, QC')}
+                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                      {t('Description')}
+                    </label>
+                    <input
+                      type="text"
+                      value={newDeptDescription}
+                      onChange={(e) => setNewDeptDescription(e.target.value)}
+                      placeholder={t('Brief description of this department')}
+                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="mt-3 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700"
+                >
+                  {t('Add Department')}
+                </button>
+              </form>
+
+              {/* Departments List */}
+              {departments.length > 0 && (
+                <div className="space-y-3">
+                  <h5 className="text-sm font-semibold text-slate-300">{t('Current Workflow')}</h5>
+                  <div className="space-y-2">
+                    {departments
+                      .sort((a, b) => a.order - b.order)
+                      .map((dept, index) => (
+                      <div
+                        key={dept.id}
+                        className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/40 p-4"
+                      >
+                        {/* Order Number */}
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-500/20 text-sm font-bold text-primary-400">
+                          {index + 1}
+                        </div>
+
+                        {/* Department Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              value={dept.name}
+                              onChange={(e) => {
+                                setDepartments(
+                                  departments.map((d) =>
+                                    d.id === dept.id ? { ...d, name: e.target.value } : d
+                                  )
+                                );
+                              }}
+                              className="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm font-medium text-white focus:border-primary-500 focus:outline-none"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={dept.description}
+                            onChange={(e) => {
+                              setDepartments(
+                                departments.map((d) =>
+                                  d.id === dept.id ? { ...d, description: e.target.value } : d
+                                )
+                              );
+                            }}
+                            placeholder={t('Description...')}
+                            className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-300 focus:border-primary-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Move Buttons */}
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => {
+                              if (index === 0) return;
+                              const newDepts = [...departments];
+                              const temp = newDepts[index];
+                              newDepts[index] = newDepts[index - 1];
+                              newDepts[index - 1] = temp;
+                              setDepartments(newDepts.map((d, i) => ({ ...d, order: i + 1 })));
+                            }}
+                            disabled={index === 0}
+                            className="rounded p-1 text-slate-400 transition hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={t('Move up')}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (index === departments.length - 1) return;
+                              const newDepts = [...departments];
+                              const temp = newDepts[index];
+                              newDepts[index] = newDepts[index + 1];
+                              newDepts[index + 1] = temp;
+                              setDepartments(newDepts.map((d, i) => ({ ...d, order: i + 1 })));
+                            }}
+                            disabled={index === departments.length - 1}
+                            className="rounded p-1 text-slate-400 transition hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={t('Move down')}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => {
+                            setDepartments(departments.filter((d) => d.id !== dept.id));
+                            showSnackbar(t(`Department "${dept.name}" removed.`), 'success');
+                          }}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-red-900/20 hover:text-red-400"
+                          title={t('Delete')}
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-lg bg-blue-900/20 border border-blue-500/30 p-3">
+                    <p className="text-xs text-blue-300">
+                      <strong>{t('Tip:')}</strong> {t('Cases will move through these departments in order. Use the arrows to reorder departments to match your workflow.')}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

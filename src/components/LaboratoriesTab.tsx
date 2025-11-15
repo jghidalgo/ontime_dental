@@ -31,6 +31,12 @@ const GET_LABORATORIES = gql`
         name
         dailyCapacity
       }
+      departments {
+        id
+        name
+        description
+        order
+      }
       notes
       isActive
       createdAt

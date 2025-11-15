@@ -574,8 +574,10 @@ export default function LaboratoryReservationsPage() {
   const [monthSelector, setMonthSelector] = useState<string>(monthSelectorValue);
   const { t, language } = useTranslations();
   
-  // Fetch lab cases from GraphQL
-  const { data: labCasesData, refetch: refetchLabCases } = useQuery(GET_LAB_CASES);
+  // Fetch lab cases from GraphQL with companyId filtering
+  const { data: labCasesData, refetch: refetchLabCases } = useQuery(GET_LAB_CASES, {
+    variables: { companyId: selectedEntityId },
+  });
   
   // Create lab case mutation (currently unused - to be integrated with CreateCaseModal)
   // const [createLabCase, { loading: creatingCase }] = useMutation(CREATE_LAB_CASE, {

@@ -1,10 +1,25 @@
 import { gql } from '@apollo/client';
 
+export const GET_LABORATORIES = gql`
+  query GetLaboratories {
+    laboratories {
+      id
+      name
+      shortName
+      contactPerson
+      phone
+      email
+      address
+    }
+  }
+`;
+
 export const GET_LAB_CASES = gql`
-  query GetLabCases {
-    labCases {
+  query GetLabCases($companyId: ID) {
+    labCases(companyId: $companyId) {
       id
       caseId
+      companyId
       lab
       clinic
       patientFirstName

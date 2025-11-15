@@ -1034,14 +1034,32 @@ export const resolvers = {
 
     updateLaboratory: async (_: unknown, { id, input }: { id: string; input: any }) => {
       await connectToDatabase();
+      
+      console.log('Updating laboratory:', id);
+      console.log('Input data:', JSON.stringify(input, null, 2));
+      
+      // Ensure departments are properly structured
+      if (input.departments) {
+        input.departments = input.departments.map((dept: any) => ({
+          id: dept.id,
+          name: dept.name,
+          description: dept.description || '',
+          order: dept.order
+        }));
+      }
+      
       const laboratory = await Laboratory.findByIdAndUpdate(
         id,
         { $set: input },
-        { new: true }
+        { new: true, runValidators: true }
       );
+      
       if (!laboratory) {
         throw new Error('Laboratory not found');
       }
+      
+      console.log('Laboratory updated successfully:', laboratory._id);
+      
       return {
         ...laboratory.toObject(),
         id: laboratory._id.toString(),

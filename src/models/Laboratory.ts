@@ -22,6 +22,12 @@ export interface ILaboratory extends Document {
     name: string;
     dailyCapacity: number;
   }[];
+  departments?: {
+    id: string;
+    name: string;
+    description: string;
+    order: number;
+  }[];
   priceList?: {
     category: string;
     price: number;
@@ -120,6 +126,26 @@ const LaboratorySchema = new Schema<ILaboratory>(
           type: Number,
           required: true,
           default: 10
+        }
+      }
+    ],
+    departments: [
+      {
+        id: {
+          type: String,
+          required: true
+        },
+        name: {
+          type: String,
+          required: true
+        },
+        description: {
+          type: String,
+          default: ''
+        },
+        order: {
+          type: Number,
+          required: true
         }
       }
     ],

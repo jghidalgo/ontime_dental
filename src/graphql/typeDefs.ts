@@ -109,6 +109,7 @@ const typeDefs = gql`
     specialties: [String!]!
     turnaroundTime: TurnaroundTime!
     procedures: [Procedure!]
+    departments: [Department!]
     notes: String
     isActive: Boolean!
     createdAt: String!
@@ -118,6 +119,13 @@ const typeDefs = gql`
   type Procedure {
     name: String!
     dailyCapacity: Int!
+  }
+
+  type Department {
+    id: String!
+    name: String!
+    description: String!
+    order: Int!
   }
 
   type EmergencyContact {
@@ -408,6 +416,7 @@ const typeDefs = gql`
     specialties: [String!]
     turnaroundTime: TurnaroundTimeInput
     procedures: [ProcedureInput!]
+    departments: [DepartmentInput!]
     notes: String
     isActive: Boolean
   }
@@ -415,6 +424,13 @@ const typeDefs = gql`
   input ProcedureInput {
     name: String!
     dailyCapacity: Int!
+  }
+
+  input DepartmentInput {
+    id: String!
+    name: String!
+    description: String!
+    order: Int!
   }
 
   input DirectoryEntryInput {
