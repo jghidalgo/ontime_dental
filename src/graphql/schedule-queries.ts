@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_FRONT_DESK_SCHEDULES = gql`
-  query GetFrontDeskSchedules {
-    frontDeskSchedules {
+  query GetFrontDeskSchedules($companyId: ID) {
+    frontDeskSchedules(companyId: $companyId) {
       id
       positionId
       clinicId
@@ -15,8 +15,8 @@ export const GET_FRONT_DESK_SCHEDULES = gql`
 `;
 
 export const GET_DOCTOR_SCHEDULES = gql`
-  query GetDoctorSchedules {
-    doctorSchedules {
+  query GetDoctorSchedules($companyId: ID) {
+    doctorSchedules(companyId: $companyId) {
       id
       dayId
       clinicId

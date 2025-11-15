@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_FRONT_DESK_SCHEDULES, GET_DOCTOR_SCHEDULES } from '@/graphql/schedule-queries';
+import { GET_CLINIC_LOCATION } from '@/graphql/queries';
 import { 
   UPDATE_FRONT_DESK_SCHEDULE, 
   UPDATE_DOCTOR_SCHEDULE,
@@ -13,11 +14,10 @@ import {
 } from '@/graphql/schedule-mutations';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import SelectEmployeeModal from '@/components/schedules/SelectEmployeeModal';
 
-const clinics = [
-  { id: 'ce', name: 'CE' },
-  { id: 'miller', name: 'Miller' }
-];
+type Clinic = { id: string; name: string };
+type Employee = { id: string; name: string };
 
 const frontDeskPositions = [
   { id: 'front-desk', name: 'Front Desk' },
@@ -25,7 +25,6 @@ const frontDeskPositions = [
   { id: 'assistant-2', name: 'Assistant 2' }
 ];
 
-type Employee = { id: string; name: string };
 type FrontDeskSchedule = Record<string, Record<string, Employee | null>>;
 
 const initialFrontDeskSchedule: FrontDeskSchedule = {
@@ -88,7 +87,7 @@ type DragPayload =
 
 export default function SchedulesPage() {
   const router = useRouter();
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
@@ -98,10 +97,40 @@ export default function SchedulesPage() {
   >(null);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
   const [currentDragPayload, setCurrentDragPayload] = useState<DragPayload | null>(null);
+  
+  // State for employee selection modal
+  const [employeeSelectionModal, setEmployeeSelectionModal] = useState<{
+    isOpen: boolean;
+    type: 'frontDesk' | 'doctor';
+    positionId?: string;
+    dayId?: string;
+    clinicId: string;
+  } | null>(null);
 
-  // Fetch schedules from GraphQL
-  const { data: frontDeskData, refetch: refetchFrontDesk } = useQuery(GET_FRONT_DESK_SCHEDULES);
-  const { data: doctorData, refetch: refetchDoctor } = useQuery(GET_DOCTOR_SCHEDULES);
+  // Fetch clinics for the selected company
+  const { data: clinicData, loading: clinicsLoading } = useQuery(GET_CLINIC_LOCATION, {
+    variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
+  });
+
+  // Fetch schedules from GraphQL with companyId filter
+  const { data: frontDeskData, refetch: refetchFrontDesk } = useQuery(GET_FRONT_DESK_SCHEDULES, {
+    variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
+  });
+  const { data: doctorData, refetch: refetchDoctor } = useQuery(GET_DOCTOR_SCHEDULES, {
+    variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
+  });
+
+  // Transform clinic data to match the expected format
+  const clinics = useMemo<Clinic[]>(() => {
+    if (!clinicData?.clinicLocation?.clinics) return [];
+    return clinicData.clinicLocation.clinics.map((clinic: any) => ({
+      id: clinic.clinicId,
+      name: clinic.name
+    }));
+  }, [clinicData]);
 
   // Mutations
   const [updateFrontDeskMutation] = useMutation(UPDATE_FRONT_DESK_SCHEDULE);
@@ -203,7 +232,8 @@ export default function SchedulesPage() {
           sourcePositionId: payload.positionId,
           sourceClinicId: payload.clinicId,
           targetPositionId: positionId,
-          targetClinicId: clinicId
+          targetClinicId: clinicId,
+          companyId: selectedEntityId
         }
       });
       await refetchFrontDesk();
@@ -231,7 +261,8 @@ export default function SchedulesPage() {
           sourceDayId: payload.dayId,
           sourceClinicId: payload.clinicId,
           targetDayId: dayId,
-          targetClinicId: clinicId
+          targetClinicId: clinicId,
+          companyId: selectedEntityId
         }
       });
       await refetchDoctor();
@@ -278,6 +309,7 @@ export default function SchedulesPage() {
         variables: {
           positionId,
           clinicId,
+          companyId: selectedEntityId,
           employee: {
             id: current.id,
             name: trimmedName
@@ -300,6 +332,7 @@ export default function SchedulesPage() {
         variables: {
           positionId,
           clinicId,
+          companyId: selectedEntityId,
           employee: null
         }
       });
@@ -347,6 +380,7 @@ export default function SchedulesPage() {
         variables: {
           dayId,
           clinicId,
+          companyId: selectedEntityId,
           doctor: {
             id: current.id,
             name: trimmedName,
@@ -370,6 +404,7 @@ export default function SchedulesPage() {
         variables: {
           dayId,
           clinicId,
+          companyId: selectedEntityId,
           doctor: null
         }
       });
@@ -377,6 +412,69 @@ export default function SchedulesPage() {
     } catch (error) {
       console.error('Error deleting doctor assignment:', error);
       alert('Failed to remove assignment. Please try again.');
+    }
+  };
+
+  // Handler to open employee selection modal for front desk
+  const handleSelectFrontDeskEmployee = (positionId: string, clinicId: string) => {
+    setEmployeeSelectionModal({
+      isOpen: true,
+      type: 'frontDesk',
+      positionId,
+      clinicId
+    });
+  };
+
+  // Handler to open employee selection modal for doctor
+  const handleSelectDoctorEmployee = (dayId: string, clinicId: string) => {
+    setEmployeeSelectionModal({
+      isOpen: true,
+      type: 'doctor',
+      dayId,
+      clinicId
+    });
+  };
+
+  // Handler when employee is selected from modal
+  const handleEmployeeSelected = async (employee: { id: string; name: string }) => {
+    if (!employeeSelectionModal) return;
+
+    try {
+      if (employeeSelectionModal.type === 'frontDesk' && employeeSelectionModal.positionId) {
+        // Assign employee to front desk position
+        await updateFrontDeskMutation({
+          variables: {
+            positionId: employeeSelectionModal.positionId,
+            clinicId: employeeSelectionModal.clinicId,
+            companyId: selectedEntityId,
+            employee: {
+              id: employee.id,
+              name: employee.name
+            }
+          }
+        });
+        await refetchFrontDesk();
+      } else if (employeeSelectionModal.type === 'doctor' && employeeSelectionModal.dayId) {
+        // Assign employee as doctor
+        await updateDoctorMutation({
+          variables: {
+            dayId: employeeSelectionModal.dayId,
+            clinicId: employeeSelectionModal.clinicId,
+            companyId: selectedEntityId,
+            doctor: {
+              id: employee.id,
+              name: employee.name,
+              shift: 'AM' // Default shift
+            }
+          }
+        });
+        await refetchDoctor();
+      }
+      
+      setEmployeeSelectionModal(null);
+    } catch (error) {
+      console.error('Error assigning employee:', error);
+      alert('Failed to assign employee. Please try again.');
     }
   };
 
@@ -416,18 +514,31 @@ export default function SchedulesPage() {
         </div>
 
         <main className="mx-auto max-w-7xl px-6 py-10">
-
-          <section className="mt-8 space-y-12">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Front Desk</p>
-                  <h2 className="mt-1 text-2xl font-semibold text-white">Front Desks and Assistants&apos; Schedule</h2>
-                </div>
-                <div className="rounded-full bg-primary-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-primary-100">
-                  Drag &amp; Drop Enabled
-                </div>
+          {clinicsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-primary-500/30 border-t-primary-500"></div>
+                <p className="text-slate-400">Loading clinics...</p>
               </div>
+            </div>
+          ) : clinics.length === 0 ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-12 text-center shadow-2xl backdrop-blur-xl">
+              <p className="text-lg text-slate-400">
+                No clinics found for the selected company. Please select a different company or add clinics first.
+              </p>
+            </div>
+          ) : (
+            <section className="mt-8 space-y-12">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Front Desk</p>
+                    <h2 className="mt-1 text-2xl font-semibold text-white">Front Desks and Assistants&apos; Schedule</h2>
+                  </div>
+                  <div className="rounded-full bg-primary-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-primary-100">
+                    Drag &amp; Drop Enabled
+                  </div>
+                </div>
 
               <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
                 <table className="min-w-full divide-y divide-white/5">
@@ -499,14 +610,15 @@ export default function SchedulesPage() {
                                 ) : (
                                   <>
                                     <div
-                                      className={`flex flex-col ${employee ? 'cursor-text' : ''}`}
-                                      onDoubleClick={() => handleStartFrontDeskEdit(position.id, clinic.id)}
-                                      title={employee ? 'Double-click to edit name' : undefined}
+                                      className={`flex flex-col ${employee ? 'cursor-text' : 'cursor-pointer'}`}
+                                      onDoubleClick={() => employee && handleStartFrontDeskEdit(position.id, clinic.id)}
+                                      onClick={() => !employee && handleSelectFrontDeskEmployee(position.id, clinic.id)}
+                                      title={employee ? 'Double-click to edit name' : 'Click to assign employee'}
                                     >
                                       <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">
                                         {clinic.name}
                                       </span>
-                                      <span className="text-sm font-semibold text-white">
+                                      <span className={`text-sm font-semibold ${employee ? 'text-white' : 'text-slate-500'}`}>
                                         {employee ? employee.name : 'Unassigned'}
                                       </span>
                                     </div>
@@ -667,12 +779,13 @@ export default function SchedulesPage() {
                                 ) : (
                                   <>
                                     <div
-                                      className={`flex flex-col ${assignment ? 'cursor-text' : ''}`}
-                                      onDoubleClick={() => handleStartDoctorEdit(day.id, clinic.id)}
-                                      title={assignment ? 'Double-click to edit name' : undefined}
+                                      className={`flex flex-col ${assignment ? 'cursor-text' : 'cursor-pointer'}`}
+                                      onDoubleClick={() => assignment && handleStartDoctorEdit(day.id, clinic.id)}
+                                      onClick={() => !assignment && handleSelectDoctorEmployee(day.id, clinic.id)}
+                                      title={assignment ? 'Double-click to edit name' : 'Click to assign doctor'}
                                     >
                                       <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
-                                      <p className="mt-1 text-sm font-semibold text-white">
+                                      <p className={`mt-1 text-sm font-semibold ${assignment ? 'text-white' : 'text-slate-500'}`}>
                                         {assignment ? assignment.name : 'Unassigned'}
                                       </p>
                                     </div>
@@ -753,8 +866,24 @@ export default function SchedulesPage() {
               </div>
             </div>
           </section>
+          )}
         </main>
       </div>
+
+      {/* Employee Selection Modal */}
+      <SelectEmployeeModal
+        isOpen={employeeSelectionModal?.isOpen ?? false}
+        onClose={() => setEmployeeSelectionModal(null)}
+        onSelect={handleEmployeeSelected}
+        title={
+          employeeSelectionModal?.type === 'frontDesk'
+            ? 'Select Front Desk Employee'
+            : 'Select Doctor'
+        }
+        companyId={selectedEntityId}
+        positionFilter={employeeSelectionModal?.type === 'doctor' ? 'Dentist' : undefined}
+        excludePosition={employeeSelectionModal?.type === 'frontDesk' ? 'Dentist' : undefined}
+      />
     </div>
   );
 }

@@ -447,7 +447,7 @@ export const resolvers = {
       }
       
       if (position) {
-        filter.position = position;
+        filter.position = { $regex: position, $options: 'i' };
       }
       
       if (status) {
@@ -1074,19 +1074,23 @@ export const resolvers = {
       });
       
       // Automatically create an employee record for this user
-      const employeeId = `EMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const employeeCount = await Employee.countDocuments();
+      const employeeId = `EMP-${String(employeeCount + 1).padStart(3, '0')}`;
+      const today = new Date();
+      const formattedDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+      
       await Employee.create({
         employeeId,
         userId: user._id.toString(),
         companyId: input.companyId || null,
         name: input.name,
-        joined: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-        dateOfBirth: '1990-01-01', // Default, should be updated later
-        phone: input.phone || '',
-        position: input.position || input.role || 'Staff',
-        location: 'Main Office', // Default location
+        joined: formattedDate, // MM/DD/YYYY format
+        dateOfBirth: '01/01/1990', // Default, should be updated later
+        phone: input.phone || '(000) 000-0000',
+        position: input.position || 'Staff',
+        location: input.department || 'Main Office', // Use department as location
         email: input.email,
-        department: input.department || '',
+        department: input.department || 'General',
         status: 'active',
       });
       
