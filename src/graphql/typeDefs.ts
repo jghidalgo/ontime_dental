@@ -730,6 +730,77 @@ const typeDefs = gql`
     isActive: Boolean
   }
 
+  # DMS Integration Types
+  type DMSIntegration {
+    id: ID!
+    companyId: ID!
+    provider: String!
+    serverHost: String!
+    serverPort: Int!
+    username: String!
+    database: String!
+    isActive: Boolean!
+    lastSyncAt: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateDMSIntegrationInput {
+    companyId: ID!
+    provider: String!
+    serverHost: String!
+    serverPort: Int!
+    username: String!
+    password: String!
+    database: String!
+    isActive: Boolean
+  }
+
+  input UpdateDMSIntegrationInput {
+    serverHost: String
+    serverPort: Int
+    username: String
+    password: String
+    database: String
+    isActive: Boolean
+  }
+
+  input TestDMSConnectionInput {
+    provider: String!
+    serverHost: String!
+    serverPort: Int!
+    username: String!
+    password: String!
+  }
+
+  type TestDMSConnectionResult {
+    success: Boolean!
+    message: String!
+    databases: [String!]
+  }
+
+  type DMSSyncResult {
+    success: Boolean!
+    message: String!
+    patientsAdded: Int!
+    patientsUpdated: Int!
+    patientsSkipped: Int!
+    errors: [String!]
+  }
+
+  type DMSSyncStatus {
+    integrationId: ID!
+    isRunning: Boolean!
+    lastSyncAt: String
+    lastSyncResult: DMSSyncResult
+  }
+
+  input SyncPatientsInput {
+    integrationId: ID!
+    fullSync: Boolean
+    limit: Int
+  }
+
   type Query {
     health: String!
     
@@ -803,6 +874,11 @@ const typeDefs = gql`
     insurances(companyId: ID, isActive: Boolean): [Insurance!]!
     insurance(id: ID!): Insurance
     insuranceByInsurerId(insurerId: String!, companyId: ID!): Insurance
+    
+    # DMS Integration queries
+    dmsIntegrations(companyId: ID!): [DMSIntegration!]!
+    dmsIntegration(id: ID!): DMSIntegration
+    dmsSyncStatus(integrationId: ID!): DMSSyncStatus
     
     # Dashboard query
     dashboardData: DashboardData!
@@ -912,6 +988,13 @@ const typeDefs = gql`
     createInsurance(input: InsuranceInput!): Insurance!
     updateInsurance(id: ID!, input: InsuranceUpdateInput!): Insurance!
     deleteInsurance(id: ID!): Boolean!
+    
+    # DMS Integration mutations
+    testDMSConnection(input: TestDMSConnectionInput!): TestDMSConnectionResult!
+    createDMSIntegration(input: CreateDMSIntegrationInput!): DMSIntegration!
+    updateDMSIntegration(id: ID!, input: UpdateDMSIntegrationInput!): DMSIntegration!
+    deleteDMSIntegration(id: ID!): DeleteResult!
+    syncPatientsFromDMS(input: SyncPatientsInput!): DMSSyncResult!
   }
 `;
 

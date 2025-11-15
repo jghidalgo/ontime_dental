@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader';
 import UsersTab from '@/components/UsersTab';
 import ClinicsTab from '@/components/ClinicsTab';
 import LaboratoriesTab from '@/components/LaboratoriesTab';
+import IntegrationsTab from '@/components/IntegrationsTab';
 import CompanySettingsModal from '@/components/CompanySettingsModal';
 import { useTranslations } from '@/lib/i18n';
 
@@ -87,11 +88,12 @@ type CompanyFormData = {
 export default function SettingsPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'laboratories' | 'system'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'laboratories' | 'integrations'>('companies');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsCompany, setSettingsCompany] = useState<Company | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [formData, setFormData] = useState<CompanyFormData>({
     name: '',
     shortName: '',
@@ -249,14 +251,14 @@ export default function SettingsPage() {
             {t('Laboratories')}
           </button>
           <button
-            onClick={() => setActiveTab('system')}
+            onClick={() => setActiveTab('integrations')}
             className={`px-6 py-3 text-sm font-medium transition ${
-              activeTab === 'system'
+              activeTab === 'integrations'
                 ? 'border-b-2 border-primary-500 text-primary-400'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {t('System')}
+            {t('Integrations')}
           </button>
         </div>
 
@@ -402,14 +404,33 @@ export default function SettingsPage() {
         {/* Laboratories Tab */}
         {activeTab === 'laboratories' && <LaboratoriesTab />}
 
-        {/* System Tab - Placeholder */}
-        {activeTab === 'system' && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-12 text-center">
-            <svg className="mx-auto h-12 w-12 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <p className="mt-4 text-slate-400">{t('System settings coming soon')}</p>
+        {/* Integrations Tab */}
+        {activeTab === 'integrations' && (
+          <div className="space-y-6">
+            {/* Company Selector */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+              <label className="mb-3 block text-sm font-semibold text-slate-200">
+                Select Company <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={selectedCompanyId || ''}
+                onChange={(e) => setSelectedCompanyId(e.target.value || null)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                <option value="">-- Select a company to configure integrations --</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name} ({company.shortName})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm text-slate-500">
+                Integrations are configured per company. Select a company to manage its DMS connections.
+              </p>
+            </div>
+
+            {/* Integrations Component */}
+            <IntegrationsTab selectedCompanyId={selectedCompanyId} />
           </div>
         )}
       </div>
