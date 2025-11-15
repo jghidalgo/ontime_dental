@@ -83,16 +83,21 @@ const initialDoctorSchedule: DoctorSchedule = {
 
 type DragPayload =
   | { type: 'frontDesk'; positionId: string; clinicId: string }
-  | { type: 'doctor'; dayId: string; clinicId: string };
+  | { type: 'doctor'; dayId: string; clinicId: string }
+  | { type: 'hygienist'; dayId: string; clinicId: string };
 
 export default function SchedulesPage() {
   const router = useRouter();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'frontDesk' | 'doctors' | 'hygienists'>('frontDesk');
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
   >(null);
   const [editingDoctorCell, setEditingDoctorCell] = useState<
+    { dayId: string; clinicId: string; name: string } | null
+  >(null);
+  const [editingHygienistCell, setEditingHygienistCell] = useState<
     { dayId: string; clinicId: string; name: string } | null
   >(null);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
@@ -101,7 +106,7 @@ export default function SchedulesPage() {
   // State for employee selection modal
   const [employeeSelectionModal, setEmployeeSelectionModal] = useState<{
     isOpen: boolean;
-    type: 'frontDesk' | 'doctor';
+    type: 'frontDesk' | 'doctor' | 'hygienist';
     positionId?: string;
     dayId?: string;
     clinicId: string;
@@ -122,6 +127,10 @@ export default function SchedulesPage() {
     variables: { companyId: selectedEntityId },
     skip: !selectedEntityId,
   });
+  
+  // Use doctor schedules structure for hygienists (reusing same GraphQL query temporarily)
+  // TODO: Create separate hygienist schedules in backend
+  const [hygienistSchedule, setHygienistSchedule] = useState<DoctorSchedule>({});
 
   // Transform clinic data to match the expected format
   const clinics = useMemo<Clinic[]>(() => {
@@ -435,6 +444,16 @@ export default function SchedulesPage() {
     });
   };
 
+  // Handler to open employee selection modal for hygienist
+  const handleSelectHygienistEmployee = (dayId: string, clinicId: string) => {
+    setEmployeeSelectionModal({
+      isOpen: true,
+      type: 'hygienist',
+      dayId,
+      clinicId
+    });
+  };
+
   // Handler when employee is selected from modal
   const handleEmployeeSelected = async (employee: { id: string; name: string }) => {
     if (!employeeSelectionModal) return;
@@ -469,6 +488,19 @@ export default function SchedulesPage() {
           }
         });
         await refetchDoctor();
+      } else if (employeeSelectionModal.type === 'hygienist' && employeeSelectionModal.dayId) {
+        // Assign hygienist (update local state for now)
+        setHygienistSchedule(prev => ({
+          ...prev,
+          [employeeSelectionModal.dayId!]: {
+            ...prev[employeeSelectionModal.dayId!],
+            [employeeSelectionModal.clinicId]: {
+              id: employee.id,
+              name: employee.name,
+              shift: 'AM'
+            }
+          }
+        }));
       }
       
       setEmployeeSelectionModal(null);
@@ -528,7 +560,45 @@ export default function SchedulesPage() {
               </p>
             </div>
           ) : (
-            <section className="mt-8 space-y-12">
+            <section className="mt-8 space-y-8">
+              {/* Tabs Navigation */}
+              <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-2 shadow-2xl backdrop-blur-xl">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setActiveTab('frontDesk')}
+                    className={`flex-1 rounded-2xl px-6 py-3 text-sm font-semibold uppercase tracking-[0.35em] transition ${
+                      activeTab === 'frontDesk'
+                        ? 'bg-primary-500 text-white shadow-lg shadow-primary-900/50'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                  >
+                    Front Desk
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('doctors')}
+                    className={`flex-1 rounded-2xl px-6 py-3 text-sm font-semibold uppercase tracking-[0.35em] transition ${
+                      activeTab === 'doctors'
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/50'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                  >
+                    Doctors
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('hygienists')}
+                    className={`flex-1 rounded-2xl px-6 py-3 text-sm font-semibold uppercase tracking-[0.35em] transition ${
+                      activeTab === 'hygienists'
+                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-900/50'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                  >
+                    Hygienists
+                  </button>
+                </div>
+              </div>
+
+              {/* Front Desk Tab */}
+              {activeTab === 'frontDesk' && (
               <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -693,7 +763,10 @@ export default function SchedulesPage() {
                 </table>
               </div>
             </div>
+              )}
 
+            {/* Doctors Tab */}
+            {activeTab === 'doctors' && (
             <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -865,6 +938,110 @@ export default function SchedulesPage() {
                 </table>
               </div>
             </div>
+              )}
+
+            {/* Hygienist Schedule Table */}
+            {activeTab === 'hygienists' && (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl shadow-primary-950/40 backdrop-blur-xl sm:p-8">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/80">Clinical</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">Hygienist Schedule</h2>
+                </div>
+                <div className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-blue-100">
+                  Hygiene Coverage
+                </div>
+              </div>
+
+              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+                <table className="min-w-full divide-y divide-white/5">
+                  <thead className="bg-white/[0.03]">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Day</th>
+                      {clinics.map((clinic) => (
+                        <th
+                          key={clinic.id}
+                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-300"
+                        >
+                          {clinic.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 bg-white/[0.01]">
+                    {days.map((day) => (
+                      <tr key={day.id}>
+                        <th className="bg-white/[0.02] px-4 py-4 text-left text-sm font-semibold text-slate-100">
+                          {day.name}
+                        </th>
+                        {clinics.map((clinic) => {
+                          const assignment = hygienistSchedule[day.id]?.[clinic.id] ?? null;
+
+                          return (
+                            <td key={clinic.id} className="px-4 py-4">
+                              <div className="flex min-h-[5rem] flex-col justify-between gap-3 rounded-2xl bg-white/[0.02] px-4 py-3 transition">
+                                <div
+                                  className={`flex flex-col ${assignment ? 'cursor-text' : 'cursor-pointer'}`}
+                                  onClick={() => !assignment && handleSelectHygienistEmployee(day.id, clinic.id)}
+                                  title={assignment ? assignment.name : 'Click to assign hygienist'}
+                                >
+                                  <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
+                                  <p className={`mt-1 text-sm font-semibold ${assignment ? 'text-white' : 'text-slate-500'}`}>
+                                    {assignment ? assignment.name : 'Unassigned'}
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">
+                                    {assignment ? assignment.shift : '—'}
+                                  </span>
+                                  {assignment && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setHygienistSchedule(prev => ({
+                                            ...prev,
+                                            [day.id]: {
+                                              ...prev[day.id],
+                                              [clinic.id]: null
+                                            }
+                                          }));
+                                        }}
+                                        aria-label="Delete assignment"
+                                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f69907]/15 text-[#f69907] ring-1 ring-[#f69907]/40 transition hover:bg-[#f69907]/30"
+                                        title="Delete assignment"
+                                      >
+                                        <span className="sr-only">Delete assignment</span>
+                                        <svg
+                                          aria-hidden="true"
+                                          viewBox="0 0 20 20"
+                                          fill="none"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-4 w-4"
+                                        >
+                                          <path
+                                            d="M3 5h14M8 5V3h4v2m-5 0v9m4-9v9m-7-9v11a1 1 0 001 1h8a1 1 0 001-1V5"
+                                            stroke="currentColor"
+                                            strokeWidth="1.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+              )}
           </section>
           )}
         </main>
@@ -878,10 +1055,18 @@ export default function SchedulesPage() {
         title={
           employeeSelectionModal?.type === 'frontDesk'
             ? 'Select Front Desk Employee'
+            : employeeSelectionModal?.type === 'hygienist'
+            ? 'Select Hygienist'
             : 'Select Doctor'
         }
         companyId={selectedEntityId}
-        positionFilter={employeeSelectionModal?.type === 'doctor' ? 'Dentist' : undefined}
+        positionFilter={
+          employeeSelectionModal?.type === 'doctor' 
+            ? 'Dentist' 
+            : employeeSelectionModal?.type === 'hygienist'
+            ? 'Hygienist'
+            : undefined
+        }
         excludePosition={employeeSelectionModal?.type === 'frontDesk' ? 'Dentist' : undefined}
       />
     </div>
