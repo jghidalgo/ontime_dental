@@ -52,6 +52,7 @@ const ROLES = [
 
 const AVAILABLE_MODULES = [
   { id: 'dashboard', name: 'Dashboard', description: 'View dashboard and analytics' },
+  { id: 'patients', name: 'Patients', description: 'Manage patient records and history' },
   { id: 'documents', name: 'Documents', description: 'Access document management' },
   { id: 'contacts', name: 'Contacts', description: 'Manage contacts and directory' },
   { id: 'schedules', name: 'Schedules', description: 'View and manage schedules' },

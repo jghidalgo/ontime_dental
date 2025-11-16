@@ -10,6 +10,8 @@ export interface IPatient extends Document {
   city?: string;
   state?: string;
   zip?: string;
+  insuranceProvider?: string;
+  insuranceNumber?: string;
   notes?: string;
   companyId?: string; // Optional: to track which company the patient belongs to
   createdAt: Date;
@@ -54,6 +56,14 @@ const PatientSchema = new Schema<IPatient>(
       trim: true
     },
     zip: {
+      type: String,
+      trim: true
+    },
+    insuranceProvider: {
+      type: String,
+      trim: true
+    },
+    insuranceNumber: {
       type: String,
       trim: true
     },

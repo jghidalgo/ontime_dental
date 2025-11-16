@@ -6,6 +6,9 @@ import { useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { GET_COMPANIES } from '@/graphql/company-queries';
+import { GET_LABORATORIES } from '@/graphql/lab-queries';
+import { GET_ACTIVE_DOCUMENT_GROUPS } from '@/graphql/document-group-queries';
 
 // GraphQL Queries and Mutations
 const GET_DOCUMENT_ENTITIES = gql`
@@ -131,6 +134,9 @@ export default function DocumentsPage() {
 
   // GraphQL hooks
   const { data, loading, error, refetch } = useQuery(GET_DOCUMENT_ENTITIES);
+  const { data: companiesData } = useQuery(GET_COMPANIES);
+  const { data: laboratoriesData } = useQuery(GET_LABORATORIES);
+  const { data: documentGroupsData } = useQuery(GET_ACTIVE_DOCUMENT_GROUPS);
   const [addDocument] = useMutation(ADD_DOCUMENT, {
     refetchQueries: ['GetDocumentEntities']
   });
@@ -195,6 +201,26 @@ export default function DocumentsPage() {
   });
 
   const objectUrlsRef = useRef<string[]>([]);
+  
+  // Combine companies and laboratories for entity selector
+  const allEntities = useMemo(() => {
+    const companies = (companiesData?.companies || [])
+      .filter((company: any) => company.isActive)
+      .map((company: any) => ({
+        id: company.id,
+        name: company.shortName,
+        type: 'company'
+      }));
+    
+    const labs = (laboratoriesData?.laboratories || [])
+      .map((lab: any) => ({
+        id: lab.id,
+        name: lab.shortName || lab.name,
+        type: 'laboratory'
+      }));
+    
+    return [...companies, ...labs];
+  }, [companiesData, laboratoriesData]);
   
   const resetEditForm = () =>
     setEditForm({
@@ -358,9 +384,9 @@ export default function DocumentsPage() {
   };
 
   const availableGroups = useMemo(() => {
-    const entity = documents.find((item: DocumentEntity) => item.id === selectedEntityId);
-    return entity?.groups ?? [];
-  }, [documents, selectedEntityId]);
+    // Use global document groups from database
+    return documentGroupsData?.activeDocumentGroups ?? [];
+  }, [documentGroupsData]);
 
   const appliedDocuments = useMemo(() => {
     if (!appliedSelection) return [];
@@ -428,11 +454,22 @@ export default function DocumentsPage() {
                     className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
                   >
                     <option value="">{t('Select entity...')}</option>
-                    {documents.map((entity: DocumentEntity) => (
+                    {/* Companies */}
+                    {allEntities.filter((e: any) => e.type === 'company').map((entity: any) => (
                       <option key={entity.id} value={entity.id}>
                         {entity.name}
                       </option>
                     ))}
+                    {/* Laboratories */}
+                    {allEntities.filter((e: any) => e.type === 'laboratory').length > 0 && (
+                      <optgroup label="Laboratories">
+                        {allEntities.filter((e: any) => e.type === 'laboratory').map((entity: any) => (
+                          <option key={entity.id} value={entity.id}>
+                            {entity.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </label>
 

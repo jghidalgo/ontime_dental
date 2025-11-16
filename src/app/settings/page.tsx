@@ -9,6 +9,7 @@ import UsersTab from '@/components/UsersTab';
 import ClinicsTab from '@/components/ClinicsTab';
 import LaboratoriesTab from '@/components/LaboratoriesTab';
 import IntegrationsTab from '@/components/IntegrationsTab';
+import DocumentGroupsTab from '@/components/DocumentGroupsTab';
 import CompanySettingsModal from '@/components/CompanySettingsModal';
 import { useTranslations } from '@/lib/i18n';
 
@@ -88,7 +89,7 @@ type CompanyFormData = {
 export default function SettingsPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'laboratories' | 'integrations'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'laboratories' | 'integrations' | 'document-groups'>('companies');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -249,6 +250,16 @@ export default function SettingsPage() {
             }`}
           >
             {t('Laboratories')}
+          </button>
+          <button
+            onClick={() => setActiveTab('document-groups')}
+            className={`px-6 py-3 text-sm font-medium transition ${
+              activeTab === 'document-groups'
+                ? 'border-b-2 border-primary-500 text-primary-400'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t('Document Groups')}
           </button>
           <button
             onClick={() => setActiveTab('integrations')}
@@ -433,6 +444,9 @@ export default function SettingsPage() {
             <IntegrationsTab selectedCompanyId={selectedCompanyId} />
           </div>
         )}
+
+        {/* Document Groups Tab */}
+        {activeTab === 'document-groups' && <DocumentGroupsTab />}
       </div>
 
       {/* Create/Edit Company Modal */}

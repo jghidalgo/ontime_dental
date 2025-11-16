@@ -50,6 +50,16 @@ const typeDefs = gql`
     order: Int!
   }
 
+  type DocumentGroup {
+    id: ID!
+    name: String!
+    description: String
+    isActive: Boolean!
+    order: Int!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type DirectoryEntityWithEntries {
     id: ID!
     entityId: String!
@@ -261,7 +271,7 @@ const typeDefs = gql`
     fileName: String
   }
 
-  type DocumentGroup {
+  type DocumentEntityGroup {
     id: String!
     name: String!
     documents: [DocumentRecord!]!
@@ -272,7 +282,7 @@ const typeDefs = gql`
     entityId: String!
     name: String!
     companyId: String!
-    groups: [DocumentGroup!]!
+    groups: [DocumentEntityGroup!]!
   }
 
   type DashboardMetric {
@@ -445,6 +455,13 @@ const typeDefs = gql`
     order: Int
   }
 
+  input DocumentGroupInput {
+    name: String!
+    description: String
+    isActive: Boolean
+    order: Int
+  }
+
   input EmployeeInput {
     id: String!
     name: String!
@@ -487,7 +504,7 @@ const typeDefs = gql`
     fileName: String
   }
 
-  input DocumentGroupInput {
+  input DocumentEntityGroupInput {
     id: String!
     name: String!
     documents: [DocumentRecordInput!]
@@ -504,6 +521,8 @@ const typeDefs = gql`
     city: String
     state: String
     zip: String
+    insuranceProvider: String
+    insuranceNumber: String
     notes: String
     companyId: String
     createdAt: String!
@@ -858,6 +877,11 @@ const typeDefs = gql`
     documentEntities(companyId: ID): [DocumentEntity!]!
     documentEntity(entityId: String!, companyId: ID): DocumentEntity
     
+    # Document Group queries
+    documentGroups: [DocumentGroup!]!
+    activeDocumentGroups: [DocumentGroup!]!
+    documentGroup(id: ID!): DocumentGroup
+    
     # Lab Case queries
     labCases(companyId: ID): [LabCase!]!
     labCase(id: ID!): LabCase
@@ -966,12 +990,18 @@ const typeDefs = gql`
     createDocumentEntity(entityId: String!, name: String!, companyId: String!): DocumentEntity!
     updateDocumentEntity(entityId: String!, name: String, companyId: ID): DocumentEntity!
     deleteDocumentEntity(entityId: String!, companyId: ID): Boolean!
-    addDocumentGroup(entityId: String!, groupId: String!, groupName: String!, companyId: ID): DocumentEntity!
-    updateDocumentGroup(entityId: String!, groupId: String!, groupName: String!, companyId: ID): DocumentEntity!
-    deleteDocumentGroup(entityId: String!, groupId: String!, companyId: ID): DocumentEntity!
+    addDocumentEntityGroup(entityId: String!, groupId: String!, groupName: String!, companyId: ID): DocumentEntity!
+    updateDocumentEntityGroup(entityId: String!, groupId: String!, groupName: String!, companyId: ID): DocumentEntity!
+    deleteDocumentEntityGroup(entityId: String!, groupId: String!, companyId: ID): DocumentEntity!
     addDocument(entityId: String!, groupId: String!, document: DocumentRecordInput!, companyId: ID): DocumentEntity!
     updateDocument(entityId: String!, groupId: String!, documentId: String!, document: DocumentRecordInput!, companyId: ID): DocumentEntity!
     deleteDocument(entityId: String!, groupId: String!, documentId: String!, companyId: ID): DocumentEntity!
+    
+    # Document Group mutations
+    createDocumentGroup(input: DocumentGroupInput!): DocumentGroup!
+    updateDocumentGroup(id: ID!, input: DocumentGroupInput!): DocumentGroup!
+    deleteDocumentGroup(id: ID!): DeleteResult!
+    reorderDocumentGroups(groupIds: [ID!]!): [DocumentGroup!]!
     
     # Lab Case mutations
     createLabCase(input: LabCaseInput!): LabCase!

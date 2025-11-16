@@ -11,6 +11,7 @@ import Ticket from '@/models/Ticket';
 import Patient from '@/models/Patient';
 import LabCase from '@/models/LabCase';
 import DocumentEntity from '@/models/Document';
+import DocumentGroup from '@/models/DocumentGroup';
 import Employee from '@/models/Employee';
 import Company from '@/models/Company';
 import PTO from '@/models/PTO';
@@ -330,6 +331,35 @@ export const resolvers = {
       return {
         ...entity,
         id: entity._id.toString()
+      };
+    },
+
+    // Document Group Queries
+    documentGroups: async () => {
+      await connectToDatabase();
+      const groups = await DocumentGroup.find().sort({ order: 1 }).lean();
+      return groups.map((group: any) => ({
+        ...group,
+        id: group._id.toString()
+      }));
+    },
+
+    activeDocumentGroups: async () => {
+      await connectToDatabase();
+      const groups = await DocumentGroup.find({ isActive: true }).sort({ order: 1 }).lean();
+      return groups.map((group: any) => ({
+        ...group,
+        id: group._id.toString()
+      }));
+    },
+
+    documentGroup: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      const group: any = await DocumentGroup.findById(id).lean();
+      if (!group) return null;
+      return {
+        ...group,
+        id: group._id.toString()
       };
     },
 
@@ -1477,7 +1507,7 @@ export const resolvers = {
       return !!result;
     },
 
-    addDocumentGroup: async (
+    addDocumentEntityGroup: async (
       _: unknown,
       { entityId, groupId, groupName, companyId }: { entityId: string; groupId: string; groupName: string; companyId?: string }
     ) => {
@@ -1510,7 +1540,7 @@ export const resolvers = {
       };
     },
 
-    updateDocumentGroup: async (
+    updateDocumentEntityGroup: async (
       _: unknown,
       { entityId, groupId, groupName, companyId }: { entityId: string; groupId: string; groupName: string; companyId?: string }
     ) => {
@@ -1539,7 +1569,7 @@ export const resolvers = {
       };
     },
 
-    deleteDocumentGroup: async (
+    deleteDocumentEntityGroup: async (
       _: unknown,
       { entityId, groupId, companyId }: { entityId: string; groupId: string; companyId?: string }
     ) => {
@@ -1662,6 +1692,75 @@ export const resolvers = {
         ...entity.toObject(),
         id: entity._id.toString()
       };
+    },
+
+    // Document Group Mutations
+    createDocumentGroup: async (_: unknown, { input }: { input: any }) => {
+      await connectToDatabase();
+      
+      // Get the current max order
+      const maxOrderGroup: any = await DocumentGroup.findOne().sort({ order: -1 }).lean();
+      const nextOrder = maxOrderGroup?.order ? maxOrderGroup.order + 1 : 1;
+      
+      const group = await DocumentGroup.create({
+        name: input.name,
+        description: input.description,
+        order: input.order || nextOrder,
+        isActive: input.isActive !== false
+      });
+      
+      return {
+        ...group.toObject(),
+        id: group._id.toString()
+      };
+    },
+
+    updateDocumentGroup: async (_: unknown, { id, input }: { id: string; input: any }) => {
+      await connectToDatabase();
+      
+      const group: any = await DocumentGroup.findByIdAndUpdate(
+        id,
+        { $set: input },
+        { new: true, runValidators: true }
+      );
+      
+      if (!group) {
+        throw new Error('Document group not found');
+      }
+      
+      return {
+        ...group.toObject(),
+        id: group._id.toString()
+      };
+    },
+
+    deleteDocumentGroup: async (_: unknown, { id }: { id: string }) => {
+      await connectToDatabase();
+      
+      const result = await DocumentGroup.findByIdAndDelete(id);
+      
+      return {
+        success: !!result,
+        message: result ? 'Document group deleted successfully' : 'Document group not found'
+      };
+    },
+
+    reorderDocumentGroups: async (_: unknown, { groupIds }: { groupIds: string[] }) => {
+      await connectToDatabase();
+      
+      // Update order for each group
+      const updatePromises = groupIds.map((id, index) =>
+        DocumentGroup.findByIdAndUpdate(id, { order: index + 1 }, { new: true })
+      );
+      
+      const groups = await Promise.all(updatePromises);
+      
+      return groups
+        .filter((group): group is any => group !== null)
+        .map((group: any) => ({
+          ...group.toObject(),
+          id: group._id.toString()
+        }));
     },
 
     // Lab Case Mutations
