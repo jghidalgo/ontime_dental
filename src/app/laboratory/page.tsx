@@ -475,26 +475,14 @@ export default function LaboratoryPage() {
   const [selectedCase, setSelectedCase] = useState<CaseSearchRecord | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  console.log('=== SELECTED ENTITY ID ===', selectedEntityId);
-
   const { data: labCasesData, loading: loadingCases, refetch: refetchCases } = useQuery(GET_LAB_CASES, {
-    variables: { companyId: selectedEntityId },
+    variables: { companyId: undefined },
   });
-  
-  console.log('Lab cases loading:', loadingCases, 'data:', labCasesData);
   
   const { data: laboratoriesData, loading: loadingLabs } = useQuery(GET_LABORATORIES);
   
-  console.log('Laboratories loading:', loadingLabs, 'data:', laboratoriesData);
-  
   const { data: clinicsData, loading: loadingClinics } = useQuery(GET_CLINIC_LOCATIONS, {
     variables: { companyId: undefined }, // Temporarily fetch all clinics to debug
-    onCompleted: (data) => {
-      console.log('GET_CLINIC_LOCATIONS query completed:', data);
-    },
-    onError: (error) => {
-      console.error('GET_CLINIC_LOCATIONS query error:', error);
-    }
   });
   
   const { data: usersData, loading: loadingUsers } = useQuery(GET_USERS, {
@@ -510,11 +498,7 @@ export default function LaboratoryPage() {
 
   // Transform lab cases from GraphQL to search format
   const caseSearchRecords = useMemo(() => {
-    if (!labCasesData?.labCases) {
-      console.log('No lab cases data:', labCasesData);
-      return [];
-    }
-    console.log('Lab cases data:', labCasesData.labCases);
+    if (!labCasesData?.labCases) return [];
     
     return labCasesData.labCases.map((labCase: any) => ({
       caseId: labCase.caseId,
@@ -532,17 +516,8 @@ export default function LaboratoryPage() {
     }));
   }, [labCasesData]);
 
-  // Fallback to mock data if no real data is available
-  const caseSearchRecordsFallback = useMemo(
-    () => caseSearchRecordsByLanguage[language],
-    [language]
-  );
-
-  const activeCaseRecords = caseSearchRecords.length > 0 ? caseSearchRecords : caseSearchRecordsFallback;
-
-  useEffect(() => {
-    console.log('Active case records:', activeCaseRecords);
-  }, [activeCaseRecords]);
+  // Use only real database data - no fallback to mock data
+  const activeCaseRecords = caseSearchRecords;
 
   useEffect(() => {
     const token = window.localStorage.getItem('ontime.authToken');
@@ -575,46 +550,20 @@ export default function LaboratoryPage() {
 
   // Get clinics from database
   const availableClinics = useMemo(() => {
-    console.log('=== CLINIC SELECTOR DEBUG ===');
-    console.log('Raw clinicsData:', clinicsData);
-    
-    if (!clinicsData) {
-      console.log('clinicsData is undefined or null');
-      return [];
-    }
-    
-    if (!clinicsData.clinicLocations) {
-      console.log('clinicLocations property is missing');
-      return [];
-    }
-    
-    console.log('Number of clinic locations:', clinicsData.clinicLocations.length);
-    console.log('Clinic locations data:', JSON.stringify(clinicsData.clinicLocations, null, 2));
+    if (!clinicsData?.clinicLocations) return [];
     
     const allClinics: string[] = [];
     
     for (const location of clinicsData.clinicLocations) {
-      console.log('Processing location:', location);
-      
-      if (!location.clinics || !Array.isArray(location.clinics)) {
-        console.log('Location has no clinics array:', location);
-        continue;
-      }
-      
-      console.log('Location has', location.clinics.length, 'clinics');
+      if (!location.clinics || !Array.isArray(location.clinics)) continue;
       
       for (const clinic of location.clinics) {
-        console.log('Processing clinic:', clinic);
-        if (clinic && clinic.name) {
+        if (clinic?.name) {
           allClinics.push(clinic.name);
-          console.log('Added clinic:', clinic.name);
-        } else {
-          console.log('Clinic has no name:', clinic);
         }
       }
     }
     
-    console.log('Final available clinics:', allClinics);
     return allClinics.sort((a, b) => a.localeCompare(b));
   }, [clinicsData]);
 
@@ -673,20 +622,15 @@ export default function LaboratoryPage() {
   }, [formatFeedback, hasSearched, lastEmptyMessageKey, searchResults.length, t]);
 
   const matchesSearchCriteria = (record: any) => {
-    console.log('Checking record:', record);
-    
     if (searchForm.caseId && record.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
-      console.log('Failed on caseId:', searchForm.caseId, 'vs', record.caseId);
       return false;
     }
 
     if (searchForm.lab && searchForm.lab.trim() !== '' && record.lab && !record.lab.toLowerCase().includes(searchForm.lab.toLowerCase())) {
-      console.log('Failed on lab:', searchForm.lab, 'vs', record.lab);
       return false;
     }
 
     if (searchForm.clinic && searchForm.clinic.trim() !== '' && record.clinic && !record.clinic.toLowerCase().includes(searchForm.clinic.toLowerCase())) {
-      console.log('Failed on clinic:', searchForm.clinic, 'vs', record.clinic);
       return false;
     }
 
@@ -694,7 +638,6 @@ export default function LaboratoryPage() {
       searchForm.patientFirstName && record.patientFirstName &&
       !record.patientFirstName.toLowerCase().includes(searchForm.patientFirstName.toLowerCase())
     ) {
-      console.log('Failed on patientFirstName:', searchForm.patientFirstName, 'vs', record.patientFirstName);
       return false;
     }
 
@@ -702,26 +645,21 @@ export default function LaboratoryPage() {
       searchForm.patientLastName && record.patientLastName &&
       !record.patientLastName.toLowerCase().includes(searchForm.patientLastName.toLowerCase())
     ) {
-      console.log('Failed on patientLastName:', searchForm.patientLastName, 'vs', record.patientLastName);
       return false;
     }
 
     if (searchForm.doctor && record.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
-      console.log('Failed on doctor:', searchForm.doctor, 'vs', record.doctor);
       return false;
     }
 
     if (searchForm.procedure && record.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
-      console.log('Failed on procedure:', searchForm.procedure, 'vs', record.procedure);
       return false;
     }
 
     if (searchForm.status && record.status && record.status !== searchForm.status) {
-      console.log('Failed on status:', searchForm.status, 'vs', record.status);
       return false;
     }
 
-    console.log('Record matches!');
     return true;
   };
 
@@ -834,12 +772,7 @@ export default function LaboratoryPage() {
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    console.log('Search form:', searchForm);
-    console.log('Active case records to filter:', activeCaseRecords);
     const results = activeCaseRecords.filter(matchesSearchCriteria);
-    console.log('Search results:', results);
-
     updateResults(results);
   };
 
@@ -1639,7 +1572,7 @@ export default function LaboratoryPage() {
       {/* Case Details Modal */}
       {showDetailsModal && selectedCase && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl">
+          <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl">
             <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-900/95 px-6 py-4 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -1716,6 +1649,114 @@ export default function LaboratoryPage() {
                   <div>
                     <p className="text-xs text-slate-400">{t('Reservation Date')}</p>
                     <p className="mt-1 text-sm font-medium text-white">{selectedCase.reservationDate}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Department Tracking */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Case Progress')}</h3>
+                <div className="space-y-3">
+                  {/* Department Steps Timeline */}
+                  <div className="relative">
+                    {/* Timeline line */}
+                    <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-white/10"></div>
+                    
+                    {/* Department steps */}
+                    <div className="space-y-6">
+                      {/* Step 1: Design */}
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-emerald-500 bg-emerald-500/20">
+                          <svg className="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-white">{t('Design')}</h4>
+                            <span className="text-xs text-emerald-400">{t('Completed')}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">{t('Case designed and specifications confirmed')}</p>
+                          <p className="mt-1 text-xs text-slate-500">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+
+                      {/* Step 2: Milling */}
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary-500 bg-primary-500/20 ring-4 ring-primary-500/10">
+                          <div className="h-2 w-2 rounded-full bg-primary-400 animate-pulse"></div>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-white">{t('Milling')}</h4>
+                            <span className="text-xs text-primary-400">{t('In Progress')}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">{t('Milling the restoration components')}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-white/5">
+                              <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-primary-500 to-primary-400"></div>
+                            </div>
+                            <span className="text-xs text-slate-400">75%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 3: Sintering */}
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
+                          <div className="h-2 w-2 rounded-full bg-white/30"></div>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-400">{t('Sintering')}</h4>
+                            <span className="text-xs text-slate-500">{t('Pending')}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{t('High-temperature sintering process')}</p>
+                        </div>
+                      </div>
+
+                      {/* Step 4: Finishing */}
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
+                          <div className="h-2 w-2 rounded-full bg-white/30"></div>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-400">{t('Finishing')}</h4>
+                            <span className="text-xs text-slate-500">{t('Pending')}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{t('Final adjustments and polishing')}</p>
+                        </div>
+                      </div>
+
+                      {/* Step 5: Staining & Glazing */}
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
+                          <div className="h-2 w-2 rounded-full bg-white/30"></div>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-400">{t('Staining & Glazing')}</h4>
+                            <span className="text-xs text-slate-500">{t('Pending')}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{t('Color matching and glazing application')}</p>
+                        </div>
+                      </div>
+
+                      {/* Step 6: Quality Control */}
+                      <div className="relative flex items-start gap-4">
+                        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
+                          <div className="h-2 w-2 rounded-full bg-white/30"></div>
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-400">{t('Quality Control')}</h4>
+                            <span className="text-xs text-slate-500">{t('Pending')}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{t('Final inspection and approval')}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
