@@ -129,6 +129,7 @@ const typeDefs = gql`
   type Procedure {
     name: String!
     dailyCapacity: Int!
+    price: Float
   }
 
   type Department {
@@ -434,6 +435,7 @@ const typeDefs = gql`
   input ProcedureInput {
     name: String!
     dailyCapacity: Int!
+    price: Float
   }
 
   input DepartmentInput {

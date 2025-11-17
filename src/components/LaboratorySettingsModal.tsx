@@ -12,6 +12,7 @@ const UPDATE_LABORATORY = gql`
       procedures {
         name
         dailyCapacity
+        price
       }
       departments {
         id
@@ -27,6 +28,7 @@ type Procedure = {
   id: string;
   name: string;
   dailyCapacity: number;
+  price?: number;
 };
 
 type Department = {
@@ -71,6 +73,7 @@ export default function LaboratorySettingsModal({
   );
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedureCapacity, setNewProcedureCapacity] = useState('10');
+  const [newProcedurePrice, setNewProcedurePrice] = useState('0');
   
   // Departments state
   const [departments, setDepartments] = useState<Department[]>(
@@ -114,17 +117,19 @@ export default function LaboratorySettingsModal({
       id: Date.now().toString(),
       name: newProcedureName.trim(),
       dailyCapacity: Number.parseInt(newProcedureCapacity) || 10,
+      price: Number.parseFloat(newProcedurePrice) || 0,
     };
 
     setProcedures([...procedures, newProcedure]);
     setNewProcedureName('');
     setNewProcedureCapacity('10');
+    setNewProcedurePrice('0');
     
     // Show success message
     showSnackbar(t(`Procedure "${newProcedure.name}" added. Click "Save Settings" to persist changes.`), 'success');
   };
 
-  const handleUpdateProcedure = (id: string, field: 'name' | 'dailyCapacity', value: string | number) => {
+  const handleUpdateProcedure = (id: string, field: 'name' | 'dailyCapacity' | 'price', value: string | number) => {
     setProcedures(
       procedures.map((proc) =>
         proc.id === id ? { ...proc, [field]: value } : proc
@@ -143,7 +148,8 @@ export default function LaboratorySettingsModal({
         .filter(proc => proc.name.trim() && proc.dailyCapacity > 0)
         .map(({ id, ...rest }) => ({
           name: rest.name.trim(),
-          dailyCapacity: Number(rest.dailyCapacity)
+          dailyCapacity: Number(rest.dailyCapacity),
+          price: rest.price ? Number(rest.price) : 0
         }));
 
       // Prepare departments data
@@ -259,7 +265,7 @@ export default function LaboratorySettingsModal({
               {/* Add New Procedure Form */}
               <form onSubmit={handleAddProcedure} className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
                 <h5 className="text-sm font-semibold text-white mb-3">{t('Add New Procedure')}</h5>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div className="md:col-span-2">
                     <label className="block text-xs font-medium text-slate-300 mb-1">
                       {t('Procedure Name')}
@@ -276,12 +282,26 @@ export default function LaboratorySettingsModal({
                     <label className="block text-xs font-medium text-slate-300 mb-1">
                       {t('Daily Capacity')}
                     </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newProcedureCapacity}
+                      onChange={(e) => setNewProcedureCapacity(e.target.value)}
+                      className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      {t('Price ($)')}
+                    </label>
                     <div className="flex gap-2">
                       <input
                         type="number"
-                        min="1"
-                        value={newProcedureCapacity}
-                        onChange={(e) => setNewProcedureCapacity(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        value={newProcedurePrice}
+                        onChange={(e) => setNewProcedurePrice(e.target.value)}
+                        placeholder="0.00"
                         className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                       />
                       <button
@@ -333,6 +353,22 @@ export default function LaboratorySettingsModal({
                             className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                           />
                           <span className="text-xs text-slate-400 whitespace-nowrap">{t('per day')}</span>
+                        </div>
+                      </div>
+                      <div className="w-32">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-slate-400">$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={procedure.price || 0}
+                            onChange={(e) =>
+                              handleUpdateProcedure(procedure.id, 'price', Number.parseFloat(e.target.value) || 0)
+                            }
+                            placeholder="0.00"
+                            className="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                          />
                         </div>
                       </div>
                       <button

@@ -341,6 +341,14 @@ export default function LaboratoryBillingPage() {
     }
   }, [router]);
 
+  // Update filters when company selector changes
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      companyId: selectedEntityId
+    }));
+  }, [selectedEntityId]);
+
   const aggregated = useMemo<AggregatedData>(() => {
     const officeLookup = new Map<string, Office>();
     for (const office of offices) {
@@ -426,14 +434,6 @@ export default function LaboratoryBillingPage() {
       officeCount: officesWithRecords.length
     };
   }, [filters]);
-
-  const appliedCompany = useMemo(
-    () => companies.find((company) => company.id === filters.companyId),
-    [filters.companyId]
-  );
-
-  const formattedStart = filters.startDate ? dateFormatter.format(parseISODate(filters.startDate)) : '—';
-  const formattedEnd = filters.endDate ? dateFormatter.format(parseISODate(filters.endDate)) : '—';
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

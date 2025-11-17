@@ -30,6 +30,7 @@ const GET_LABORATORIES = gql`
       procedures {
         name
         dailyCapacity
+        price
       }
       departments {
         id
@@ -111,6 +112,7 @@ type Laboratory = {
   procedures?: {
     name: string;
     dailyCapacity: number;
+    price?: number;
   }[];
   notes?: string;
   isActive: boolean;
