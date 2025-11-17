@@ -35,8 +35,8 @@ const GET_DOCUMENT_ENTITIES = gql`
 `;
 
 const ADD_DOCUMENT = gql`
-  mutation AddDocument($entityId: String!, $groupId: String!, $document: DocumentRecordInput!) {
-    addDocument(entityId: $entityId, groupId: $groupId, document: $document) {
+  mutation AddDocument($entityId: String!, $groupId: String!, $document: DocumentRecordInput!, $companyId: ID) {
+    addDocument(entityId: $entityId, groupId: $groupId, document: $document, companyId: $companyId) {
       id
       entityId
       name
@@ -289,10 +289,26 @@ export default function DocumentsPage() {
 
     try {
       const docId = `DOC-${Date.now()}`;
-      await addDocument({
+      
+      console.log('Creating document with:', {
+        entityId: appliedSelection.entityId,
+        groupId: appliedSelection.groupId,
+        document: {
+          id: docId,
+          title: createForm.title,
+          version: createForm.version,
+          date: createForm.date,
+          description: createForm.description,
+          url: createForm.fileUrl || '#',
+          fileName: createForm.fileName || undefined
+        }
+      });
+      
+      const result = await addDocument({
         variables: {
           entityId: appliedSelection.entityId,
           groupId: appliedSelection.groupId,
+          companyId: appliedSelection.entityId,
           document: {
             id: docId,
             title: createForm.title,
@@ -305,10 +321,12 @@ export default function DocumentsPage() {
         }
       });
 
+      console.log('Document created:', result);
       showSnackbar('Document created successfully!', 'success');
       resetCreateForm();
       setShowCreateForm(false);
     } catch (error: any) {
+      console.error('Error creating document:', error);
       showSnackbar(`Failed to create document: ${error.message}`, 'error');
     }
   };
@@ -530,7 +548,6 @@ export default function DocumentsPage() {
                         <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Version')}</th>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Date')}</th>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Description')}</th>
-                        <th className="px-6 py-3 font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Download')}</th>
                         <th className="px-6 py-3 text-right font-semibold uppercase tracking-wide text-xs text-slate-400">{t('Actions')}</th>
                       </tr>
                     </thead>
@@ -543,17 +560,18 @@ export default function DocumentsPage() {
                             <td className="whitespace-nowrap px-6 py-4 text-xs text-slate-400">{document.version}</td>
                             <td className="whitespace-nowrap px-6 py-4 text-xs text-slate-400">{document.date}</td>
                             <td className="px-6 py-4 text-sm text-slate-300">{t(document.description)}</td>
-                            <td className="px-6 py-4">
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadDocument(document)}
-                                className="inline-flex items-center rounded-lg border border-primary-500/40 bg-primary-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/60 hover:bg-primary-500/20"
-                              >
-                                {document.fileName ? document.fileName : t('Download')}
-                              </button>
-                            </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadDocument(document)}
+                                  className="inline-flex items-center rounded-lg border border-white/10 p-2 text-slate-300 transition hover:border-primary-400/40 hover:text-primary-400"
+                                  title={document.fileName || t('Download')}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -573,16 +591,22 @@ export default function DocumentsPage() {
                                       fileUrl: document.url
                                     });
                                   }}
-                                  className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
+                                  className="inline-flex items-center rounded-lg border border-white/10 p-2 text-slate-300 transition hover:border-primary-400/40 hover:text-primary-400"
+                                  title={t('Edit')}
                                 >
-                                  {t('Edit')}
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteDocument(document.id)}
-                                  className="inline-flex items-center rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-200 transition hover:border-red-400/60 hover:bg-red-500/20"
+                                  className="inline-flex items-center rounded-lg border border-red-500/40 p-2 text-red-400 transition hover:border-red-400/60 hover:bg-red-500/10"
+                                  title={t('Delete')}
                                 >
-                                  {t('Delete')}
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
                                 </button>
                               </div>
                             </td>
@@ -590,7 +614,7 @@ export default function DocumentsPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={7} className="px-6 py-16 text-center text-sm text-slate-500">
+                          <td colSpan={6} className="px-6 py-16 text-center text-sm text-slate-500">
                             {appliedSelection
                               ? t('No documents were found for the selected group.')
                               : t('No records to display. Apply a filter to load documents.')}

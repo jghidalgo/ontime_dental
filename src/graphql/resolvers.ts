@@ -1604,21 +1604,53 @@ export const resolvers = {
     ) => {
       await connectToDatabase();
       
-      const filter: any = { entityId, 'groups.id': groupId };
+      const filter: any = { entityId };
       if (companyId) filter.companyId = companyId;
       
-      const entity: any = await DocumentEntity.findOneAndUpdate(
-        filter,
-        {
-          $push: {
-            'groups.$.documents': document
-          }
-        },
-        { new: true }
-      );
+      // First, try to find the entity
+      let entity: any = await DocumentEntity.findOne(filter);
       
       if (!entity) {
-        throw new Error('Document entity or group not found');
+        // If entity doesn't exist, create it
+        // Get the global document group to use its name
+        const documentGroup: any = await DocumentGroup.findById(groupId).lean();
+        if (!documentGroup) {
+          throw new Error('Document group not found');
+        }
+        
+        entity = await DocumentEntity.create({
+          entityId,
+          name: entityId, // You might want to pass a proper name
+          companyId: companyId || undefined,
+          groups: [{
+            id: groupId,
+            name: documentGroup.name,
+            documents: [document]
+          }]
+        });
+      } else {
+        // Entity exists, check if group exists
+        const groupExists = entity.groups.some((g: any) => g.id === groupId);
+        
+        if (!groupExists) {
+          // Group doesn't exist in entity, add it
+          const documentGroup: any = await DocumentGroup.findById(groupId).lean();
+          if (!documentGroup) {
+            throw new Error('Document group not found');
+          }
+          
+          entity.groups.push({
+            id: groupId,
+            name: documentGroup.name,
+            documents: [document]
+          });
+          await entity.save();
+        } else {
+          // Group exists, just add the document
+          const groupIndex = entity.groups.findIndex((g: any) => g.id === groupId);
+          entity.groups[groupIndex].documents.push(document);
+          await entity.save();
+        }
       }
       
       return {
