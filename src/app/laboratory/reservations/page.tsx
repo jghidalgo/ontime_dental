@@ -572,6 +572,7 @@ export default function LaboratoryReservationsPage() {
   const [focusedMonth, setFocusedMonth] = useState<Date>(new Date());
   const monthSelectorValue = `${focusedMonth.getFullYear()}-${String(focusedMonth.getMonth() + 1).padStart(2, '0')}-01`;
   const [monthSelector, setMonthSelector] = useState<string>(monthSelectorValue);
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const { t, language } = useTranslations();
   
   // Fetch lab cases from GraphQL with companyId filtering

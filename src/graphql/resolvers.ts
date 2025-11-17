@@ -2318,38 +2318,40 @@ export const resolvers = {
 
     // DMS Integration Mutations
     testDMSConnection: async (_: unknown, { input }: { input: any }) => {
-      // This is a placeholder for MySQL connection testing
-      // In production, you would use mysql2 package to actually connect
-      // For now, we'll return a simulated response
       try {
-        // Simulate connection test delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // In production, uncomment this code and install mysql2:
-        // const mysql = require('mysql2/promise');
-        // const connection = await mysql.createConnection({
-        //   host: input.serverHost,
-        //   port: input.serverPort,
-        //   user: input.username,
-        //   password: input.password,
-        // });
-        // const [rows] = await connection.execute('SHOW DATABASES');
-        // const databases = rows.map((row: any) => row.Database)
-        //   .filter((db: string) => !['information_schema', 'mysql', 'performance_schema', 'sys'].includes(db));
-        // await connection.end();
-        
-        // Simulated database list for demo purposes
-        const simulatedDatabases = ['opendental', 'opendental_backup', 'practice_db'];
-        
-        return {
-          success: true,
-          message: 'Connection successful',
-          databases: simulatedDatabases,
-        };
+        // Connect to MySQL server to test credentials and fetch databases
+        const mysql = require('mysql2/promise');
+        const connection = await mysql.createConnection({
+          host: input.serverHost,
+          port: input.serverPort,
+          user: input.username,
+          password: input.password,
+        });
+
+        try {
+          // Fetch list of databases
+          const [rows]: any = await connection.execute('SHOW DATABASES');
+          
+          // Filter out system databases
+          const databases = rows
+            .map((row: any) => row.Database)
+            .filter((db: string) => !['information_schema', 'mysql', 'performance_schema', 'sys'].includes(db));
+          
+          await connection.end();
+          
+          return {
+            success: true,
+            message: 'Connection successful',
+            databases,
+          };
+        } catch (error: any) {
+          await connection.end();
+          throw error;
+        }
       } catch (error: any) {
         return {
           success: false,
-          message: error.message || 'Connection failed',
+          message: error.message || 'Connection failed. Please check your credentials.',
           databases: [],
         };
       }
@@ -2436,99 +2438,110 @@ export const resolvers = {
       await integration.save();
 
       try {
-        // In production, this would connect to the actual DMS database
-        // For now, we'll simulate the sync process
-        
-        // Simulated delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Connect to the DMS database
+        const mysql = require('mysql2/promise');
+        const connection = await mysql.createConnection({
+          host: integration.serverHost,
+          port: integration.serverPort,
+          user: integration.username,
+          password: integration.password,
+          database: integration.database,
+        });
 
-        // Simulated patient data from DMS
-        // In production, you would query the DMS database:
-        // const mysql = require('mysql2/promise');
-        // const connection = await mysql.createConnection({
-        //   host: integration.serverHost,
-        //   port: integration.serverPort,
-        //   user: integration.username,
-        //   password: integration.password,
-        //   database: integration.database,
-        // });
-        // 
-        // For Open Dental:
-        // const [rows] = await connection.execute(`
-        //   SELECT PatNum, LName, FName, Birthdate, Email, HmPhone, 
-        //          Address, City, State, Zip
-        //   FROM patient 
-        //   WHERE PatStatus = 0 
-        //   ${!fullSync ? 'AND DateTStamp > ?' : ''}
-        //   LIMIT ?
-        // `, [!fullSync ? integration.lastSyncAt : null, limit].filter(Boolean));
+        try {
+          // Query patients from Open Dental database
+          // PatStatus = 0 means active patients
+          let query = `
+            SELECT 
+              PatNum, 
+              LName, 
+              FName, 
+              MiddleI,
+              Preferred,
+              Birthdate, 
+              Email, 
+              HmPhone,
+              WkPhone,
+              WirelessPhone,
+              Address,
+              Address2, 
+              City, 
+              State, 
+              Zip,
+              Gender,
+              SSN,
+              MedicaidID,
+              DateTStamp
+            FROM patient 
+            WHERE PatStatus = 0
+          `;
 
-        const simulatedPatients = [
-          {
-            PatNum: '1001',
-            FName: 'John',
-            LName: 'Smith',
-            Birthdate: '1985-05-15',
-            Email: 'john.smith@email.com',
-            HmPhone: '555-0101',
-            Address: '123 Main St',
-            City: 'Miami',
-            State: 'FL',
-            Zip: '33101'
-          },
-          {
-            PatNum: '1002',
-            FName: 'Sarah',
-            LName: 'Johnson',
-            Birthdate: '1990-08-22',
-            Email: 'sarah.j@email.com',
-            HmPhone: '555-0102',
-            Address: '456 Oak Ave',
-            City: 'Miami',
-            State: 'FL',
-            Zip: '33102'
-          },
-          {
-            PatNum: '1003',
-            FName: 'Michael',
-            LName: 'Brown',
-            Birthdate: '1978-12-03',
-            Email: 'mbrown@email.com',
-            HmPhone: '555-0103',
-            Address: '789 Pine Rd',
-            City: 'Fort Lauderdale',
-            State: 'FL',
-            Zip: '33301'
+          const params: any[] = [];
+
+          // If not full sync, only get patients modified since last sync
+          if (!fullSync && integration.lastSyncAt) {
+            query += ` AND DateTStamp > ?`;
+            params.push(integration.lastSyncAt);
           }
-        ];
 
-        let patientsAdded = 0;
-        let patientsUpdated = 0;
-        let patientsSkipped = 0;
-        const errors: string[] = [];
+          // Apply limit
+          query += ` LIMIT ?`;
+          params.push(parseInt(limit));
 
-        for (const dmsPatient of simulatedPatients) {
+          const [rows]: any = await connection.execute(query, params);
+          
+          const simulatedPatients = rows;
+
+          let patientsAdded = 0;
+          let patientsUpdated = 0;
+          let patientsSkipped = 0;
+          const errors: string[] = [];
+
+          for (const dmsPatient of simulatedPatients) {
           try {
-            // Check if patient already exists by name and birthday
+            // Skip patients without a birthdate
+            if (!dmsPatient.Birthdate) {
+              patientsSkipped++;
+              continue;
+            }
+
+            // Use preferred name if available, otherwise first name
+            const firstName = dmsPatient.Preferred || dmsPatient.FName;
+            
+            // Determine best phone number (prefer wireless, then home, then work)
+            const phone = dmsPatient.WirelessPhone || dmsPatient.HmPhone || dmsPatient.WkPhone;
+
+            // Combine address fields
+            const address = dmsPatient.Address2 
+              ? `${dmsPatient.Address}, ${dmsPatient.Address2}`
+              : dmsPatient.Address;
+
+            // Check if patient already exists by PatNum in notes or by name and birthday
             const existingPatient = await Patient.findOne({
-              firstName: dmsPatient.FName,
-              lastName: dmsPatient.LName,
-              birthday: new Date(dmsPatient.Birthdate),
-              companyId: integration.companyId,
+              $or: [
+                { notes: { $regex: `Patient #${dmsPatient.PatNum}\\)`, $options: 'i' } },
+                {
+                  firstName: firstName,
+                  lastName: dmsPatient.LName,
+                  birthday: new Date(dmsPatient.Birthdate),
+                  companyId: integration.companyId,
+                }
+              ]
             });
 
             const patientData = {
-              firstName: dmsPatient.FName,
+              firstName: firstName,
               lastName: dmsPatient.LName,
               birthday: new Date(dmsPatient.Birthdate),
               email: dmsPatient.Email || undefined,
-              phone: dmsPatient.HmPhone || undefined,
-              address: dmsPatient.Address || undefined,
+              phone: phone || undefined,
+              address: address || undefined,
               city: dmsPatient.City || undefined,
               state: dmsPatient.State || undefined,
               zip: dmsPatient.Zip || undefined,
+              insuranceNumber: dmsPatient.MedicaidID || undefined,
               companyId: integration.companyId,
-              notes: `Synced from ${integration.provider} (Patient #${dmsPatient.PatNum})`,
+              notes: `Synced from ${integration.provider} (Patient #${dmsPatient.PatNum})${dmsPatient.SSN ? ` - SSN: ${dmsPatient.SSN}` : ''}${dmsPatient.Gender ? ` - Gender: ${dmsPatient.Gender}` : ''}`,
             };
 
             if (existingPatient) {
@@ -2541,7 +2554,8 @@ export const resolvers = {
               patientsAdded++;
             }
           } catch (error: any) {
-            errors.push(`Error syncing patient ${dmsPatient.FName} ${dmsPatient.LName}: ${error.message}`);
+            const patientName = `${dmsPatient.FName || dmsPatient.Preferred || ''} ${dmsPatient.LName || ''}`.trim();
+            errors.push(`Error syncing patient ${patientName} (PatNum: ${dmsPatient.PatNum}): ${error.message}`);
             patientsSkipped++;
           }
         }
@@ -2562,6 +2576,10 @@ export const resolvers = {
         await integration.save();
 
         return syncResult;
+        } finally {
+          // Always close the connection
+          await connection.end();
+        }
       } catch (error: any) {
         // Update integration with error
         const errorResult = {
