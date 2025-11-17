@@ -3,8 +3,11 @@
 import Link from 'next/link';
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
 import { Language, useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
+import { GET_COMPANIES } from '@/graphql/company-queries';
 
 type LocalizedField = Record<Language, string>;
 
@@ -295,12 +298,18 @@ export default function LaboratoryBillingPage() {
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
 
-  const [userName, setUserName] = useState<string>('');
-  const [formCompany, setFormCompany] = useState<string>(defaultFilters.companyId);
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [formStartDate, setFormStartDate] = useState<string>(defaultFilters.startDate);
   const [formEndDate, setFormEndDate] = useState<string>(defaultFilters.endDate);
-  const [filters, setFilters] = useState(defaultFilters);
+  const [filters, setFilters] = useState({
+    companyId: 'complete-dental-solutions',
+    startDate: defaultFilters.startDate,
+    endDate: defaultFilters.endDate
+  });
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Fetch companies from GraphQL
+  const { data: companiesData } = useQuery(GET_COMPANIES);
 
   const currencyFormatter = useMemo(
     () =>
@@ -324,14 +333,12 @@ export default function LaboratoryBillingPage() {
   const localize = useCallback((field: LocalizedField) => field[language], [language]);
 
   useEffect(() => {
-    const token = window.localStorage.getItem('ontime.authToken');
+    const token = globalThis.localStorage.getItem('ontime.authToken');
 
     if (!token) {
       router.push('/login');
       return;
     }
-
-    setUserName('Dr. Carter');
   }, [router]);
 
   const aggregated = useMemo<AggregatedData>(() => {
@@ -443,112 +450,57 @@ export default function LaboratoryBillingPage() {
     }
 
     setFilters({
-      companyId: formCompany,
+      companyId: selectedEntityId,
       startDate: formStartDate,
       endDate: formEndDate
     });
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
-      <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
+    <main className="min-h-screen bg-slate-950">
+      <div className="border-b border-slate-800 bg-slate-900/60">
+        <PageHeader
+          category={t('Laboratory')}
+          title={t('Billing Control Center')}
+          subtitle={t('Review production invoices by clinic, procedure, and totals.')}
+          showEntitySelector={true}
+          entityLabel={t('Company')}
+          selectedEntityId={selectedEntityId}
+          onEntityChange={(id) => setSelectedEntityId(id)}
+        />
+        <TopNavigation />
+      </div>
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <header className="flex flex-col gap-6 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.45em] text-primary-200/70">{t('Laboratory')}</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">{t('Billing Control Center')}</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-400">
-                {t(
-                  'Review production invoices by clinic, procedure, and totals. Filter by company and date range to align collections with operations.'
-                )}
-              </p>
-            </div>
-
-            <div className="space-y-4 text-right">
-              <div className="rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-xs text-primary-100">
-                <p className="font-semibold uppercase tracking-[0.35em]">{t('Company')}</p>
-                <p className="mt-1 text-sm font-medium text-primary-50">{appliedCompany ? localize(appliedCompany.name) : '—'}</p>
-                <p className="text-[11px] text-primary-200/70">
-                  {t('Billing report from {start} to {end}', { start: formattedStart, end: formattedEnd })}
-                </p>
+        <div className="mx-auto w-full max-w-7xl px-6 py-10">
+          <section className="mt-8">
+            <form
+              onSubmit={handleSubmit}
+              className="grid gap-4 rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl sm:grid-cols-2 lg:grid-cols-4"
+            >
+              <div className="lg:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+                  {t('Start date')}
+                </label>
+                <input
+                  type="date"
+                  value={formStartDate}
+                  onChange={(event) => setFormStartDate(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm font-medium text-white transition focus:border-primary-400/60 focus:outline-none"
+                />
               </div>
 
-              <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-slate-400">
-                <span className="font-medium text-slate-200">
-                  {t('Signed in as')} {userName || t('Loading...')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.localStorage.removeItem('ontime.authToken');
-                    window.localStorage.removeItem('ontime.userPermissions');
-                    router.push('/login');
-                  }}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold text-slate-200 transition hover:border-primary-400/40 hover:text-white"
-                >
-                  {t('Log out')}
-                </button>
+              <div className="lg:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+                  {t('End date')}
+                </label>
+                <input
+                  type="date"
+                  value={formEndDate}
+                  onChange={(event) => setFormEndDate(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm font-medium text-white transition focus:border-primary-400/60 focus:outline-none"
+                />
               </div>
-            </div>
-          </div>
-        </header>
-
-        <TopNavigation />
-
-        <main className="px-6 py-12 sm:px-10 lg:px-16">
-          <div className="mx-auto w-full max-w-6xl">
-
-            <section className="mt-8">
-              <form
-                onSubmit={handleSubmit}
-                className="grid gap-4 rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl sm:grid-cols-2 lg:grid-cols-6"
-              >
-                <div className="sm:col-span-2 lg:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-                    {t('Select Entity')}
-                  </label>
-                  <select
-                    value={formCompany}
-                    onChange={(event) => setFormCompany(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm font-medium text-white transition focus:border-primary-400/60 focus:outline-none"
-                  >
-                    <option value="" disabled>
-                      {t('Select entity...')}
-                    </option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id} className="bg-slate-900 text-white">
-                        {localize(company.name)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="lg:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-                    {t('Start date')}
-                  </label>
-                  <input
-                    type="date"
-                    value={formStartDate}
-                    onChange={(event) => setFormStartDate(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm font-medium text-white transition focus:border-primary-400/60 focus:outline-none"
-                  />
-                </div>
-
-                <div className="lg:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-                    {t('End date')}
-                  </label>
-                  <input
-                    type="date"
-                    value={formEndDate}
-                    onChange={(event) => setFormEndDate(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm font-medium text-white transition focus:border-primary-400/60 focus:outline-none"
-                  />
-                </div>
 
                 <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-2">
                   <button
@@ -667,9 +619,8 @@ export default function LaboratoryBillingPage() {
               </div>
             </section>
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
+    </main>
   );
 }
 

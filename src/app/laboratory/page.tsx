@@ -134,8 +134,7 @@ const laboratorySubNavigation: SubNavigationItem[] = [
   {
     id: 'production-board',
     label: 'Production Board',
-    description: 'Work-in-progress by stage and technician workload.',
-    planned: true
+    description: 'Work-in-progress by stage and technician workload.'
   },
   {
     id: 'transit-tracking',
@@ -872,6 +871,10 @@ export default function LaboratoryPage() {
                       if (section.planned) return;
                       if (section.id === 'reservations') {
                         router.push('/laboratory/reservations');
+                        return;
+                      }
+                      if (section.id === 'production-board') {
+                        router.push('/laboratory/production-board');
                         return;
                       }
                       if (section.id === 'billing') {

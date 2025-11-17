@@ -396,6 +396,34 @@ export const resolvers = {
       };
     },
 
+    productionBoardCases: async (
+      _: unknown, 
+      { companyId, productionStage, technicianId }: { companyId: string; productionStage?: string; technicianId?: string }
+    ) => {
+      await connectToDatabase();
+      const filter: any = { 
+        companyId,
+        status: { $in: ['in-production', 'in-planning'] } // Get cases that are in production or planning
+      };
+      
+      if (productionStage) {
+        filter.productionStage = productionStage;
+      }
+      
+      if (technicianId) {
+        filter.technicianId = technicianId;
+      }
+      
+      const cases = await LabCase.find(filter)
+        .sort({ priority: -1, createdAt: -1 }) // Sort by priority first (urgent, rush, normal), then by creation date
+        .lean();
+        
+      return cases.map((labCase: any) => ({
+        ...labCase,
+        id: labCase._id.toString()
+      }));
+    },
+
     // Patient Queries
     patients: async (_: unknown, { companyId, search }: { companyId?: string; search?: string }) => {
       await connectToDatabase();

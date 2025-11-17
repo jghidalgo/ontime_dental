@@ -54,7 +54,7 @@ export default function DashboardPage() {
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
             category={t('Dashboard')}
-            title={t('Welcome back, {name}.', { name: userName || t('team') })}
+            title={'Welcome back'}
             // subtitle={t('Dashboard summary')}
             showEntitySelector={true}
             selectedEntityId={selectedEntityId}

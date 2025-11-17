@@ -546,6 +546,7 @@ const typeDefs = gql`
     doctor: String!
     procedure: String!
     status: String!
+    productionStage: String
     category: String!
     priority: String!
     shadeGuide: String
@@ -592,6 +593,7 @@ const typeDefs = gql`
     procedure: String!
     category: String!
     priority: String
+    productionStage: String
     shadeGuide: String
     materialType: String
     notes: String
@@ -614,6 +616,7 @@ const typeDefs = gql`
     doctor: String
     procedure: String
     status: String
+    productionStage: String
     category: String
     priority: String
     shadeGuide: String
@@ -886,6 +889,7 @@ const typeDefs = gql`
     labCases(companyId: ID): [LabCase!]!
     labCase(id: ID!): LabCase
     labCaseByNumber(caseId: String!, companyId: ID): LabCase
+    productionBoardCases(companyId: ID!, productionStage: String, technicianId: String): [LabCase!]!
     
     # Patient queries
     patients(companyId: ID, search: String): [Patient!]!

@@ -16,6 +16,7 @@ export interface ILabCase extends Document {
   doctor: string;
   procedure: string;
   status: 'in-production' | 'in-transit' | 'completed' | 'in-planning';
+  productionStage?: 'design' | 'printing' | 'milling' | 'finishing' | 'qc' | 'packaging';
   category: string;
   priority: 'normal' | 'rush' | 'urgent';
   shadeGuide?: string;
@@ -105,6 +106,11 @@ const LabCaseSchema: Schema = new Schema(
       enum: ['in-production', 'in-transit', 'completed', 'in-planning'],
       default: 'in-planning',
     },
+    productionStage: {
+      type: String,
+      enum: ['design', 'printing', 'milling', 'finishing', 'qc', 'packaging'],
+      index: true,
+    },
     category: {
       type: String,
       required: true,
@@ -160,6 +166,7 @@ const LabCaseSchema: Schema = new Schema(
 LabCaseSchema.index({ caseId: 1 });
 LabCaseSchema.index({ companyId: 1 });
 LabCaseSchema.index({ companyId: 1, status: 1 });
+LabCaseSchema.index({ companyId: 1, status: 1, productionStage: 1 });
 LabCaseSchema.index({ companyId: 1, reservationDate: -1 });
 LabCaseSchema.index({ clinic: 1, status: 1 });
 LabCaseSchema.index({ clinicId: 1 });
