@@ -1,302 +1,59 @@
 'use client';
 
-import Link from 'next/link';
-import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Fragment, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
-import { Language, useTranslations } from '@/lib/i18n';
+import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
-import { GET_COMPANIES } from '@/graphql/company-queries';
+import { GET_BILLING_CASES } from '@/graphql/billing-queries';
 
-type LocalizedField = Record<Language, string>;
-
-type Company = {
+type LabCase = {
   id: string;
-  name: LocalizedField;
-};
-
-type Office = {
-  id: string;
+  caseId: string;
   companyId: string;
-  order: number;
-  name: LocalizedField;
-};
-
-type BillingRecord = {
-  id: string;
-  companyId: string;
-  officeId: string;
-  procedure: LocalizedField;
-  quantity: number;
-  amount: number;
-  date: string; // YYYY-MM-DD
+  clinic: string;
+  clinicId?: string;
+  procedure: string;
+  price?: number;
+  reservationDate: string;
+  actualCompletion?: string;
+  status: string;
+  createdAt: string;
 };
 
 type AggregatedProcedure = {
   key: string;
-  procedure: LocalizedField;
+  procedure: string;
   quantity: number;
   amount: number;
 };
 
-type AggregatedOffice = {
-  office: Office;
+type AggregatedClinic = {
+  clinic: string;
+  clinicId?: string;
   totalQuantity: number;
   totalAmount: number;
   procedures: AggregatedProcedure[];
 };
 
 type AggregatedData = {
-  offices: AggregatedOffice[];
+  clinics: AggregatedClinic[];
   totalQuantity: number;
   totalAmount: number;
   procedureCount: number;
-  officeCount: number;
-};
-
-const same = (value: string): LocalizedField => ({ en: value, es: value });
-
-const companies: Company[] = [
-  { id: 'blanco-janis', name: same('Blanco Janis Dental Group') },
-  { id: 'complete-dental', name: same('Complete Dental Solutions of Florida') },
-  { id: 'crosar-dental', name: same('Crosar Dental') },
-  { id: 'doral-isles', name: same('Doral Isles Plaza Dentists') },
-  { id: 'total-dental', name: same('Total Dental Care of Florida') },
-  { id: 'vivadent', name: same('Vivadent DLD') }
-];
-
-const offices: Office[] = [
-  { id: 'viv-west-hialeah', companyId: 'vivadent', order: 1, name: same('Vivadent West Hialeah') },
-  { id: 'bisco-coral-gables', companyId: 'vivadent', order: 2, name: same('Bisco Coral Gables') },
-  { id: 'bisco-miller', companyId: 'vivadent', order: 3, name: same('Bisco Miller') },
-  { id: 'blanco-brickell', companyId: 'blanco-janis', order: 1, name: same('Blanco Janis · Brickell') },
-  { id: 'blanco-sunrise', companyId: 'blanco-janis', order: 2, name: same('Blanco Janis · Sunrise') },
-  { id: 'complete-orlando', companyId: 'complete-dental', order: 1, name: same('Complete Dental · Orlando') },
-  { id: 'complete-tampa', companyId: 'complete-dental', order: 2, name: same('Complete Dental · Tampa') },
-  { id: 'crosar-south-miami', companyId: 'crosar-dental', order: 1, name: same('Crosar Dental · South Miami') },
-  { id: 'doral-isles-office', companyId: 'doral-isles', order: 1, name: same('Doral Isles Plaza Dentists') },
-  { id: 'total-hialeah', companyId: 'total-dental', order: 1, name: same('Total Dental Care · Hialeah') },
-  { id: 'total-fort-lauderdale', companyId: 'total-dental', order: 2, name: same('Total Dental Care · Fort Lauderdale') }
-];
-
-const billingRecords: BillingRecord[] = [
-  {
-    id: 'viv-2025-10-01-bite',
-    companyId: 'vivadent',
-    officeId: 'viv-west-hialeah',
-    procedure: { en: 'Bite registration', es: 'Registro de mordida' },
-    quantity: 2,
-    amount: 40,
-    date: '2025-10-01'
-  },
-  {
-    id: 'viv-2025-10-03-try',
-    companyId: 'vivadent',
-    officeId: 'viv-west-hialeah',
-    procedure: { en: 'Try-in', es: 'Prueba en boca' },
-    quantity: 1,
-    amount: 18,
-    date: '2025-10-03'
-  },
-  {
-    id: 'viv-2025-10-05-crown',
-    companyId: 'vivadent',
-    officeId: 'viv-west-hialeah',
-    procedure: { en: 'Layered zirconia crown', es: 'Corona de zirconia estratificada' },
-    quantity: 3,
-    amount: 960,
-    date: '2025-10-05'
-  },
-  {
-    id: 'viv-2025-10-04-finish',
-    companyId: 'vivadent',
-    officeId: 'bisco-coral-gables',
-    procedure: { en: 'Finishing and polish', es: 'Terminación y pulido' },
-    quantity: 2,
-    amount: 120,
-    date: '2025-10-04'
-  },
-  {
-    id: 'viv-2025-10-08-crown',
-    companyId: 'vivadent',
-    officeId: 'bisco-coral-gables',
-    procedure: { en: 'Layered zirconia crown', es: 'Corona de zirconia estratificada' },
-    quantity: 2,
-    amount: 640,
-    date: '2025-10-08'
-  },
-  {
-    id: 'viv-2025-10-10-remake',
-    companyId: 'vivadent',
-    officeId: 'bisco-coral-gables',
-    procedure: { en: 'Remake adjustment', es: 'Ajuste de rehacer' },
-    quantity: 1,
-    amount: 85,
-    date: '2025-10-10'
-  },
-  {
-    id: 'viv-2025-10-09-implant',
-    companyId: 'vivadent',
-    officeId: 'bisco-miller',
-    procedure: { en: 'Implant custom abutment', es: 'Pilar personalizado para implante' },
-    quantity: 1,
-    amount: 280,
-    date: '2025-10-09'
-  },
-  {
-    id: 'viv-2025-10-11-wax',
-    companyId: 'vivadent',
-    officeId: 'bisco-miller',
-    procedure: { en: 'Diagnostic wax-up', es: 'Encerado diagnóstico' },
-    quantity: 1,
-    amount: 150,
-    date: '2025-10-11'
-  },
-  {
-    id: 'viv-2025-09-25-guard',
-    companyId: 'vivadent',
-    officeId: 'viv-west-hialeah',
-    procedure: { en: 'Night guard', es: 'Placa de descanso' },
-    quantity: 1,
-    amount: 110,
-    date: '2025-09-25'
-  },
-  {
-    id: 'viv-2025-10-16-bite',
-    companyId: 'vivadent',
-    officeId: 'viv-west-hialeah',
-    procedure: { en: 'Bite registration', es: 'Registro de mordida' },
-    quantity: 1,
-    amount: 20,
-    date: '2025-10-16'
-  },
-  {
-    id: 'blanco-2025-10-02-aligner',
-    companyId: 'blanco-janis',
-    officeId: 'blanco-brickell',
-    procedure: { en: 'Aligner set', es: 'Juego de alineadores' },
-    quantity: 4,
-    amount: 520,
-    date: '2025-10-02'
-  },
-  {
-    id: 'blanco-2025-10-07-partial',
-    companyId: 'blanco-janis',
-    officeId: 'blanco-sunrise',
-    procedure: { en: 'Partial denture', es: 'Prótesis parcial' },
-    quantity: 2,
-    amount: 780,
-    date: '2025-10-07'
-  },
-  {
-    id: 'blanco-2025-10-12-repair',
-    companyId: 'blanco-janis',
-    officeId: 'blanco-sunrise',
-    procedure: { en: 'Repair and polish', es: 'Reparación y pulido' },
-    quantity: 1,
-    amount: 95,
-    date: '2025-10-12'
-  },
-  {
-    id: 'complete-2025-10-04-implant',
-    companyId: 'complete-dental',
-    officeId: 'complete-orlando',
-    procedure: { en: 'Implant ceramic crown', es: 'Corona cerámica sobre implante' },
-    quantity: 2,
-    amount: 890,
-    date: '2025-10-04'
-  },
-  {
-    id: 'complete-2025-10-09-aligner',
-    companyId: 'complete-dental',
-    officeId: 'complete-tampa',
-    procedure: { en: 'Aligner refinement', es: 'Refinamiento de alineadores' },
-    quantity: 3,
-    amount: 360,
-    date: '2025-10-09'
-  },
-  {
-    id: 'complete-2025-10-14-bite',
-    companyId: 'complete-dental',
-    officeId: 'complete-orlando',
-    procedure: { en: 'Bite registration', es: 'Registro de mordida' },
-    quantity: 2,
-    amount: 40,
-    date: '2025-10-14'
-  },
-  {
-    id: 'crosar-2025-10-05-3d',
-    companyId: 'crosar-dental',
-    officeId: 'crosar-south-miami',
-    procedure: { en: '3D printed model', es: 'Modelo impreso 3D' },
-    quantity: 5,
-    amount: 250,
-    date: '2025-10-05'
-  },
-  {
-    id: 'crosar-2025-10-13-guard',
-    companyId: 'crosar-dental',
-    officeId: 'crosar-south-miami',
-    procedure: { en: 'Night guard', es: 'Placa de descanso' },
-    quantity: 2,
-    amount: 220,
-    date: '2025-10-13'
-  },
-  {
-    id: 'doral-2025-10-06-crown',
-    companyId: 'doral-isles',
-    officeId: 'doral-isles-office',
-    procedure: { en: 'Full contour crown', es: 'Corona de contorno completo' },
-    quantity: 2,
-    amount: 540,
-    date: '2025-10-06'
-  },
-  {
-    id: 'doral-2025-10-08-try',
-    companyId: 'doral-isles',
-    officeId: 'doral-isles-office',
-    procedure: { en: 'Try-in', es: 'Prueba en boca' },
-    quantity: 1,
-    amount: 18,
-    date: '2025-10-08'
-  },
-  {
-    id: 'total-2025-10-03-partial',
-    companyId: 'total-dental',
-    officeId: 'total-hialeah',
-    procedure: { en: 'Partial denture', es: 'Prótesis parcial' },
-    quantity: 1,
-    amount: 385,
-    date: '2025-10-03'
-  },
-  {
-    id: 'total-2025-10-11-implant',
-    companyId: 'total-dental',
-    officeId: 'total-fort-lauderdale',
-    procedure: { en: 'Implant custom abutment', es: 'Pilar personalizado para implante' },
-    quantity: 2,
-    amount: 560,
-    date: '2025-10-11'
-  }
-];
-
-const parseISODate = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  clinicCount: number;
 };
 
 const defaultFilters = {
-  companyId: 'vivadent',
   startDate: '2025-10-01',
-  endDate: '2025-10-14'
+  endDate: '2025-11-16'
 };
-
 
 export default function LaboratoryBillingPage() {
   const router = useRouter();
-  const { t, language } = useTranslations();
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const { t } = useTranslations();
+  const locale = 'en-US';
 
   const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [formStartDate, setFormStartDate] = useState<string>(defaultFilters.startDate);
@@ -308,8 +65,15 @@ export default function LaboratoryBillingPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Fetch companies from GraphQL
-  const { data: companiesData } = useQuery(GET_COMPANIES);
+  // Fetch billing cases from GraphQL
+  const { data: billingData, loading } = useQuery(GET_BILLING_CASES, {
+    variables: {
+      companyId: filters.companyId,
+      startDate: filters.startDate,
+      endDate: filters.endDate
+    },
+    skip: !filters.companyId
+  });
 
   const currencyFormatter = useMemo(
     () =>
@@ -330,14 +94,11 @@ export default function LaboratoryBillingPage() {
     [locale]
   );
 
-  const localize = useCallback((field: LocalizedField) => field[language], [language]);
-
   useEffect(() => {
     const token = globalThis.localStorage.getItem('ontime.authToken');
 
     if (!token) {
       router.push('/login');
-      return;
     }
   }, [router]);
 
@@ -350,23 +111,15 @@ export default function LaboratoryBillingPage() {
   }, [selectedEntityId]);
 
   const aggregated = useMemo<AggregatedData>(() => {
-    const officeLookup = new Map<string, Office>();
-    for (const office of offices) {
-      if (office.companyId === filters.companyId) {
-        officeLookup.set(office.id, office);
-      }
-    }
+    const cases: LabCase[] = billingData?.billingCases || [];
 
-    const start = filters.startDate ? parseISODate(filters.startDate) : null;
-    const end = filters.endDate ? parseISODate(filters.endDate) : null;
-
-    const officeMap = new Map<
+    const clinicMap = new Map<
       string,
       {
-        office: Office;
+        clinic: string;
+        clinicId?: string;
         totalQuantity: number;
         totalAmount: number;
-        order: number;
         procedureMap: Map<string, AggregatedProcedure>;
       }
     >();
@@ -374,76 +127,68 @@ export default function LaboratoryBillingPage() {
     let totalQuantity = 0;
     let totalAmount = 0;
 
-    for (const record of billingRecords) {
-      if (record.companyId !== filters.companyId) continue;
-      const office = officeLookup.get(record.officeId);
-      if (!office) continue;
-
-      const recordDate = parseISODate(record.date);
-      if (start && recordDate < start) continue;
-      if (end && recordDate > end) continue;
-
-      let officeEntry = officeMap.get(office.id);
-      if (!officeEntry) {
-        officeEntry = {
-          office,
+    for (const labCase of cases) {
+      const clinicKey = labCase.clinicId || labCase.clinic;
+      
+      let clinicEntry = clinicMap.get(clinicKey);
+      if (!clinicEntry) {
+        clinicEntry = {
+          clinic: labCase.clinic,
+          clinicId: labCase.clinicId,
           totalQuantity: 0,
           totalAmount: 0,
-          order: office.order,
           procedureMap: new Map()
         };
-        officeMap.set(office.id, officeEntry);
+        clinicMap.set(clinicKey, clinicEntry);
       }
 
-      const key = record.procedure.en;
-      let procedureEntry = officeEntry.procedureMap.get(key);
+      const procedureKey = labCase.procedure;
+      let procedureEntry = clinicEntry.procedureMap.get(procedureKey);
       if (!procedureEntry) {
         procedureEntry = {
-          key,
-          procedure: record.procedure,
+          key: procedureKey,
+          procedure: labCase.procedure,
           quantity: 0,
           amount: 0
         };
-        officeEntry.procedureMap.set(key, procedureEntry);
+        clinicEntry.procedureMap.set(procedureKey, procedureEntry);
       }
 
-      procedureEntry.quantity += record.quantity;
-      procedureEntry.amount += record.amount;
-      officeEntry.totalQuantity += record.quantity;
-      officeEntry.totalAmount += record.amount;
-      totalQuantity += record.quantity;
-      totalAmount += record.amount;
+      const casePrice = labCase.price || 0;
+      procedureEntry.quantity += 1;
+      procedureEntry.amount += casePrice;
+      clinicEntry.totalQuantity += 1;
+      clinicEntry.totalAmount += casePrice;
+      totalQuantity += 1;
+      totalAmount += casePrice;
     }
 
-    const officesWithRecords = Array.from(officeMap.values())
-      .sort((a, b) => a.order - b.order)
-      .map<AggregatedOffice>((entry) => ({
-        office: entry.office,
+    const clinicsWithRecords = Array.from(clinicMap.values())
+      .map<AggregatedClinic>((entry) => ({
+        clinic: entry.clinic,
+        clinicId: entry.clinicId,
         totalQuantity: entry.totalQuantity,
         totalAmount: entry.totalAmount,
         procedures: Array.from(entry.procedureMap.values())
       }));
 
-    const procedureCount = officesWithRecords.reduce((sum, office) => sum + office.procedures.length, 0);
+    const procedureCount = clinicsWithRecords.reduce((sum, clinic) => sum + clinic.procedures.length, 0);
 
     return {
-      offices: officesWithRecords,
+      clinics: clinicsWithRecords,
       totalQuantity,
       totalAmount,
       procedureCount,
-      officeCount: officesWithRecords.length
+      clinicCount: clinicsWithRecords.length
     };
-  }, [filters]);
+  }, [billingData]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
 
     if (formStartDate && formEndDate) {
-      const startDate = parseISODate(formStartDate);
-      const endDate = parseISODate(formEndDate);
-
-      if (startDate > endDate) {
+      if (formStartDate > formEndDate) {
         setFormError(t('Start date must be on or before end date.'));
         return;
       }
@@ -533,7 +278,7 @@ export default function LaboratoryBillingPage() {
             <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-5">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Clinics with activity')}</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{aggregated.officeCount}</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{aggregated.clinicCount}</p>
                 <p className="text-xs text-slate-400">{t('Billing')}</p>
               </div>
               <div className="rounded-2xl border border-primary-400/30 bg-primary-500/10 px-4 py-5 text-primary-50">
@@ -565,7 +310,13 @@ export default function LaboratoryBillingPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {aggregated.offices.length === 0 ? (
+                    {loading ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
+                          {t('Loading billing data...')}
+                        </td>
+                      </tr>
+                    ) : aggregated.clinics.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
                           {t('No billing records found for the selected period.')}
@@ -573,19 +324,19 @@ export default function LaboratoryBillingPage() {
                       </tr>
                     ) : (
                       <>
-                        {aggregated.offices.map((entry) => (
-                          <Fragment key={entry.office.id}>
+                        {aggregated.clinics.map((entry) => (
+                          <Fragment key={entry.clinicId || entry.clinic}>
                             <tr>
                               <td
                                 colSpan={4}
                                 className="bg-white/[0.04] px-6 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-primary-200/80"
                               >
-                                {localize(entry.office.name)}
+                                {entry.clinic}
                               </td>
                             </tr>
                             {entry.procedures.map((procedure) => (
-                              <tr key={`${entry.office.id}-${procedure.key}`} className="text-sm text-slate-200">
-                                <td className="px-6 py-4 font-medium text-white">{localize(procedure.procedure)}</td>
+                              <tr key={`${entry.clinicId || entry.clinic}-${procedure.key}`} className="text-sm text-slate-200">
+                                <td className="px-6 py-4 font-medium text-white">{procedure.procedure}</td>
                                 <td className="px-6 py-4 text-center">{procedure.quantity}</td>
                                 <td className="px-6 py-4 text-slate-300">{currencyFormatter.format(procedure.amount)}</td>
                                 <td className="px-6 py-4 text-right">
@@ -599,7 +350,7 @@ export default function LaboratoryBillingPage() {
                               </tr>
                             ))}
                             <tr className="text-sm font-semibold text-primary-100">
-                              <td className="px-6 py-3">{t('Total by office')}</td>
+                              <td className="px-6 py-3">{t('Total by clinic')}</td>
                               <td className="px-6 py-3 text-center">{entry.totalQuantity}</td>
                               <td className="px-6 py-3">{currencyFormatter.format(entry.totalAmount)}</td>
                               <td className="px-6 py-3" />

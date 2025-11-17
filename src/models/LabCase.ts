@@ -15,6 +15,7 @@ export interface ILabCase extends Document {
   doctorId?: string; // Reference to User (doctor)
   doctor: string;
   procedure: string;
+  price?: number;
   status: 'in-production' | 'in-transit' | 'completed' | 'in-planning';
   productionStage?: 'design' | 'printing' | 'milling' | 'finishing' | 'qc' | 'packaging';
   category: string;
@@ -100,6 +101,10 @@ const LabCaseSchema: Schema = new Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    price: {
+      type: Number,
+      default: 0,
     },
     status: {
       type: String,

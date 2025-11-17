@@ -424,6 +424,37 @@ export const resolvers = {
       }));
     },
 
+    billingCases: async (
+      _: unknown,
+      { companyId, startDate, endDate }: { companyId: string; startDate?: string; endDate?: string }
+    ) => {
+      await connectToDatabase();
+      const filter: any = {
+        companyId,
+        status: 'completed' // Only get completed cases for billing
+      };
+
+      // Filter by date range if provided
+      if (startDate || endDate) {
+        filter.actualCompletion = {};
+        if (startDate) {
+          filter.actualCompletion.$gte = startDate;
+        }
+        if (endDate) {
+          filter.actualCompletion.$lte = endDate;
+        }
+      }
+
+      const cases = await LabCase.find(filter)
+        .sort({ actualCompletion: -1 })
+        .lean();
+
+      return cases.map((labCase: any) => ({
+        ...labCase,
+        id: labCase._id.toString()
+      }));
+    },
+
     // Patient Queries
     patients: async (_: unknown, { companyId, search }: { companyId?: string; search?: string }) => {
       await connectToDatabase();
