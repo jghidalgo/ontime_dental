@@ -67,35 +67,49 @@ export default function DashboardPage() {
         <main className="mx-auto max-w-7xl px-6 py-10">
             {data ? (
         <div className="space-y-6">
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Metrics Grid - Now 3 columns for better layout */}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {metrics.map((metric: any) => (
               <div
                 key={metric.label}
-                className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
+                className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06] hover:shadow-primary-900/20"
               >
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400 truncate">{t(metric.label)}</p>
-                  <p className="text-3xl font-semibold text-slate-50 truncate">{metric.value}</p>
-                  <span
-                    className={`text-[10px] font-semibold uppercase tracking-wider ${getTrendColor(metric.trend)} truncate`}
-                  >
-                    {t(metric.delta)}
-                  </span>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t(metric.label)}</p>
+                  <p className="text-3xl font-bold text-slate-50">{metric.value}</p>
+                  <div className="flex items-center gap-2">
+                    {metric.trend === 'positive' && (
+                      <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                    )}
+                    {metric.trend === 'negative' && (
+                      <svg className="h-4 w-4 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                      </svg>
+                    )}
+                    <span
+                      className={`text-xs font-semibold ${getTrendColor(metric.trend)}`}
+                    >
+                      {t(metric.delta)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
+            {/* Production Chart */}
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-200/80">{t('Performance')}</p>
-                  <h2 className="mt-3 text-xl font-semibold text-slate-50 truncate">{t('Monthly Production')}</h2>
-                  <p className="mt-1 text-sm text-slate-400 truncate">{t('Revenue trend across the last six months')}</p>
+                  <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Lab Case Completions')}</h2>
+                  <p className="mt-1 text-sm text-slate-400">{t('Production volume over the last six months')}</p>
                 </div>
                 <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200 whitespace-nowrap">
-                  +9.5%
+                  {revenueTrend.length > 1 ? `+${Math.round(((revenueTrend[revenueTrend.length - 1].value - revenueTrend[0].value) / revenueTrend[0].value) * 100)}%` : '+9.5%'}
                 </div>
               </div>
               <div className="mt-8 flex items-end gap-4 overflow-x-auto pb-2">

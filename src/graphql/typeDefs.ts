@@ -562,8 +562,48 @@ const typeDefs = gql`
     technician: String
     qrCode: String
     qrCodeData: String
+    transitStatus: String
+    courierService: String
+    trackingNumber: String
+    pickupDate: String
+    estimatedDelivery: String
+    actualDelivery: String
+    routeId: String
+    currentLocation: String
+    deliveryNotes: String
+    signedBy: String
+    deliveryProofImage: String
+    transitHistory: [TransitHistoryEntry!]
     createdAt: String!
     updatedAt: String!
+  }
+
+  type TransitHistoryEntry {
+    timestamp: String!
+    location: String!
+    status: String!
+    notes: String
+  }
+
+  input TransitHistoryInput {
+    timestamp: String!
+    location: String!
+    status: String!
+    notes: String
+  }
+
+  type TransitRoute {
+    routeId: String!
+    companyId: String!
+    routeName: String!
+    region: String
+    cases: [LabCase!]!
+    totalCases: Int!
+    clinics: [String!]!
+    estimatedDeparture: String
+    estimatedArrival: String
+    status: String!
+    courierService: String
   }
 
   input PatientInput {
@@ -605,6 +645,14 @@ const typeDefs = gql`
     estimatedCompletion: String
     technicianId: String
     technician: String
+    transitStatus: String
+    courierService: String
+    trackingNumber: String
+    pickupDate: String
+    estimatedDelivery: String
+    routeId: String
+    currentLocation: String
+    deliveryNotes: String
   }
 
   input LabCaseUpdateInput {
@@ -632,6 +680,18 @@ const typeDefs = gql`
     actualCompletion: String
     technicianId: String
     technician: String
+    transitStatus: String
+    courierService: String
+    trackingNumber: String
+    pickupDate: String
+    estimatedDelivery: String
+    actualDelivery: String
+    routeId: String
+    currentLocation: String
+    deliveryNotes: String
+    signedBy: String
+    deliveryProofImage: String
+    transitHistory: [TransitHistoryInput!]
   }
 
   type Company {
@@ -896,6 +956,8 @@ const typeDefs = gql`
     labCaseByNumber(caseId: String!, companyId: ID): LabCase
     productionBoardCases(companyId: ID!, productionStage: String, technicianId: String): [LabCase!]!
     billingCases(companyId: ID!, startDate: String, endDate: String): [LabCase!]!
+    transitCases(companyId: ID!, transitStatus: String): [LabCase!]!
+    transitRoutes(companyId: ID!): [TransitRoute!]!
     
     # Patient queries
     patients(companyId: ID, search: String): [Patient!]!
@@ -1017,6 +1079,7 @@ const typeDefs = gql`
     createLabCase(input: LabCaseInput!): LabCase!
     updateLabCase(id: ID!, input: LabCaseUpdateInput!): LabCase!
     deleteLabCase(id: ID!): Boolean!
+    updateTransitStatus(id: ID!, transitStatus: String!, location: String, notes: String): LabCase!
     
     # Patient mutations
     createPatient(input: PatientInput!): Patient!

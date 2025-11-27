@@ -315,6 +315,7 @@ export default function TicketsPage() {
             subject: form.subject,
             requester: form.requester,
             location: form.location,
+            companyId: selectedEntityId,
             channel: 'Portal',
             category: form.category,
             description: form.description,
@@ -349,7 +350,7 @@ export default function TicketsPage() {
           category={t('Support Hub')}
           title={t('Tickets')}
           subtitle={t(
-            'Monitor live requests, prioritize escalations, and deliver quick resolutions across every location.'
+            'Monitor live requests and deliver quick resolutions across every location.'
           )}
           showEntitySelector={true}
           entityLabel="Entity"
@@ -651,40 +652,6 @@ export default function TicketsPage() {
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-xl font-semibold text-white">{t('Operations bulletin')}</h2>
-            <ul className="mt-4 space-y-4 text-sm text-slate-300">
-              <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="font-semibold text-white">{t('Digital workflows')}</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {t('Every urgent ticket sends SMS alerts to regional directors for faster acknowledgment.')}
-                </p>
-              </li>
-              <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="font-semibold text-white">{t('Sunrise huddles')}</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {t('Share overnight ticket summaries with on-call dentists before the first appointment block.')}
-                </p>
-              </li>
-              <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="font-semibold text-white">{t('Learning loop')}</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {t('Resolved tickets with high satisfaction feed back into our service playbook templates.')}
-                </p>
-              </li>
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-primary-500/10 via-primary-500/0 to-primary-500/20 p-6">
-            <h2 className="text-xl font-semibold text-white">{t('VIP monitoring')}</h2>
-            <p className="mt-1 text-sm text-slate-200">
-              {t('Enable concierge tracking for executives, urgent surgical cases, and enterprise partners.')}
-            </p>
-            <button className="mt-4 w-full rounded-lg border border-primary-400/40 bg-primary-500/20 px-4 py-2 text-sm font-semibold text-primary-100 transition hover:border-primary-300 hover:bg-primary-500/30">
-              {t('Launch white-glove view')}
-            </button>
           </div>
         </aside>
       </div>

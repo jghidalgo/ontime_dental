@@ -30,6 +30,24 @@ export interface ILabCase extends Document {
   technician?: string;
   qrCode?: string; // Base64 encoded QR code image
   qrCodeData?: string; // The data encoded in the QR code
+  // Transit tracking fields
+  transitStatus?: 'pending-pickup' | 'picked-up' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed-delivery';
+  courierService?: string; // Name of courier service
+  trackingNumber?: string; // Courier tracking number
+  pickupDate?: string; // Date picked up from lab
+  estimatedDelivery?: string; // ETA for delivery
+  actualDelivery?: string; // Actual delivery date/time
+  routeId?: string; // Route identifier
+  currentLocation?: string; // Current location/checkpoint
+  deliveryNotes?: string; // Delivery instructions or notes
+  signedBy?: string; // Who received the delivery
+  deliveryProofImage?: string; // Base64 image of delivery proof
+  transitHistory?: Array<{
+    timestamp: string;
+    location: string;
+    status: string;
+    notes?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -161,6 +179,54 @@ const LabCaseSchema: Schema = new Schema(
     qrCodeData: {
       type: String, // The data encoded in the QR code
     },
+    // Transit tracking fields
+    transitStatus: {
+      type: String,
+      enum: ['pending-pickup', 'picked-up', 'in-transit', 'out-for-delivery', 'delivered', 'failed-delivery'],
+    },
+    courierService: {
+      type: String,
+      trim: true,
+    },
+    trackingNumber: {
+      type: String,
+      trim: true,
+    },
+    pickupDate: {
+      type: String,
+    },
+    estimatedDelivery: {
+      type: String,
+    },
+    actualDelivery: {
+      type: String,
+    },
+    routeId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    currentLocation: {
+      type: String,
+      trim: true,
+    },
+    deliveryNotes: {
+      type: String,
+      trim: true,
+    },
+    signedBy: {
+      type: String,
+      trim: true,
+    },
+    deliveryProofImage: {
+      type: String, // Base64 encoded delivery proof image
+    },
+    transitHistory: [{
+      timestamp: String,
+      location: String,
+      status: String,
+      notes: String,
+    }],
   },
   {
     timestamps: true,
@@ -182,5 +248,11 @@ LabCaseSchema.index({ labId: 1 });
 LabCaseSchema.index({ technicianId: 1 });
 LabCaseSchema.index({ patientId: 1 });
 LabCaseSchema.index({ status: 1, createdAt: -1 });
+// Transit tracking indexes
+LabCaseSchema.index({ companyId: 1, transitStatus: 1 });
+LabCaseSchema.index({ routeId: 1 });
+LabCaseSchema.index({ trackingNumber: 1 });
+LabCaseSchema.index({ estimatedDelivery: 1 });
+LabCaseSchema.index({ companyId: 1, status: 1, transitStatus: 1 });
 
 export default mongoose.models.LabCase || mongoose.model<ILabCase>('LabCase', LabCaseSchema);

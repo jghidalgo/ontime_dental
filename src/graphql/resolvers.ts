@@ -1,5 +1,6 @@
 import { connectToDatabase } from '@/lib/db';
 import { createToken, verifyPassword } from '@/lib/auth';
+import { notifyTicketCreated } from '@/lib/slack';
 import User from '@/models/User';
 import DirectoryEntity from '@/models/DirectoryEntity';
 import DirectoryEntry from '@/models/DirectoryEntry';
@@ -452,6 +453,85 @@ export const resolvers = {
       return cases.map((labCase: any) => ({
         ...labCase,
         id: labCase._id.toString()
+      }));
+    },
+
+    transitCases: async (
+      _: unknown,
+      { companyId, transitStatus }: { companyId: string; transitStatus?: string }
+    ) => {
+      await connectToDatabase();
+      const filter: any = {
+        companyId,
+        status: 'in-transit' // Only get cases currently in transit
+      };
+
+      // Filter by specific transit status if provided
+      if (transitStatus) {
+        filter.transitStatus = transitStatus;
+      }
+
+      const cases = await LabCase.find(filter)
+        .sort({ estimatedDelivery: 1, pickupDate: -1 })
+        .lean();
+
+      return cases.map((labCase: any) => ({
+        ...labCase,
+        id: labCase._id.toString()
+      }));
+    },
+
+    transitRoutes: async (_: unknown, { companyId }: { companyId: string }) => {
+      await connectToDatabase();
+      
+      // Get all in-transit cases for the company
+      const cases = await LabCase.find({
+        companyId,
+        status: 'in-transit'
+      }).lean();
+
+      // Group cases by routeId
+      const routesMap = new Map<string, any>();
+
+      cases.forEach((labCase: any) => {
+        const routeId = labCase.routeId || 'unassigned';
+        
+        if (!routesMap.has(routeId)) {
+          routesMap.set(routeId, {
+            routeId,
+            companyId,
+            routeName: routeId === 'unassigned' ? 'Unassigned' : `Route ${routeId}`,
+            region: labCase.currentLocation || 'Unknown',
+            cases: [],
+            clinics: new Set(),
+            estimatedDeparture: null,
+            estimatedArrival: null,
+            status: 'in-transit',
+            courierService: labCase.courierService || 'Unknown'
+          });
+        }
+
+        const route = routesMap.get(routeId);
+        route.cases.push({
+          ...labCase,
+          id: labCase._id.toString()
+        });
+        route.clinics.add(labCase.clinic);
+
+        // Update earliest departure and latest arrival
+        if (!route.estimatedDeparture || (labCase.pickupDate && labCase.pickupDate < route.estimatedDeparture)) {
+          route.estimatedDeparture = labCase.pickupDate;
+        }
+        if (!route.estimatedArrival || (labCase.estimatedDelivery && labCase.estimatedDelivery > route.estimatedArrival)) {
+          route.estimatedArrival = labCase.estimatedDelivery;
+        }
+      });
+
+      // Convert map to array and format
+      return Array.from(routesMap.values()).map(route => ({
+        ...route,
+        totalCases: route.cases.length,
+        clinics: Array.from(route.clinics)
       }));
     },
 
@@ -1953,6 +2033,57 @@ export const resolvers = {
       return {
         ...labCase.toObject(),
         id: labCase._id.toString()
+      };
+    },
+
+    updateTransitStatus: async (
+      _: unknown,
+      { id, transitStatus, location, notes }: { id: string; transitStatus: string; location?: string; notes?: string }
+    ) => {
+      await connectToDatabase();
+      
+      const labCase: any = await LabCase.findById(id);
+      
+      if (!labCase) {
+        throw new Error('Lab case not found');
+      }
+
+      // Create transit history entry
+      const historyEntry = {
+        timestamp: new Date().toISOString(),
+        location: location || labCase.currentLocation || 'Unknown',
+        status: transitStatus,
+        notes: notes || ''
+      };
+
+      // Update the case
+      const updateData: any = {
+        transitStatus,
+        currentLocation: location || labCase.currentLocation
+      };
+
+      // Add to transit history
+      if (!labCase.transitHistory) {
+        labCase.transitHistory = [];
+      }
+      labCase.transitHistory.push(historyEntry);
+      updateData.transitHistory = labCase.transitHistory;
+
+      // If delivered, set actual delivery date
+      if (transitStatus === 'delivered') {
+        updateData.actualDelivery = new Date().toISOString();
+        updateData.status = 'completed';
+      }
+
+      const updatedCase: any = await LabCase.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
+
+      return {
+        ...updatedCase.toObject(),
+        id: updatedCase._id.toString()
       };
     },
 

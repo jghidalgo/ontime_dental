@@ -139,8 +139,7 @@ const laboratorySubNavigation: SubNavigationItem[] = [
   {
     id: 'transit-tracking',
     label: 'Transit Tracking',
-    description: 'Routes to clinics, courier SLAs and delivery ETAs.',
-    planned: true
+    description: 'Routes to clinics, courier SLAs and delivery ETAs.'
   },
   {
     id: 'remakes-quality',
@@ -875,6 +874,10 @@ export default function LaboratoryPage() {
                       }
                       if (section.id === 'production-board') {
                         router.push('/laboratory/production-board');
+                        return;
+                      }
+                      if (section.id === 'transit-tracking') {
+                        router.push('/laboratory/transit-tracking');
                         return;
                       }
                       if (section.id === 'billing') {
