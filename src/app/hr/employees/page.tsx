@@ -14,6 +14,7 @@ import EditEmployeeModal from '@/components/hr/EditEmployeeModal';
 import ToggleEmployeeStatusModal from '@/components/hr/ToggleEmployeeStatusModal';
 import DeleteEmployeeModal from '@/components/hr/DeleteEmployeeModal';
 import { useTranslations } from '@/lib/i18n';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type EmployeeRecord = {
   id: string;
@@ -67,7 +68,23 @@ export default function HREmployeesPage() {
       return;
     }
 
-    setUserName('Admin');
+    // Check if user has HR module access and is admin/manager
+    const user = getUserSession();
+    if (user) {
+      if (!hasModuleAccess(user, 'hr')) {
+        router.push('/dashboard');
+        return;
+      }
+      
+      setUserName(user.name);
+      
+      // Only admins and managers can manage employees
+      const userIsAdmin = user.role === 'admin' || user.role === 'manager';
+      if (!userIsAdmin) {
+        router.push('/hr/my-info');
+        return;
+      }
+    }
   }, [router]);
 
   useEffect(() => {

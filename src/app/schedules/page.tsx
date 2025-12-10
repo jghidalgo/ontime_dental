@@ -15,6 +15,7 @@ import {
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import SelectEmployeeModal from '@/components/schedules/SelectEmployeeModal';
+import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
 
 type Clinic = { id: string; name: string };
 type Employee = { id: string; name: string };
@@ -90,6 +91,7 @@ export default function SchedulesPage() {
   const router = useRouter();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify schedules
   const [activeTab, setActiveTab] = useState<'frontDesk' | 'doctors' | 'hygienists'>('frontDesk');
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
@@ -182,6 +184,17 @@ export default function SchedulesPage() {
     if (!token) {
       router.push('/login');
       return;
+    }
+
+    // Check module access and permissions
+    const user = getUserSession();
+    if (user) {
+      if (!hasModuleAccess(user, 'schedules')) {
+        router.push('/dashboard');
+        return;
+      }
+      // Set permission to modify schedules
+      setCanModify(hasPermission(user, 'canModifySchedules'));
     }
 
     setUserName('Dr. Carter');
@@ -546,6 +559,21 @@ export default function SchedulesPage() {
         </div>
 
         <main className="mx-auto max-w-7xl px-6 py-10">
+          {/* Read-only mode banner */}
+          {!canModify && (
+            <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-6 py-4 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <svg className="h-6 w-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-400">View-Only Mode</h3>
+                  <p className="text-xs text-amber-200/80">You have permission to view schedules but cannot make changes.</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {clinicsLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
@@ -680,10 +708,10 @@ export default function SchedulesPage() {
                                 ) : (
                                   <>
                                     <div
-                                      className={`flex flex-col ${employee ? 'cursor-text' : 'cursor-pointer'}`}
-                                      onDoubleClick={() => employee && handleStartFrontDeskEdit(position.id, clinic.id)}
-                                      onClick={() => !employee && handleSelectFrontDeskEmployee(position.id, clinic.id)}
-                                      title={employee ? 'Double-click to edit name' : 'Click to assign employee'}
+                                      className={`flex flex-col ${employee && canModify ? 'cursor-text' : employee ? 'cursor-default' : canModify ? 'cursor-pointer' : 'cursor-default'}`}
+                                      onDoubleClick={() => canModify && employee && handleStartFrontDeskEdit(position.id, clinic.id)}
+                                      onClick={() => canModify && !employee && handleSelectFrontDeskEmployee(position.id, clinic.id)}
+                                      title={canModify ? (employee ? 'Double-click to edit name' : 'Click to assign employee') : 'View only'}
                                     >
                                       <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">
                                         {clinic.name}
@@ -692,7 +720,7 @@ export default function SchedulesPage() {
                                         {employee ? employee.name : 'Unassigned'}
                                       </span>
                                     </div>
-                                    {employee && (
+                                    {employee && canModify && (
                                       <div className="flex flex-wrap items-center gap-2">
                                         <button
                                           type="button"
@@ -852,10 +880,10 @@ export default function SchedulesPage() {
                                 ) : (
                                   <>
                                     <div
-                                      className={`flex flex-col ${assignment ? 'cursor-text' : 'cursor-pointer'}`}
-                                      onDoubleClick={() => assignment && handleStartDoctorEdit(day.id, clinic.id)}
-                                      onClick={() => !assignment && handleSelectDoctorEmployee(day.id, clinic.id)}
-                                      title={assignment ? 'Double-click to edit name' : 'Click to assign doctor'}
+                                      className={`flex flex-col ${assignment && canModify ? 'cursor-text' : assignment ? 'cursor-default' : canModify ? 'cursor-pointer' : 'cursor-default'}`}
+                                      onDoubleClick={() => canModify && assignment && handleStartDoctorEdit(day.id, clinic.id)}
+                                      onClick={() => canModify && !assignment && handleSelectDoctorEmployee(day.id, clinic.id)}
+                                      title={canModify ? (assignment ? 'Double-click to edit name' : 'Click to assign doctor') : 'View only'}
                                     >
                                       <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
                                       <p className={`mt-1 text-sm font-semibold ${assignment ? 'text-white' : 'text-slate-500'}`}>
@@ -866,7 +894,7 @@ export default function SchedulesPage() {
                                       <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">
                                         {assignment ? assignment.shift : '—'}
                                       </span>
-                                      {assignment && (
+                                      {assignment && canModify && (
                                         <div className="flex flex-wrap items-center gap-2">
                                           <button
                                             type="button"
@@ -981,9 +1009,9 @@ export default function SchedulesPage() {
                             <td key={clinic.id} className="px-4 py-4">
                               <div className="flex min-h-[5rem] flex-col justify-between gap-3 rounded-2xl bg-white/[0.02] px-4 py-3 transition">
                                 <div
-                                  className={`flex flex-col ${assignment ? 'cursor-text' : 'cursor-pointer'}`}
-                                  onClick={() => !assignment && handleSelectHygienistEmployee(day.id, clinic.id)}
-                                  title={assignment ? assignment.name : 'Click to assign hygienist'}
+                                  className={`flex flex-col ${assignment && canModify ? 'cursor-text' : assignment ? 'cursor-default' : canModify ? 'cursor-pointer' : 'cursor-default'}`}
+                                  onClick={() => canModify && !assignment && handleSelectHygienistEmployee(day.id, clinic.id)}
+                                  title={canModify ? (assignment ? assignment.name : 'Click to assign hygienist') : 'View only'}
                                 >
                                   <span className="text-[10px] uppercase tracking-[0.35em] text-primary-200/70">{clinic.name}</span>
                                   <p className={`mt-1 text-sm font-semibold ${assignment ? 'text-white' : 'text-slate-500'}`}>
@@ -994,7 +1022,7 @@ export default function SchedulesPage() {
                                   <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">
                                     {assignment ? assignment.shift : '—'}
                                   </span>
-                                  {assignment && (
+                                  {assignment && canModify && (
                                     <div className="flex flex-wrap items-center gap-2">
                                       <button
                                         type="button"

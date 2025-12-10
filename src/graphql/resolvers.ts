@@ -1,6 +1,7 @@
 import { connectToDatabase } from '@/lib/db';
 import { createToken, verifyPassword } from '@/lib/auth';
 import { notifyTicketCreated } from '@/lib/slack';
+import { ROLE_PERMISSIONS } from '@/lib/permissions';
 import User from '@/models/User';
 import DirectoryEntity from '@/models/DirectoryEntity';
 import DirectoryEntry from '@/models/DirectoryEntry';
@@ -1032,6 +1033,25 @@ export const resolvers = {
 
       const token = createToken({ sub: user._id.toString(), role: user.role, email: user.email });
 
+      // Get default permissions based on role, or use stored permissions if they exist
+      const defaultPermissions = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS['dentist'];
+      const permissions = user.permissions || defaultPermissions;
+
+      // Ensure all permission fields are present (merge with defaults)
+      const completePermissions = {
+        modules: permissions.modules || defaultPermissions.modules,
+        canModifySchedules: permissions.canModifySchedules ?? defaultPermissions.canModifySchedules,
+        canModifyDocuments: permissions.canModifyDocuments ?? defaultPermissions.canModifyDocuments,
+        canViewAllTickets: permissions.canViewAllTickets ?? defaultPermissions.canViewAllTickets,
+        canModifyTickets: permissions.canModifyTickets ?? defaultPermissions.canModifyTickets,
+        canViewReports: permissions.canViewReports ?? defaultPermissions.canViewReports,
+        canManageUsers: permissions.canManageUsers ?? defaultPermissions.canManageUsers,
+        canModifyContacts: permissions.canModifyContacts ?? defaultPermissions.canModifyContacts,
+        canAccessLaboratory: permissions.canAccessLaboratory ?? defaultPermissions.canAccessLaboratory,
+        canManageTransit: permissions.canManageTransit ?? defaultPermissions.canManageTransit
+      };
+
+      // Return full permissions object with all granular flags
       return {
         token,
         user: {
@@ -1039,9 +1059,8 @@ export const resolvers = {
           name: user.name,
           email: user.email,
           role: user.role,
-          permissions: user.permissions || {
-            modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
-          }
+          companyId: user.companyId,
+          permissions: completePermissions
         }
       };
     },

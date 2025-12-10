@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { saveUserSession } from '@/lib/permissions';
 
 type LoginResponse = {
   data?: {
@@ -12,8 +13,19 @@ type LoginResponse = {
         id: string;
         name: string;
         email: string;
+        role: string;
+        companyId?: string;
         permissions?: {
           modules: string[];
+          canModifySchedules: boolean;
+          canModifyDocuments: boolean;
+          canViewAllTickets: boolean;
+          canModifyTickets: boolean;
+          canViewReports: boolean;
+          canManageUsers: boolean;
+          canModifyContacts: boolean;
+          canAccessLaboratory: boolean;
+          canManageTransit: boolean;
         };
       };
     };
@@ -49,8 +61,19 @@ export default function LoginForm() {
                   id
                   name
                   email
+                  role
+                  companyId
                   permissions {
                     modules
+                    canModifySchedules
+                    canModifyDocuments
+                    canViewAllTickets
+                    canModifyTickets
+                    canViewReports
+                    canManageUsers
+                    canModifyContacts
+                    canAccessLaboratory
+                    canManageTransit
                   }
                 }
               }
@@ -66,17 +89,21 @@ export default function LoginForm() {
         }
 
         const token = payload.data?.login.token;
-        if (token) {
-          globalThis.localStorage?.setItem('ontime.authToken', token);
+        const user = payload.data?.login.user;
+        
+        if (token && user) {
+          // Use saveUserSession utility to store auth token and user data
+          saveUserSession({
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId,
+            permissions: user.permissions
+          }, token);
         }
 
-        // Store user permissions in localStorage
-        const userPermissions = payload.data?.login.user.permissions;
-        if (userPermissions) {
-          globalThis.localStorage?.setItem('ontime.userPermissions', JSON.stringify(userPermissions));
-        }
-
-        setSuccess(`Welcome back, ${payload.data?.login.user.name ?? 'clinician'}!`);
+        setSuccess(`Welcome back, ${user?.name ?? 'clinician'}!`);
         
         // Redirect to dashboard after successful login
         setTimeout(() => {

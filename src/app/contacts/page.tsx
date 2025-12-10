@@ -8,6 +8,7 @@ import { GET_ALL_DIRECTORY_DATA } from '@/graphql/queries';
 import { UPDATE_DIRECTORY_ENTRY, DELETE_DIRECTORY_ENTRY } from '@/graphql/mutations';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -48,6 +49,7 @@ const groupLabels: Record<GroupKey, string> = {
 export default function ContactsPage() {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('');
+  const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify contacts
   const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [activeSection, setActiveSection] = useState<ContactSectionId>('extensions');
   const [formEntityId, setFormEntityId] = useState<string>('');
@@ -150,6 +152,16 @@ export default function ContactsPage() {
     if (!token) {
       router.push('/login');
       return;
+    }
+
+    // Check module access and permissions
+    const user = getUserSession();
+    if (user) {
+      if (!hasModuleAccess(user, 'contacts')) {
+        router.push('/dashboard');
+        return;
+      }
+      setCanModify(hasPermission(user, 'canModifyContacts'));
     }
 
     setUserName('Dr. Carter');

@@ -12,6 +12,15 @@ export interface IUser {
   isActive: boolean;
   permissions?: {
     modules: string[];
+    canModifySchedules?: boolean;
+    canModifyDocuments?: boolean;
+    canViewAllTickets?: boolean;
+    canModifyTickets?: boolean;
+    canViewReports?: boolean;
+    canManageUsers?: boolean;
+    canModifyContacts?: boolean;
+    canAccessLaboratory?: boolean;
+    canManageTransit?: boolean;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -68,11 +77,56 @@ const userSchema = new Schema<IUser>(
       type: {
         modules: {
           type: [String],
-          default: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+          default: []
+        },
+        canModifySchedules: {
+          type: Boolean,
+          default: false
+        },
+        canModifyDocuments: {
+          type: Boolean,
+          default: true
+        },
+        canViewAllTickets: {
+          type: Boolean,
+          default: false
+        },
+        canModifyTickets: {
+          type: Boolean,
+          default: true
+        },
+        canViewReports: {
+          type: Boolean,
+          default: false
+        },
+        canManageUsers: {
+          type: Boolean,
+          default: false
+        },
+        canModifyContacts: {
+          type: Boolean,
+          default: false
+        },
+        canAccessLaboratory: {
+          type: Boolean,
+          default: false
+        },
+        canManageTransit: {
+          type: Boolean,
+          default: false
         }
       },
       default: () => ({
-        modules: ['dashboard', 'documents', 'contacts', 'schedules', 'tickets', 'laboratory', 'hr', 'insurances', 'complaints', 'licenses', 'medication', 'settings']
+        modules: ['dashboard', 'documents', 'tickets'],
+        canModifySchedules: false,
+        canModifyDocuments: true,
+        canViewAllTickets: false,
+        canModifyTickets: true,
+        canViewReports: false,
+        canManageUsers: false,
+        canModifyContacts: false,
+        canAccessLaboratory: false,
+        canManageTransit: false
       })
     }
   },

@@ -8,6 +8,7 @@ import { useTranslations } from '@/lib/i18n';
 import { GET_PATIENTS, GET_LAB_CASES } from '@/graphql/patient-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { getUserSession } from '@/lib/permissions';
 
 type PatientRecord = {
   id: string;
@@ -31,6 +32,8 @@ export default function PatientsPage() {
   const { t } = useTranslations();
   const [userName, setUserName] = useState<string>('');
   const [selectedEntityId, setSelectedEntityId] = useState('complete-dental-solutions');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userCompanyId, setUserCompanyId] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<PatientRecord | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -42,15 +45,30 @@ export default function PatientsPage() {
       router.push('/login');
       return;
     }
-    setUserName('Dr. Carter');
+    
+    // Get user session to determine company filtering
+    const user = getUserSession();
+    if (user) {
+      setUserName(user.name);
+      const userIsAdmin = user.role === 'admin' || user.role === 'manager';
+      setIsAdmin(userIsAdmin);
+      
+      // For non-admin users, filter by their company
+      if (!userIsAdmin && user.companyId) {
+        setUserCompanyId(user.companyId);
+        setSelectedEntityId(user.companyId);
+      }
+    }
   }, [router]);
 
   const { data: patientsData, loading: loadingPatients } = useQuery(GET_PATIENTS, {
-    variables: { companyId: undefined },
+    variables: { companyId: userCompanyId },
+    skip: !isAdmin && !userCompanyId, // Skip query if non-admin without companyId
   });
 
   const { data: labCasesData } = useQuery(GET_LAB_CASES, {
-    variables: { companyId: undefined },
+    variables: { companyId: userCompanyId },
+    skip: !isAdmin && !userCompanyId,
   });
 
   const patientRecords = useMemo(() => {

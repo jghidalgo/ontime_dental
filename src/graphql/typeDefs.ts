@@ -18,6 +18,15 @@ const typeDefs = gql`
 
   type UserPermissions {
     modules: [String!]!
+    canModifySchedules: Boolean!
+    canModifyDocuments: Boolean!
+    canViewAllTickets: Boolean!
+    canModifyTickets: Boolean!
+    canViewReports: Boolean!
+    canManageUsers: Boolean!
+    canModifyContacts: Boolean!
+    canAccessLaboratory: Boolean!
+    canManageTransit: Boolean!
   }
 
   type AuthPayload {

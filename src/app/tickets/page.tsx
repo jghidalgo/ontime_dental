@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, useEffect, type FormEvent } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
+import { useRouter } from 'next/navigation';
 
 import { useTranslations } from '@/lib/i18n';
 import { GET_TICKETS } from '@/graphql/ticket-queries';
 import { CREATE_TICKET, UPDATE_TICKET, DELETE_TICKET } from '@/graphql/ticket-mutations';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
 
 type TicketStatus = 'new' | 'in_progress' | 'waiting' | 'resolved';
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -82,9 +84,13 @@ const defaultFormState: TicketFormState = {
 };
 
 export default function TicketsPage() {
+  const router = useRouter();
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
   const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
+  const [canViewAll, setCanViewAll] = useState<boolean>(true); // Permission to view all tickets
+  const [canModify, setCanModify] = useState<boolean>(true); // Permission to create/edit tickets
+  const [userEmail, setUserEmail] = useState<string>(''); // Current user's email for filtering
 
   const statusLabels = useMemo<Record<TicketStatus, string>>(
     () => ({
@@ -189,17 +195,44 @@ export default function TicketsPage() {
   const [updateTicketMutation] = useMutation(UPDATE_TICKET);
   const [deleteTicketMutation] = useMutation(DELETE_TICKET);
 
-  // Transform GraphQL data to UI format
+  // Check permissions on mount
+  useEffect(() => {
+    const user = getUserSession();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    // Check module access
+    if (!hasModuleAccess(user, 'tickets')) {
+      router.push('/dashboard');
+      return;
+    }
+    
+    // Set permissions
+    setCanViewAll(hasPermission(user, 'canViewAllTickets'));
+    setCanModify(hasPermission(user, 'canModifyTickets'));
+    setUserEmail(user.email);
+  }, [router]);
+
+  // Transform GraphQL data to UI format and filter based on permissions
   const tickets = useMemo((): Ticket[] => {
     if (!data?.tickets) return [];
-    return data.tickets.map((ticket: any): Ticket => ({
+    const allTickets = data.tickets.map((ticket: any): Ticket => ({
       ...ticket,
       status: mapStatusToUI(ticket.status),
       priority: mapPriorityToUI(ticket.priority),
       updates: ticket.updates || [],
       satisfaction: ticket.satisfaction || ''
     }));
-  }, [data]);
+    
+    // Filter to show only user's own tickets if !canViewAll
+    if (!canViewAll && userEmail) {
+      return allTickets.filter((ticket: Ticket) => ticket.requester === userEmail);
+    }
+    
+    return allTickets;
+  }, [data, canViewAll, userEmail]);
 
   const [form, setForm] = useState<TicketFormState>(defaultFormState);
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
@@ -359,6 +392,37 @@ export default function TicketsPage() {
         />
 
         <TopNavigation />
+      </div>
+
+      {/* Permission banners */}
+      <div className="mx-auto max-w-7xl px-6 pt-6">
+        {!canModify && (
+          <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-6 py-4 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <svg className="h-6 w-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-semibold text-amber-400">View-Only Mode</h3>
+                <p className="text-xs text-amber-200/80">You cannot create or modify tickets.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {!canViewAll && canModify && (
+          <div className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-6 py-4 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <svg className="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-semibold text-blue-400">Showing Your Tickets Only</h3>
+                <p className="text-xs text-blue-200/80">You can only view and manage tickets you created.</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 lg:grid-cols-4">
@@ -537,11 +601,12 @@ export default function TicketsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h2 className="text-xl font-semibold text-white">{t('Create new ticket')}</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              {t('Log a clinic request. A coordinator will triage it instantly and send updates to the requester.')}
-            </p>
+          {canModify ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+              <h2 className="text-xl font-semibold text-white">{t('Create new ticket')}</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                {t('Log a clinic request. A coordinator will triage it instantly and send updates to the requester.')}
+              </p>
             <form onSubmit={handleSubmit} className="mt-6 grid gap-5 sm:grid-cols-2">
               <label className="space-y-2 text-sm text-slate-200">
                 {t('Subject')}
@@ -630,6 +695,17 @@ export default function TicketsPage() {
               </div>
             </form>
           </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/40 p-6 text-center">
+              <svg className="mx-auto h-12 w-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <h3 className="mt-4 text-lg font-semibold text-slate-400">{t('Create Tickets Disabled')}</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                {t('You do not have permission to create new tickets. Contact your administrator if you need access.')}
+              </p>
+            </div>
+          )}
         </section>
 
         <aside className="space-y-6">

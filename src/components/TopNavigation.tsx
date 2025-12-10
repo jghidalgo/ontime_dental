@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard', moduleId: 'dashboard' },
@@ -29,27 +30,20 @@ export default function TopNavigation() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Get user permissions from localStorage
-    const permissionsStr = globalThis.localStorage?.getItem('ontime.userPermissions');
+    // Get user session with permissions
+    const user = getUserSession();
     
-    if (permissionsStr) {
-      try {
-        const permissions = JSON.parse(permissionsStr);
-        setAllowedModules(permissions.modules || []);
-      } catch (error) {
-        console.error('Error parsing user permissions:', error);
-        // Default to showing all modules if there's an error
-        setAllowedModules(navigationItems.map(item => item.moduleId));
-      }
+    if (user && user.permissions) {
+      setAllowedModules(user.permissions.modules || []);
     } else {
-      // Default to showing all modules if no permissions found
-      setAllowedModules(navigationItems.map(item => item.moduleId));
+      // Default to showing only dashboard if no session found
+      setAllowedModules(['dashboard']);
     }
     
     setIsLoading(false);
   }, []);
 
-  // Filter navigation items based on user permissions
+  // Filter navigation items based on user permissions using hasModuleAccess
   const filteredNavigationItems = navigationItems.filter(item => 
     allowedModules.includes(item.moduleId)
   );

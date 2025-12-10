@@ -9,6 +9,7 @@ import PageHeader from '@/components/PageHeader';
 import { GET_COMPANIES } from '@/graphql/company-queries';
 import { GET_LABORATORIES } from '@/graphql/lab-queries';
 import { GET_ACTIVE_DOCUMENT_GROUPS } from '@/graphql/document-group-queries';
+import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
 
 // GraphQL Queries and Mutations
 const GET_DOCUMENT_ENTITIES = gql`
@@ -131,6 +132,8 @@ type DocumentEntity = {
 export default function DocumentsPage() {
   const router = useRouter();
   const { t } = useTranslations();
+  const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify documents
+  const [isAdmin, setIsAdmin] = useState<boolean>(false); // Check if user is admin/manager
 
   // GraphQL hooks
   const { data, loading, error, refetch } = useQuery(GET_DOCUMENT_ENTITIES);
@@ -265,6 +268,26 @@ export default function DocumentsPage() {
     if (!token) {
       router.push('/login');
       return;
+    }
+
+    // Check module access and permissions
+    const user = getUserSession();
+    if (user) {
+      if (!hasModuleAccess(user, 'documents')) {
+        router.push('/dashboard');
+        return;
+      }
+      // Set permission to modify documents
+      setCanModify(hasPermission(user, 'canModifyDocuments'));
+      
+      // Check if user is admin or manager
+      const userIsAdmin = user.role === 'admin' || user.role === 'manager';
+      setIsAdmin(userIsAdmin);
+      
+      // For non-admin users, auto-select their company
+      if (!userIsAdmin && user.companyId) {
+        setSelectedEntityId(user.companyId);
+      }
     }
   }, [router]);
 
@@ -457,6 +480,21 @@ export default function DocumentsPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-10">
+        {/* Read-only mode banner */}
+        {!canModify && (
+          <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-6 py-4 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <svg className="h-6 w-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-semibold text-amber-400">View-Only Mode</h3>
+                <p className="text-xs text-amber-200/80">You can download documents but cannot upload, edit, or delete them.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <section className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
           <h2 className="text-lg font-semibold text-white">{t('Filter library')}</h2>
           <p className="mt-1 text-sm text-slate-400">
@@ -469,7 +507,8 @@ export default function DocumentsPage() {
                   <select
                     value={selectedEntityId}
                     onChange={(event) => setSelectedEntityId(event.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40"
+                    disabled={!isAdmin}
+                    className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white shadow-inner outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-400/40 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="">{t('Select entity...')}</option>
                     {/* Companies */}
@@ -527,7 +566,7 @@ export default function DocumentsPage() {
                   <h2 className="text-lg font-semibold text-white">{t('Available documents')}</h2>
                   <p className="text-sm text-slate-400">{appliedSummary}</p>
                 </div>
-                {appliedSelection && (
+                {appliedSelection && canModify && (
                   <button
                     type="button"
                     onClick={() => setShowCreateForm(true)}
@@ -572,42 +611,46 @@ export default function DocumentsPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                   </svg>
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!appliedSelection) return;
+                                {canModify && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!appliedSelection) return;
 
-                                    setEditingTarget({
-                                      entityId: appliedSelection.entityId,
-                                      groupId: appliedSelection.groupId,
-                                      documentId: document.id
-                                    });
-                                    setEditForm({
-                                      title: document.title,
-                                      version: document.version,
-                                      date: document.date,
-                                      description: document.description,
-                                      fileName: document.fileName ?? '',
-                                      fileUrl: document.url
-                                    });
-                                  }}
-                                  className="inline-flex items-center rounded-lg border border-white/10 p-2 text-slate-300 transition hover:border-primary-400/40 hover:text-primary-400"
-                                  title={t('Edit')}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteDocument(document.id)}
-                                  className="inline-flex items-center rounded-lg border border-red-500/40 p-2 text-red-400 transition hover:border-red-400/60 hover:bg-red-500/10"
-                                  title={t('Delete')}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        setEditingTarget({
+                                          entityId: appliedSelection.entityId,
+                                          groupId: appliedSelection.groupId,
+                                          documentId: document.id
+                                        });
+                                        setEditForm({
+                                          title: document.title,
+                                          version: document.version,
+                                          date: document.date,
+                                          description: document.description,
+                                          fileName: document.fileName ?? '',
+                                          fileUrl: document.url
+                                        });
+                                      }}
+                                      className="inline-flex items-center rounded-lg border border-white/10 p-2 text-slate-300 transition hover:border-primary-400/40 hover:text-primary-400"
+                                      title={t('Edit')}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDocument(document.id)}
+                                      className="inline-flex items-center rounded-lg border border-red-500/40 p-2 text-red-400 transition hover:border-red-400/60 hover:bg-red-500/10"
+                                      title={t('Delete')}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
                                 </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>

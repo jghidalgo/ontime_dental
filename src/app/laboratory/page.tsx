@@ -11,6 +11,7 @@ import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
 import { GET_USERS } from '@/graphql/user-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
 
 type NavigationItem = {
   label: string;
@@ -522,6 +523,13 @@ export default function LaboratoryPage() {
 
     if (!token) {
       router.push('/login');
+      return;
+    }
+
+    // Check module access for laboratory
+    const user = getUserSession();
+    if (user && !hasModuleAccess(user, 'laboratory')) {
+      router.push('/dashboard');
       return;
     }
 

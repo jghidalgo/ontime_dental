@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useLanguage } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { GET_COMPANIES } from '@/graphql/company-queries';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type EntityOption = {
   id: string;
@@ -47,6 +48,9 @@ export default function PageHeader({
   const isDark = mode === 'dark';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userName, setUserName] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false); // Check if user is admin
+  const [userCompanyId, setUserCompanyId] = useState<string>(''); // User's company ID
+  const [hasSettingsAccess, setHasSettingsAccess] = useState(false); // Check if user can access settings
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch companies from database if showEntitySelector is true and entities not provided
@@ -64,12 +68,30 @@ export default function PageHeader({
           name: company.shortName,
         }));
 
-  // Auto-select first company if none selected
+  // Check user role and company on mount
   useEffect(() => {
-    if (showEntitySelector && entityOptions.length > 0 && !selectedEntityId && onEntityChange) {
+    const user = getUserSession();
+    if (user) {
+      // Admin and manager can switch companies
+      setIsAdmin(user.role === 'admin' || user.role === 'manager');
+      setUserCompanyId(user.companyId || '');
+      
+      // Check if user has access to settings module
+      setHasSettingsAccess(hasModuleAccess(user, 'settings'));
+      
+      // For non-admin users, auto-select their company
+      if (user.role !== 'admin' && user.role !== 'manager' && user.companyId && showEntitySelector && onEntityChange) {
+        onEntityChange(user.companyId);
+      }
+    }
+  }, [showEntitySelector, onEntityChange]);
+
+  // Auto-select first company if none selected (only for admins)
+  useEffect(() => {
+    if (isAdmin && showEntitySelector && entityOptions.length > 0 && !selectedEntityId && onEntityChange) {
       onEntityChange(entityOptions[0].id);
     }
-  }, [entityOptions, selectedEntityId, showEntitySelector, onEntityChange]);
+  }, [entityOptions, selectedEntityId, showEntitySelector, onEntityChange, isAdmin]);
 
   // Load user name
   useEffect(() => {
@@ -143,15 +165,21 @@ export default function PageHeader({
               <label htmlFor="entity-select" className="sr-only">
                 {entityLabel}
               </label>
-              <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 transition hover:border-primary-400/40">
-                <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className={`flex items-center gap-2 rounded-lg border ${isAdmin ? 'border-slate-700 bg-slate-900/80 hover:border-primary-400/40' : 'border-slate-800 bg-slate-900/40'} px-3 py-2 transition`}>
+                <svg className={`h-4 w-4 ${isAdmin ? 'text-slate-400' : 'text-slate-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
                 <select
                   id="entity-select"
                   value={selectedEntityId}
                   onChange={(e) => onEntityChange?.(e.target.value)}
-                  className="cursor-pointer border-none bg-transparent text-sm font-medium text-slate-200 outline-none pr-2"
+                  disabled={!isAdmin}
+                  className={`border-none bg-transparent text-sm font-medium outline-none pr-2 ${
+                    isAdmin 
+                      ? 'cursor-pointer text-slate-200' 
+                      : 'cursor-not-allowed text-slate-500'
+                  }`}
+                  title={!isAdmin ? 'Only administrators can change the company' : undefined}
                 >
                   {entityOptions.map((entity) => (
                     <option key={entity.id} value={entity.id} className="bg-slate-900 text-slate-200">
@@ -235,19 +263,21 @@ export default function PageHeader({
                   </svg>
                   Profile
                 </button>
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    router.push('/settings');
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Settings
-                </button>
+                {hasSettingsAccess && (
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push('/settings');
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Settings
+                  </button>
+                )}
                 <div className="border-t border-slate-700 mt-2 pt-2">
                   <button
                     onClick={handleLogout}

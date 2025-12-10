@@ -8,6 +8,7 @@ import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type DepartmentShare = {
   id: string;
@@ -234,6 +235,7 @@ export default function HRDashboardPage() {
   const { t } = useTranslations();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Fetch employee location distribution from database
   const { data: locationData, loading } = useQuery(GET_EMPLOYEE_LOCATION_DISTRIBUTION, {
@@ -255,7 +257,25 @@ export default function HRDashboardPage() {
       return;
     }
 
-    setUserName('Admin');
+    // Check if user has HR module access
+    const user = getUserSession();
+    if (user) {
+      if (!hasModuleAccess(user, 'hr')) {
+        router.push('/dashboard');
+        return;
+      }
+      
+      setUserName(user.name);
+      // Only admins and managers can see full HR dashboard
+      const userIsAdmin = user.role === 'admin' || user.role === 'manager';
+      setIsAdmin(userIsAdmin);
+      
+      // For non-admin users, redirect to their personal HR view
+      if (!userIsAdmin) {
+        router.push('/hr/my-info');
+        return;
+      }
+    }
   }, [router]);
 
   // Calculate total headcount from location distribution
