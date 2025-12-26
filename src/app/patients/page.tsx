@@ -182,6 +182,7 @@ export default function PatientsPage() {
             title={t('Patients')}
             subtitle={t('Manage patient records and view treatment history')}
             showEntitySelector={true}
+            entityLabel={t('Entity')}
             selectedEntityId={selectedEntityId}
             onEntityChange={setSelectedEntityId}
           />

@@ -404,7 +404,7 @@ export default function TicketsPage() {
             'Monitor live requests and deliver quick resolutions across every location.'
           )}
           showEntitySelector={true}
-          entityLabel="Entity"
+          entityLabel={t('Entity')}
           selectedEntityId={selectedEntityId}
           onEntityChange={(id) => setSelectedEntityId(id)}
         />
@@ -421,8 +421,8 @@ export default function TicketsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <h3 className="text-sm font-semibold text-amber-400">View-Only Mode</h3>
-                <p className="text-xs text-amber-200/80">You cannot create or modify tickets.</p>
+                <h3 className="text-sm font-semibold text-amber-400">{t('View-Only Mode')}</h3>
+                <p className="text-xs text-amber-200/80">{t('You cannot create or modify tickets.')}</p>
               </div>
             </div>
           </div>
@@ -435,8 +435,8 @@ export default function TicketsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
               <div>
-                <h3 className="text-sm font-semibold text-blue-400">Showing Your Tickets Only</h3>
-                <p className="text-xs text-blue-200/80">You can only view and manage tickets you created.</p>
+                <h3 className="text-sm font-semibold text-blue-400">{t('Showing Your Tickets Only')}</h3>
+                <p className="text-xs text-blue-200/80">{t('You can only view and manage tickets you created.')}</p>
               </div>
             </div>
           </div>

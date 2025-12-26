@@ -205,7 +205,7 @@ export default function HREmployeesPage() {
        
             statSubtext={t('Active records')}
             showEntitySelector={true}
-            entityLabel="Entity"
+            entityLabel={t('Entity')}
             selectedEntityId={selectedEntityId}
             onEntityChange={(id) => setSelectedEntityId(id)}
           />

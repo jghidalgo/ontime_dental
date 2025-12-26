@@ -213,7 +213,7 @@ export default function InsurancesPage() {
               title="Insurance Providers"
               subtitle="Manage insurance companies and payer information"
               showEntitySelector={true}
-              entityLabel="Entity"
+              entityLabel={t('Entity')}
               selectedEntityId={selectedEntityId}
               onEntityChange={(id) => setSelectedEntityId(id)}
             />

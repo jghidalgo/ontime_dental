@@ -232,10 +232,11 @@ export default function ContactsPage() {
       <div className="relative w-full">
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
-            category="Contacts hub"
-            title="Reach every team instantly"
+            category={t('Contacts hub')}
+            title={t('Reach every team instantly')}
             // subtitle="Browse location extensions, clinic reception desks, and support center directories."
             showEntitySelector={true}
+            entityLabel={t('Entity')}
             selectedEntityId={selectedEntityId}
             onEntityChange={setSelectedEntityId}
           />

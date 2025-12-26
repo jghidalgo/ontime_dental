@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import Image from 'next/image';
-import { useLanguage } from '@/lib/i18n';
+import { useLanguage, useTranslations } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { GET_COMPANIES } from '@/graphql/company-queries';
 import { getUserSession, hasModuleAccess } from '@/lib/permissions';
@@ -44,10 +44,12 @@ export default function PageHeader({
 }: Readonly<PageHeaderProps>) {
   const router = useRouter();
   const { language, setLanguage } = useLanguage();
+  const { t } = useTranslations();
   const { mode, toggleMode } = useTheme();
   const isDark = mode === 'dark';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userName, setUserName] = useState('');
+  const [userRoleLabel, setUserRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false); // Check if user is admin
   const [userCompanyId, setUserCompanyId] = useState<string>(''); // User's company ID
   const [hasSettingsAccess, setHasSettingsAccess] = useState(false); // Check if user can access settings
@@ -75,6 +77,17 @@ export default function PageHeader({
       // Admin and manager can switch companies
       setIsAdmin(user.role === 'admin' || user.role === 'manager');
       setUserCompanyId(user.companyId || '');
+
+      const roleLabel = (() => {
+        if (user.role === 'admin') return 'Admin';
+        if (user.role === 'manager') return 'Manager';
+        if (!user.role) return '';
+        return user.role
+          .split('_')
+          .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+          .join(' ');
+      })();
+      setUserRoleLabel(roleLabel);
       
       // Check if user has access to settings module
       setHasSettingsAccess(hasModuleAccess(user, 'settings'));
@@ -93,9 +106,15 @@ export default function PageHeader({
     }
   }, [entityOptions, selectedEntityId, showEntitySelector, onEntityChange, isAdmin]);
 
-  // Load user name
+  // Load user name + role for profile menu
   useEffect(() => {
-    const name = localStorage.getItem('ontime.userName') || 'Admin';
+    const user = getUserSession();
+    if (user?.name) {
+      setUserName(user.name);
+      return;
+    }
+
+    const name = localStorage.getItem('ontime.userName') || 'User';
     setUserName(name);
   }, []);
 
@@ -179,7 +198,7 @@ export default function PageHeader({
                       ? 'cursor-pointer text-slate-200' 
                       : 'cursor-not-allowed text-slate-500'
                   }`}
-                  title={!isAdmin ? 'Only administrators can change the company' : undefined}
+                  title={!isAdmin ? t('Only administrators can change the company') : undefined}
                 >
                   {entityOptions.map((entity) => (
                     <option key={entity.id} value={entity.id} className="bg-slate-900 text-slate-200">
@@ -249,7 +268,7 @@ export default function PageHeader({
               <div className="absolute right-0 mt-2 w-56 rounded-lg border border-slate-700 bg-slate-900 py-2 shadow-xl z-50">
                 <div className="border-b border-slate-700 px-4 py-3">
                   <p className="text-sm font-semibold text-slate-200">{userName}</p>
-                  <p className="text-xs text-slate-400">Administrator</p>
+                  <p className="text-xs text-slate-400">{t(userRoleLabel || 'User')}</p>
                 </div>
                 <button
                   onClick={() => {

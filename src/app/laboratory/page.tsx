@@ -853,11 +853,11 @@ export default function LaboratoryPage() {
       <div className="relative mx-auto w-full max-w-[120rem]">
         <div className="border-b border-slate-800 bg-slate-900/60">
           <PageHeader
-            category="Laboratory"
-            title="Operations Command Center"
-            subtitle="Monitor the production floor, shipping timelines and clinic satisfaction at a glance."
+            category={t('Laboratory')}
+            title={t('Operations Command Center')}
+            subtitle={t('Monitor the production floor, shipping timelines and clinic satisfaction at a glance.')}
             showEntitySelector={true}
-            entityLabel="Entity"
+            entityLabel={t('Entity')}
             selectedEntityId={selectedEntityId}
             onEntityChange={(id) => setSelectedEntityId(id)}
           />

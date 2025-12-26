@@ -401,7 +401,7 @@ export default function HRDashboardPage() {
             title={t('People operations dashboard')}
             // subtitle={t('Welcome back, {name}.', { name: userName || t('team') })}
             showEntitySelector={true}
-            entityLabel="Entity"
+            entityLabel={t('Entity')}
             selectedEntityId={selectedCompanyId}
             onEntityChange={setSelectedCompanyId}
           />
@@ -535,10 +535,12 @@ export default function HRDashboardPage() {
                       <div key={update.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 transition hover:border-primary-400/30 hover:bg-white/[0.05]">
                         <div className="flex items-start justify-between gap-4">
                           <div className="space-y-1">
-                            <p className="text-sm font-semibold text-slate-100">{update.title}</p>
-                            <p className="text-xs text-slate-400">{update.description}</p>
+                            <p className="text-sm font-semibold text-slate-100">{t(update.title)}</p>
+                            <p className="text-xs text-slate-400">{t(update.description)}</p>
                           </div>
-                          <span className="flex-shrink-0 text-xs uppercase tracking-wide text-slate-500">{update.timestamp}</span>
+                          <span className="flex-shrink-0 text-xs uppercase tracking-wide text-slate-500">
+                            {t(update.timestamp)}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -556,10 +558,10 @@ export default function HRDashboardPage() {
                       <div key={moment.id} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
                         <div className="flex-1">
                           <p className="text-sm font-semibold text-slate-100">{moment.name}</p>
-                          <p className="text-xs text-slate-400">{moment.department}</p>
+                          <p className="text-xs text-slate-400">{t(moment.department)}</p>
                         </div>
                         <div className="text-right text-xs text-slate-400">
-                          <p className="font-semibold text-slate-100">{moment.date}</p>
+                          <p className="font-semibold text-slate-100">{t(moment.date)}</p>
                           <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${momentBadges[moment.type].style}`}>
                             {t(momentBadges[moment.type].label)}
                           </span>

@@ -472,7 +472,7 @@ export default function DocumentsPage() {
           title={t('Documents')}
           subtitle={t('Access and manage forms, policies, and resources across all OnTime Dental entities.')}
           showEntitySelector={true}
-          entityLabel="Entity"
+          entityLabel={t('Entity')}
           selectedEntityId={globalEntityId}
           onEntityChange={(id) => setGlobalEntityId(id)}
         />
@@ -488,8 +488,8 @@ export default function DocumentsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <h3 className="text-sm font-semibold text-amber-400">View-Only Mode</h3>
-                <p className="text-xs text-amber-200/80">You can download documents but cannot upload, edit, or delete them.</p>
+                <h3 className="text-sm font-semibold text-amber-400">{t('View-Only Mode')}</h3>
+                <p className="text-xs text-amber-200/80">{t('You can download documents but cannot upload, edit, or delete them.')}</p>
               </div>
             </div>
           </div>

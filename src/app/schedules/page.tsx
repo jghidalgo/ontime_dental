@@ -550,7 +550,7 @@ export default function SchedulesPage() {
             title="Schedules"
             // subtitle="Review staffing coverage for front desk and chair-side teams."
             showEntitySelector={true}
-            entityLabel="Entity"
+            entityLabel={t('Entity')}
             selectedEntityId={selectedEntityId}
             onEntityChange={(id) => setSelectedEntityId(id)}
           />
