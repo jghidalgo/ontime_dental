@@ -6,6 +6,8 @@ export const GET_PTOS = gql`
       id
       employeeId
       companyId
+      policyLeaveTypeId
+      policyLeaveTypeName
       leaveType
       startDate
       endDate
@@ -27,6 +29,8 @@ export const GET_PTO = gql`
       id
       employeeId
       companyId
+      policyLeaveTypeId
+      policyLeaveTypeName
       leaveType
       startDate
       endDate

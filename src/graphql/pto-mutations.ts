@@ -6,6 +6,8 @@ export const CREATE_PTO = gql`
       id
       employeeId
       companyId
+      policyLeaveTypeId
+      policyLeaveTypeName
       leaveType
       startDate
       endDate
@@ -25,6 +27,8 @@ export const UPDATE_PTO = gql`
       id
       employeeId
       companyId
+      policyLeaveTypeId
+      policyLeaveTypeName
       leaveType
       startDate
       endDate

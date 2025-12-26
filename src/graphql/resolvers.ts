@@ -156,22 +156,43 @@ export const resolvers = {
     // Company PTO Policy Queries
     companyPTOPolicies: async (_: unknown, { companyId }: { companyId: string }) => {
       await connectToDatabase();
-      console.log('Fetching PTO policies for company:', companyId);
+
+      const defaultLeaveTypes = [
+        {
+          id: 'paid-pto',
+          name: 'Paid PTO',
+          hoursAllowed: 120,
+          isPaid: true,
+          isActive: true,
+        },
+        {
+          id: 'unpaid-leave',
+          name: 'Unpaid Leave',
+          hoursAllowed: 9999,
+          isPaid: false,
+          isActive: true,
+        },
+      ];
       
       let policy: any = await CompanyPTOPolicy.findOne({ companyId }).lean();
       
       // If no policy exists, create one with default leave types
       if (!policy) {
-        console.log('No policy found, creating new one for company:', companyId);
-        policy = await CompanyPTOPolicy.create({
+        const created = await CompanyPTOPolicy.create({
           companyId,
-          leaveTypes: [],
+          leaveTypes: defaultLeaveTypes,
         });
-        // Convert to plain object
-        policy = policy.toObject();
+        policy = created.toObject();
       }
-      
-      console.log('Returning policy:', policy);
+
+      // If a policy exists but has no leave types (legacy/empty), backfill defaults.
+      if (!Array.isArray(policy.leaveTypes) || policy.leaveTypes.length === 0) {
+        policy = await CompanyPTOPolicy.findOneAndUpdate(
+          { companyId },
+          { $set: { leaveTypes: defaultLeaveTypes } },
+          { new: true }
+        ).lean();
+      }
       
       return {
         ...policy,
@@ -2228,12 +2249,17 @@ export const resolvers = {
 
     updatePTO: async (_: unknown, { id, input }: { id: string; input: any }) => {
       await connectToDatabase();
-      
-      const pto: any = await PTO.findByIdAndUpdate(
-        id,
-        { ...input },
-        { new: true }
-      );
+
+      const existing: any = await PTO.findById(id);
+      if (!existing) {
+        throw new Error('PTO not found');
+      }
+
+      if (existing.status !== 'pending') {
+        throw new Error('Only pending PTO requests can be modified');
+      }
+
+      const pto: any = await PTO.findByIdAndUpdate(id, { $set: { ...input } }, { new: true });
       
       if (!pto) {
         throw new Error('PTO not found');
@@ -2312,6 +2338,10 @@ export const resolvers = {
       const pto: any = await PTO.findById(id);
       if (!pto) {
         return false;
+      }
+
+      if (pto.status !== 'pending') {
+        throw new Error('Only pending PTO requests can be deleted');
       }
       
       // If PTO was approved and paid, restore employee balance

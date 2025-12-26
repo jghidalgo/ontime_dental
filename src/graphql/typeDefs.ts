@@ -192,6 +192,8 @@ const typeDefs = gql`
     id: ID!
     employeeId: String!
     companyId: String
+    policyLeaveTypeId: String
+    policyLeaveTypeName: String
     leaveType: String!
     startDate: String!
     endDate: String!
@@ -208,6 +210,8 @@ const typeDefs = gql`
   input PTOCreateInput {
     employeeId: String!
     companyId: String
+    policyLeaveTypeId: String
+    policyLeaveTypeName: String
     leaveType: String!
     startDate: String!
     endDate: String!
@@ -217,6 +221,8 @@ const typeDefs = gql`
   }
 
   input PTOUpdateInput {
+    policyLeaveTypeId: String
+    policyLeaveTypeName: String
     leaveType: String
     startDate: String
     endDate: String

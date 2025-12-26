@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslations } from '@/lib/i18n';
 import { useMutation, useQuery, gql } from '@apollo/client';
-import { CREATE_PTO } from '@/graphql/pto-mutations';
+import { CREATE_PTO, UPDATE_PTO } from '@/graphql/pto-mutations';
 import { GET_PTOS } from '@/graphql/pto-queries';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
 
@@ -35,6 +35,15 @@ type AddPTOModalProps = {
     companyId?: string;
     ptoAvailable?: number;
   } | null;
+  pto?: {
+    id: string;
+    status?: 'pending' | 'approved' | 'rejected';
+    policyLeaveTypeId?: string | null;
+    startDate: string;
+    endDate: string;
+    requestedDays: number;
+    comment?: string | null;
+  } | null;
 };
 
 type LeaveType = {
@@ -55,8 +64,10 @@ type PTOFormData = {
   signature: string;
 };
 
-export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalProps) {
+export default function AddPTOModal({ isOpen, onClose, employee, pto }: AddPTOModalProps) {
   const { t } = useTranslations();
+  const isEditMode = !!pto?.id;
+
   const [formData, setFormData] = useState<PTOFormData>({
     leaveTypeId: null,
     startDate: '',
@@ -68,19 +79,91 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
   });
   const [snackbar, setSnackbar] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  const initialFormData: PTOFormData = useMemo(
+    () => ({
+      leaveTypeId: pto?.policyLeaveTypeId ?? null,
+      startDate: pto?.startDate ?? '',
+      endDate: pto?.endDate ?? '',
+      requestedDays: pto?.requestedDays !== undefined ? String(pto.requestedDays) : '',
+      comment: pto?.comment ?? '',
+      agreed: false,
+      signature: '',
+    }),
+    [pto]
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (isEditMode) {
+      setFormData(initialFormData);
+    }
+  }, [isOpen, isEditMode, initialFormData]);
+
   // Fetch company PTO policies to get leave types
   const { data: ptoData, loading: loadingPolicies } = useQuery(GET_COMPANY_PTO_POLICIES, {
     variables: { companyId: employee?.companyId },
     skip: !employee?.companyId,
   });
 
+  // Fetch existing PTOs so remaining hours can be calculated correctly
+  const { data: existingPTOsData } = useQuery(GET_PTOS, {
+    variables: {
+      employeeId: employee?.employeeId,
+      companyId: employee?.companyId,
+    },
+    skip: !employee?.employeeId || !employee?.companyId,
+    fetchPolicy: 'cache-and-network',
+  });
+
   const leaveTypes: LeaveType[] = ptoData?.companyPTOPolicies?.leaveTypes?.filter((lt: LeaveType) => lt.isActive) || [];
   const selectedLeaveType = leaveTypes.find(lt => lt.id === formData.leaveTypeId);
 
-  // Calculate available hours based on selected leave type
-  const availableHours = selectedLeaveType?.hoursAllowed || 0;
+  // If editing a legacy PTO without policyLeaveTypeId, auto-select when unambiguous
+  useEffect(() => {
+    if (!isOpen || !isEditMode) return;
+    if (formData.leaveTypeId) return;
+    if (!pto?.leaveType) return;
+    if (!leaveTypes.length) return;
 
-  const [createPTO, { loading }] = useMutation(CREATE_PTO, {
+    const isPaid = pto.leaveType === 'paid';
+    const candidates = leaveTypes.filter((lt) => lt.isActive && lt.isPaid === isPaid);
+    if (candidates.length === 1) {
+      setFormData((prev) => ({ ...prev, leaveTypeId: candidates[0].id }));
+    }
+  }, [isOpen, isEditMode, formData.leaveTypeId, pto?.leaveType, leaveTypes]);
+
+  const activePaidLeaveTypes = leaveTypes.filter((lt) => lt.isActive && lt.isPaid);
+  const activeUnpaidLeaveTypes = leaveTypes.filter((lt) => lt.isActive && !lt.isPaid);
+
+  const approvedHoursUsedForSelectedLeaveType = !selectedLeaveType
+    ? 0
+    : (
+        existingPTOsData?.ptos
+          ?.filter((pto: any) => {
+            if (pto.status !== 'approved') return false;
+
+            const matchesPaidFlag = selectedLeaveType.isPaid ? pto.leaveType === 'paid' : pto.leaveType === 'unpaid';
+            if (!matchesPaidFlag) return false;
+
+            // Preferred path: strict match by policy leave type id
+            if (pto.policyLeaveTypeId) {
+              return pto.policyLeaveTypeId === selectedLeaveType.id;
+            }
+
+            // Legacy fallback: if the company has only ONE active leave type in this category,
+            // treat older records (without policyLeaveTypeId) as belonging to that leave type.
+            const activeTypes = selectedLeaveType.isPaid ? activePaidLeaveTypes : activeUnpaidLeaveTypes;
+            return activeTypes.length === 1;
+          })
+          ?.reduce((sum: number, pto: any) => sum + (Number(pto.requestedDays) || 0) * 8, 0) || 0
+      );
+
+  const allowedHours = selectedLeaveType?.hoursAllowed || 0;
+  const remainingHours = selectedLeaveType
+    ? Math.max(0, allowedHours - approvedHoursUsedForSelectedLeaveType)
+    : 0;
+
+  const [createPTO, { loading: creating }] = useMutation(CREATE_PTO, {
     refetchQueries: [
       { query: GET_PTOS, variables: { employeeId: employee?.employeeId } },
       { query: GET_EMPLOYEES, variables: { companyId: employee?.companyId } }
@@ -98,6 +181,27 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
       setTimeout(() => setSnackbar(null), 4000);
     },
   });
+
+  const [updatePTO, { loading: updating }] = useMutation(UPDATE_PTO, {
+    refetchQueries: [
+      { query: GET_PTOS, variables: { employeeId: employee?.employeeId } },
+      { query: GET_EMPLOYEES, variables: { companyId: employee?.companyId } }
+    ],
+    awaitRefetchQueries: true,
+    onCompleted: () => {
+      setSnackbar({ message: t('PTO request updated successfully'), type: 'success' });
+      setTimeout(() => {
+        setSnackbar(null);
+        handleCancel();
+      }, 2000);
+    },
+    onError: (error) => {
+      setSnackbar({ message: error.message, type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+    },
+  });
+
+  const loading = creating || updating;
 
   if (!isOpen || !employee) return null;
 
@@ -143,10 +247,10 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
     const requestedDays = parseInt(formData.requestedDays, 10);
     const requestedHours = requestedDays * 8;
     
-    // Check if enough hours available for this leave type
-    if (selectedLeaveType && requestedHours > selectedLeaveType.hoursAllowed) {
+    // Check remaining hours available for this leave type (subtract already-approved PTO)
+    if (selectedLeaveType && requestedHours > remainingHours) {
       setSnackbar({ 
-        message: t(`Not enough hours available. This leave type allows ${selectedLeaveType.hoursAllowed} hours (${selectedLeaveType.hoursAllowed / 8} days).`), 
+        message: t(`Not enough hours available. You have ${remainingHours} hours (${remainingHours / 8} days) remaining for this leave type.`),
         type: 'error' 
       });
       setTimeout(() => setSnackbar(null), 4000);
@@ -154,6 +258,19 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
     }
 
     // Check PTO balance for paid leave
+    if (selectedLeaveType?.isPaid) {
+      const remainingDays = remainingHours / 8;
+      if (requestedDays > remainingDays) {
+        setSnackbar({
+          message: t(`Not enough PTO available. You have ${remainingHours} hours (${remainingDays} days) remaining.`),
+          type: 'error'
+        });
+        setTimeout(() => setSnackbar(null), 4000);
+        return;
+      }
+    }
+
+    // Back-compat check (if employee.ptoAvailable is provided)
     if (selectedLeaveType?.isPaid && employee.ptoAvailable !== undefined && requestedDays > employee.ptoAvailable) {
       setSnackbar({ 
         message: t(`Not enough PTO available. You have ${employee.ptoAvailable} days remaining.`), 
@@ -164,27 +281,52 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
     }
     
     try {
-      await createPTO({
-        variables: {
-          input: {
-            employeeId: employee.employeeId,
-            companyId: employee.companyId,
-            leaveType: selectedLeaveType?.isPaid ? 'paid' : 'unpaid',
-            startDate: formData.startDate,
-            endDate: formData.endDate,
-            requestedDays,
-            comment: formData.comment,
-            requestedBy: employee.employeeId, // TODO: Use actual logged-in user
+      if (isEditMode) {
+        if (pto?.status && pto.status !== 'pending') {
+          setSnackbar({ message: t('Only pending PTO requests can be modified'), type: 'error' });
+          setTimeout(() => setSnackbar(null), 4000);
+          return;
+        }
+
+        await updatePTO({
+          variables: {
+            id: pto!.id,
+            input: {
+              policyLeaveTypeId: selectedLeaveType?.id,
+              policyLeaveTypeName: selectedLeaveType?.name,
+              leaveType: selectedLeaveType?.isPaid ? 'paid' : 'unpaid',
+              startDate: formData.startDate,
+              endDate: formData.endDate,
+              requestedDays,
+              comment: formData.comment,
+            },
           },
-        },
-      });
+        });
+      } else {
+        await createPTO({
+          variables: {
+            input: {
+              employeeId: employee.employeeId,
+              companyId: employee.companyId,
+              policyLeaveTypeId: selectedLeaveType?.id,
+              policyLeaveTypeName: selectedLeaveType?.name,
+              leaveType: selectedLeaveType?.isPaid ? 'paid' : 'unpaid',
+              startDate: formData.startDate,
+              endDate: formData.endDate,
+              requestedDays,
+              comment: formData.comment,
+              requestedBy: employee.employeeId,
+            },
+          },
+        });
+      }
     } catch (error) {
       console.error('Error creating PTO:', error);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
+    setFormData(isEditMode ? initialFormData : {
       leaveTypeId: null,
       startDate: '',
       endDate: '',
@@ -201,7 +343,7 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
       <div className="w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
-          <h2 className="text-xl font-bold text-white">{t('Add PTO')}</h2>
+          <h2 className="text-xl font-bold text-white">{isEditMode ? t('Edit PTO') : t('Add PTO')}</h2>
           <button
             onClick={handleCancel}
             className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
@@ -247,6 +389,15 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
                 <p className="text-sm font-medium text-white">{employee.department || 'N/A'}</p>
               </div>
             </div>
+
+            {isEditMode && (
+              <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('Current Leave Type')}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-100">
+                  {pto?.policyLeaveTypeName || t('Select a leave type')}
+                </p>
+              </div>
+            )}
 
             {/* Leave Type */}
             <div className="mb-6">
@@ -303,7 +454,7 @@ export default function AddPTOModal({ isOpen, onClose, employee }: AddPTOModalPr
                     </svg>
                   </div>
                   <span className="text-sm font-semibold text-slate-200">
-                    {t('Available')}: <span className="text-yellow-400">{availableHours}</span> {t('hours')} ({availableHours / 8} {t('days')})
+                    {t('Available')}: <span className="text-yellow-400">{remainingHours}</span> {t('hours')} ({remainingHours / 8} {t('days')})
                   </span>
                 </div>
               )}

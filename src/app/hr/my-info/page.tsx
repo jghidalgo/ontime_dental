@@ -3,14 +3,31 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/i18n';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
+import { gql } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import AddPTOModal from '@/components/hr/AddPTOModal';
-import ViewPTOModal from '@/components/hr/ViewPTOModal';
 import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 import { GET_PTOS } from '@/graphql/pto-queries';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
+import { DELETE_PTO } from '@/graphql/pto-mutations';
+
+const GET_COMPANY_PTO_POLICIES = gql`
+  query GetCompanyPTOPolicies($companyId: ID!) {
+    companyPTOPolicies(companyId: $companyId) {
+      id
+      companyId
+      leaveTypes {
+        id
+        name
+        hoursAllowed
+        isPaid
+        isActive
+      }
+    }
+  }
+`;
 
 export default function MyHRInfoPage() {
   const router = useRouter();
@@ -18,14 +35,40 @@ export default function MyHRInfoPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [userCompanyId, setUserCompanyId] = useState('');
   const [isAddPTOModalOpen, setIsAddPTOModalOpen] = useState(false);
-  const [selectedPTO, setSelectedPTO] = useState<any>(null);
-  const [isViewPTOModalOpen, setIsViewPTOModalOpen] = useState(false);
+  const [editingPTO, setEditingPTO] = useState<any>(null);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+  const [snackbar, setSnackbar] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>(
+    { show: false, message: '', type: 'success' }
+  );
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; ptoId: string | null }>(
+    { open: false, ptoId: null }
+  );
+
+  const showSnackbar = (message: string, type: 'success' | 'error') => {
+    setSnackbar({ show: true, message, type });
+    setTimeout(() => {
+      setSnackbar({ show: false, message: '', type: 'success' });
+    }, 4000);
+  };
+
+  const [deletePTO] = useMutation(DELETE_PTO, {
+    onCompleted: () => {
+      showSnackbar(t('PTO request deleted'), 'success');
+      refetchPTOs();
+    },
+    onError: (error) => {
+      showSnackbar(error.message || t('Failed to delete PTO request'), 'error');
+    }
+  });
 
   // Get employees to find current user's employee record
   const { data: employeesData, loading: employeesLoading } = useQuery(GET_EMPLOYEES, {
-    skip: !userEmail,
+    variables: {
+      companyId: userCompanyId || undefined,
+    },
+    skip: !userEmail || !userCompanyId,
     fetchPolicy: 'cache-and-network',
   });
 
@@ -33,8 +76,16 @@ export default function MyHRInfoPage() {
   const { data: ptosData, refetch: refetchPTOs } = useQuery(GET_PTOS, {
     variables: {
       employeeId: currentEmployee?.employeeId,
+      companyId: userCompanyId || undefined,
     },
-    skip: !currentEmployee?.employeeId,
+    skip: !currentEmployee?.employeeId || !userCompanyId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  // Get company PTO policy (hours) to compute remaining balance correctly
+  const { data: ptoPolicyData } = useQuery(GET_COMPANY_PTO_POLICIES, {
+    variables: { companyId: userCompanyId },
+    skip: !userCompanyId,
     fetchPolicy: 'cache-and-network',
   });
 
@@ -56,58 +107,98 @@ export default function MyHRInfoPage() {
       setUserName(user.name);
       setUserEmail(user.email);
       setUserRole(user.role);
+      setUserCompanyId(user.companyId || '');
+
+      setCurrentEmployee((prev: any) =>
+        prev || {
+          id: '0',
+          employeeId: user.email,
+          name: user.name,
+          position: user.role,
+          department: 'Unknown',
+          companyId: user.companyId || '',
+          ptoAvailable: 20,
+        }
+      );
     }
   }, [router]);
 
   // Find current user's employee record
   useEffect(() => {
-    if (userEmail && employeesData?.employees) {
-      const employee = employeesData.employees.find(
-        (emp: any) => emp.email === userEmail
-      );
-      
+    if (!userEmail || !userCompanyId) return;
+
+    if (!employeesLoading && employeesData?.employees) {
+      const employee = employeesData.employees.find((emp: any) => emp.email === userEmail);
+
+      // Calculate PTO available from company policy and PTO history
+      const leaveTypes = ptoPolicyData?.companyPTOPolicies?.leaveTypes || [];
+      const paidHoursAllowed = (leaveTypes as any[])
+        .filter((lt) => lt?.isActive && lt?.isPaid)
+        .reduce((sum, lt) => sum + (Number(lt.hoursAllowed) || 0), 0);
+      const fallbackPaidHoursAllowed = 20 * 8;
+      const totalPaidHours = paidHoursAllowed > 0 ? paidHoursAllowed : fallbackPaidHoursAllowed;
+
+      const approvedPaidHoursUsed =
+        ptosData?.ptos
+          ?.filter((pto: any) => pto.status === 'approved' && pto.leaveType === 'paid')
+          ?.reduce((sum: number, pto: any) => sum + (Number(pto.requestedDays) || 0) * 8, 0) || 0;
+
+      const availablePaidHours = Math.max(0, totalPaidHours - approvedPaidHoursUsed);
+      const availablePaidDays = Math.floor(availablePaidHours / 8);
+
       if (employee) {
-        // Calculate PTO available from PTOs data
-        const approvedPTOs = ptosData?.ptos?.filter((pto: any) => pto.status === 'approved') || [];
-        const usedDays = approvedPTOs.reduce((sum: number, pto: any) => sum + (pto.requestedDays || 0), 0);
-        const totalPTO = 20; // Default, should come from company policy
-        
         setCurrentEmployee({
           ...employee,
-          ptoAvailable: totalPTO - usedDays,
+          ptoAvailable: availablePaidDays,
         });
+        return;
       }
+
+      // Fallback for roles (e.g. doctor) that may not have an Employee record yet.
+      // This keeps PTO request functional and shows PTO history under employeeId=userEmail.
+      setCurrentEmployee({
+        id: '0',
+        employeeId: userEmail,
+        name: userName,
+        position: userRole,
+        department: 'Unknown',
+        companyId: userCompanyId,
+        ptoAvailable: availablePaidDays,
+      });
     }
-  }, [userEmail, employeesData, ptosData]);
+  }, [userEmail, userCompanyId, userName, userRole, employeesLoading, employeesData, ptosData, ptoPolicyData]);
 
   // Calculate PTO balance
   const calculatePTOBalance = () => {
-    if (!ptosData?.ptos) {
-      return { available: 20, used: 0, pending: 0, total: 20 };
-    }
+    const leaveTypes = ptoPolicyData?.companyPTOPolicies?.leaveTypes || [];
+    const paidHoursAllowed = (leaveTypes as any[])
+      .filter((lt) => lt?.isActive && lt?.isPaid)
+      .reduce((sum, lt) => sum + (Number(lt.hoursAllowed) || 0), 0);
+    const fallbackPaidHoursAllowed = 20 * 8;
+    const totalPaidHours = paidHoursAllowed > 0 ? paidHoursAllowed : fallbackPaidHoursAllowed;
 
-    const approved = ptosData.ptos.filter((pto: any) => pto.status === 'approved');
-    const pending = ptosData.ptos.filter((pto: any) => pto.status === 'pending');
-    
-    const usedDays = approved.reduce((sum: number, pto: any) => sum + (pto.requestedDays || 0), 0);
-    const pendingDays = pending.reduce((sum: number, pto: any) => sum + (pto.requestedDays || 0), 0);
-    const totalPTO = 20; // Should come from company policy
-    
+    const approvedPaidHoursUsed =
+      ptosData?.ptos
+        ?.filter((pto: any) => pto.status === 'approved' && pto.leaveType === 'paid')
+        ?.reduce((sum: number, pto: any) => sum + (Number(pto.requestedDays) || 0) * 8, 0) || 0;
+
+    const pendingPaidHours =
+      ptosData?.ptos
+        ?.filter((pto: any) => pto.status === 'pending' && pto.leaveType === 'paid')
+        ?.reduce((sum: number, pto: any) => sum + (Number(pto.requestedDays) || 0) * 8, 0) || 0;
+
+    const availablePaidHours = Math.max(0, totalPaidHours - approvedPaidHoursUsed);
+
     return {
-      available: totalPTO - usedDays,
-      used: usedDays,
-      pending: pendingDays,
-      total: totalPTO,
+      available: Math.floor(availablePaidHours / 8),
+      used: Math.floor(approvedPaidHoursUsed / 8),
+      pending: Math.floor(pendingPaidHours / 8),
+      total: Math.floor(totalPaidHours / 8),
     };
   };
 
   const ptoBalance = calculatePTOBalance();
   const ptoRequests = ptosData?.ptos || [];
-
-  const handleViewPTO = (pto: any) => {
-    setSelectedPTO(pto);
-    setIsViewPTOModalOpen(true);
-  };
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -163,8 +254,11 @@ export default function MyHRInfoPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">{t('PTO Balance')}</h2>
               <button
-                onClick={() => setIsAddPTOModalOpen(true)}
-                disabled={employeesLoading}
+                onClick={() => {
+                  setEditingPTO(null);
+                  setIsAddPTOModalOpen(true);
+                }}
+                disabled={employeesLoading || !userCompanyId || !userEmail || !currentEmployee}
                 className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {employeesLoading ? t('Loading...') : t('Request PTO')}
@@ -211,8 +305,7 @@ export default function MyHRInfoPage() {
                 {ptoRequests.map((request: any) => (
                   <div
                     key={request.id}
-                    onClick={() => handleViewPTO(request)}
-                    className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] p-4 transition hover:bg-white/[0.04]"
+                    className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] p-4 transition hover:bg-white/[0.04]"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
@@ -224,12 +317,34 @@ export default function MyHRInfoPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-400">
-                        {request.requestedDays || request.days} {t('days')} • {request.leaveType || 'PTO'}
+                        {request.requestedDays || request.days} {t('days')} • {request.policyLeaveTypeName || request.leaveType || 'PTO'}
                       </p>
                       {request.comment && (
                         <p className="mt-1 text-xs text-slate-500">{request.comment}</p>
                       )}
                     </div>
+
+                    {request.status === 'pending' && (
+                      <div className="ml-4 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingPTO(request);
+                            setIsAddPTOModalOpen(true);
+                          }}
+                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.06]"
+                        >
+                          {t('Edit')}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setConfirmDelete({ open: true, ptoId: request.id });
+                          }}
+                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-white/[0.06]"
+                        >
+                          {t('Delete')}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -243,30 +358,69 @@ export default function MyHRInfoPage() {
         isOpen={isAddPTOModalOpen}
         onClose={() => {
           setIsAddPTOModalOpen(false);
+          setEditingPTO(null);
           refetchPTOs();
         }}
-        employee={currentEmployee || {
-          id: '0',
-          employeeId: userEmail || '',
-          name: userName,
-          position: userRole,
-          department: 'Unknown',
-          companyId: '1',
-          ptoAvailable: 20,
-        }}
+        employee={currentEmployee}
+        pto={editingPTO}
       />
 
-      {/* View PTO Modal */}
-      {selectedPTO && (
-        <ViewPTOModal
-          isOpen={isViewPTOModalOpen}
-          onClose={() => {
-            setIsViewPTOModalOpen(false);
-            setSelectedPTO(null);
-          }}
-          pto={selectedPTO}
-        />
+      {snackbar.show && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-2xl backdrop-blur-xl ${
+              snackbar.type === 'success'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                : 'border-rose-500/30 bg-rose-500/10 text-rose-200'
+            }`}
+          >
+            {snackbar.message}
+          </div>
+        </div>
       )}
+
+      {confirmDelete.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="border-b border-slate-700 px-6 py-4">
+              <h3 className="text-lg font-bold text-white">{t('Delete PTO request?')}</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                {t('This can only be done while the request is pending.')}
+              </p>
+            </div>
+
+            <div className="px-6 py-5">
+              <p className="text-sm text-slate-300">{t('Are you sure you want to delete this PTO request?')}</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-slate-700 px-6 py-4">
+              <button
+                onClick={() => setConfirmDelete({ open: false, ptoId: null })}
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.06]"
+              >
+                {t('Cancel')}
+              </button>
+              <button
+                onClick={async () => {
+                  const id = confirmDelete.ptoId;
+                  if (!id) return;
+                  try {
+                    await deletePTO({ variables: { id } });
+                    setConfirmDelete({ open: false, ptoId: null });
+                  } catch {
+                    // errors are handled by onError
+                  }
+                }}
+                className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400"
+              >
+                {t('Delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View PTO Modal */}
     </div>
   );
 }

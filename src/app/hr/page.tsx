@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_EMPLOYEE_LOCATION_DISTRIBUTION } from '@/graphql/hr-dashboard-queries';
+import { GET_PTOS } from '@/graphql/pto-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
@@ -245,9 +246,50 @@ export default function HRDashboardPage() {
     pollInterval: 30000 // Refresh every 30 seconds
   });
 
+  // Fetch PTOs for the selected company
+  const { data: ptosData, refetch: refetchPTOs, error: ptosError } = useQuery(GET_PTOS, {
+    variables: selectedCompanyId ? { companyId: selectedCompanyId } : {},
+    pollInterval: 30000, // Refresh every 30 seconds
+    fetchPolicy: 'network-only', // Always fetch fresh data
+    notifyOnNetworkStatusChange: true
+  });
+
+  // Log any PTO query errors
+  useEffect(() => {
+    if (ptosError) {
+      console.error('Error fetching PTOs:', ptosError);
+    }
+  }, [ptosError]);
+
   const locationDistribution = useMemo(() => {
     return locationData?.employeeLocationDistribution || [];
   }, [locationData]);
+
+  // Calculate PTO stats from real data
+  const ptoStats = useMemo(() => {
+    const ptos = ptosData?.ptos || [];
+    console.log('PTO Data:', { 
+      companyId: selectedCompanyId, 
+      totalPTOs: ptos.length, 
+      ptos: ptos 
+    });
+    
+    const pending = ptos.filter((pto: any) => pto.status === 'pending').length;
+    const approved = ptos.filter((pto: any) => pto.status === 'approved').length;
+    const activePTO = ptos.filter((pto: any) => {
+      if (pto.status !== 'approved') return false;
+      const now = new Date();
+      const start = new Date(pto.startDate);
+      const end = new Date(pto.endDate);
+      return start <= now && now <= end;
+    }).length;
+
+    return [
+      { label: 'Pending PTOs', value: pending.toString(), helper: 'Awaiting manager review' },
+      { label: 'Approved PTOs', value: approved.toString(), helper: 'Scheduled across teams' },
+      { label: 'Active PTOs', value: activePTO.toString(), helper: 'Currently out of office' }
+    ];
+  }, [ptosData, selectedCompanyId]);
 
   useEffect(() => {
     const token = globalThis.localStorage.getItem('ontime.authToken');
@@ -270,13 +312,18 @@ export default function HRDashboardPage() {
       const userIsAdmin = user.role === 'admin' || user.role === 'manager';
       setIsAdmin(userIsAdmin);
       
+      // Set default company ID from user session if not already set
+      if (!selectedCompanyId && user.companyId) {
+        setSelectedCompanyId(user.companyId);
+      }
+      
       // For non-admin users, redirect to their personal HR view
       if (!userIsAdmin) {
         router.push('/hr/my-info');
         return;
       }
     }
-  }, [router]);
+  }, [router, selectedCompanyId]);
 
   // Calculate total headcount from location distribution
   const totalHeadcount = useMemo(() => {
@@ -412,12 +459,12 @@ export default function HRDashboardPage() {
                       <p className="mt-1 text-sm text-slate-400">{t('Track approvals and returns at a glance')}</p>
                     </div>
                     <div className="flex-shrink-0 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                      {company.activePTO} {t('active today')}
+                      {ptoStats[2]?.value || '0'} {t('active today')}
                     </div>
                   </div>
 
                   <div className="mt-6 space-y-4">
-                    {company.ptoStats.map((stat) => (
+                    {ptoStats.map((stat) => (
                       <div key={stat.label} className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-100">{t(stat.label)}</p>

@@ -87,7 +87,7 @@ export default function TicketsPage() {
   const router = useRouter();
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [canViewAll, setCanViewAll] = useState<boolean>(true); // Permission to view all tickets
   const [canModify, setCanModify] = useState<boolean>(true); // Permission to create/edit tickets
   const [userEmail, setUserEmail] = useState<string>(''); // Current user's email for filtering
@@ -210,9 +210,25 @@ export default function TicketsPage() {
     }
     
     // Set permissions
-    setCanViewAll(hasPermission(user, 'canViewAllTickets'));
-    setCanModify(hasPermission(user, 'canModifyTickets'));
+    const userCanViewAll = hasPermission(user, 'canViewAllTickets');
+    const userCanModify = hasPermission(user, 'canModifyTickets');
+
+    setCanViewAll(userCanViewAll);
+    setCanModify(userCanModify);
     setUserEmail(user.email);
+
+    // Auto-select user's company for non-admin users (entity selector is disabled globally)
+    if (!selectedEntityId && user.companyId) {
+      setSelectedEntityId(user.companyId);
+    }
+
+    // If the user cannot view all tickets, ensure the requester matches their email
+    if (!userCanViewAll) {
+      setForm((prev) => ({
+        ...prev,
+        requester: user.email
+      }));
+    }
   }, [router]);
 
   // Transform GraphQL data to UI format and filter based on permissions
@@ -333,7 +349,9 @@ export default function TicketsPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!form.subject || !form.requester || !form.location || !form.description) {
+    const requesterEffective = canViewAll ? form.requester : userEmail;
+
+    if (!form.subject || !requesterEffective || !form.location || !form.description) {
       showSnackbar(t('Please fill in all required fields'), 'error');
       return;
     }
@@ -346,7 +364,7 @@ export default function TicketsPage() {
         variables: {
           input: {
             subject: form.subject,
-            requester: form.requester,
+            requester: requesterEffective,
             location: form.location,
             companyId: selectedEntityId,
             channel: 'Portal',
@@ -359,7 +377,7 @@ export default function TicketsPage() {
               {
                 timestamp: now.toISOString(),
                 message: 'Ticket created',
-                user: form.requester
+                user: userEmail || requesterEffective
               }
             ]
           }
@@ -623,6 +641,7 @@ export default function TicketsPage() {
                 <input
                   value={form.requester}
                   onChange={(event) => setForm((prev) => ({ ...prev, requester: event.target.value }))}
+                  disabled={!canViewAll}
                   placeholder={t('Clinic contact')}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
                   required

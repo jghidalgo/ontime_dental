@@ -5,10 +5,13 @@ import { useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PTOS } from '@/graphql/pto-queries';
 import { DELETE_PTO } from '@/graphql/pto-mutations';
+import AddPTOModal from '@/components/hr/AddPTOModal';
 
 type PTORecord = {
   id: string;
   leaveType: string;
+  policyLeaveTypeId?: string;
+  policyLeaveTypeName?: string;
   startDate: string;
   endDate: string;
   requestedDays: number;
@@ -34,6 +37,11 @@ type ViewPTOModalProps = {
 export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModalProps) {
   const { t } = useTranslations();
   const [snackbar, setSnackbar] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [editingPTO, setEditingPTO] = useState<PTORecord | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; ptoId: string | null }>(
+    { open: false, ptoId: null }
+  );
 
   // Fetch PTOs for this employee
   const { data, loading, refetch } = useQuery(GET_PTOS, {
@@ -66,18 +74,25 @@ export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModal
   if (!isOpen || !employee) return null;
 
   const handleEdit = (ptoId: string) => {
-    console.log('Edit PTO:', ptoId);
-    // TODO: Implement edit functionality
+    const record = ptoRecords.find((p) => p.id === ptoId);
+    if (!record) return;
+    if (record.status !== 'pending') {
+      setSnackbar({ message: t('Only pending PTO requests can be modified'), type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+      return;
+    }
+    setEditingPTO(record);
+    setIsEditOpen(true);
   };
 
   const handleDelete = async (ptoId: string) => {
-    if (window.confirm(t('Are you sure you want to delete this PTO request?'))) {
-      try {
-        await deletePTO({ variables: { id: ptoId } });
-      } catch (error) {
-        console.error('Error deleting PTO:', error);
-      }
+    const record = ptoRecords.find((p) => p.id === ptoId);
+    if (record && record.status !== 'pending') {
+      setSnackbar({ message: t('Only pending PTO requests can be deleted'), type: 'error' });
+      setTimeout(() => setSnackbar(null), 4000);
+      return;
     }
+    setConfirmDelete({ open: true, ptoId });
   };
 
   const getStatusBadge = (status: string) => {
@@ -205,7 +220,7 @@ export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModal
                   {ptoRecords.map((pto) => (
                     <tr key={pto.id} className="transition hover:bg-slate-800">
                       <td className="px-4 py-3 text-sm text-slate-200">
-                        {pto.leaveType}
+                        {pto.policyLeaveTypeName || pto.leaveType}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {new Date(pto.startDate).toLocaleDateString()}
@@ -223,7 +238,8 @@ export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModal
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => handleEdit(pto.id)}
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-700 hover:text-primary-400"
+                            disabled={pto.status !== 'pending'}
+                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-700 hover:text-primary-400 disabled:cursor-not-allowed disabled:opacity-50"
                             title={t('Edit')}
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -232,7 +248,8 @@ export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModal
                           </button>
                           <button
                             onClick={() => handleDelete(pto.id)}
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-700 hover:text-red-400"
+                            disabled={pto.status !== 'pending'}
+                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-700 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                             title={t('Delete')}
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -308,6 +325,58 @@ export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModal
           >
             {snackbar.message}
           </div>
+
+          <AddPTOModal
+            isOpen={isEditOpen}
+            onClose={() => {
+              setIsEditOpen(false);
+              setEditingPTO(null);
+              refetch();
+            }}
+            employee={employee}
+            pto={editingPTO}
+          />
+
+          {confirmDelete.open && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+                <div className="border-b border-slate-700 px-6 py-4">
+                  <h3 className="text-lg font-bold text-white">{t('Delete PTO request?')}</h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {t('This can only be done while the request is pending.')}
+                  </p>
+                </div>
+
+                <div className="px-6 py-5">
+                  <p className="text-sm text-slate-300">{t('Are you sure you want to delete this PTO request?')}</p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t border-slate-700 px-6 py-4">
+                  <button
+                    onClick={() => setConfirmDelete({ open: false, ptoId: null })}
+                    className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.06]"
+                  >
+                    {t('Cancel')}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const id = confirmDelete.ptoId;
+                      if (!id) return;
+                      try {
+                        await deletePTO({ variables: { id } });
+                        setConfirmDelete({ open: false, ptoId: null });
+                      } catch (error) {
+                        console.error('Error deleting PTO:', error);
+                      }
+                    }}
+                    className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400"
+                  >
+                    {t('Delete')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
