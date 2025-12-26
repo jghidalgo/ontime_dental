@@ -566,11 +566,13 @@ export default function DocumentsPage() {
                   <h2 className="text-lg font-semibold text-white">{t('Available documents')}</h2>
                   <p className="text-sm text-slate-400">{appliedSummary}</p>
                 </div>
-                {appliedSelection && canModify && (
+                {appliedSelection && (
                   <button
                     type="button"
                     onClick={() => setShowCreateForm(true)}
-                    className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400"
+                    disabled={!canModify}
+                    title={!canModify ? t('You do not have permission to add documents') : undefined}
+                    className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-400 disabled:cursor-not-allowed disabled:bg-primary-500/40 disabled:text-slate-400"
                   >
                     {t('Add Document')}
                   </button>
