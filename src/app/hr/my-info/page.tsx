@@ -224,6 +224,10 @@ export default function MyHRInfoPage() {
             category={t('Human Resources')}
             title={t('My HR Information')}
             subtitle={t('View your PTO balance and request time off')}
+            showEntitySelector={true}
+            entityLabel="Entity"
+            selectedEntityId={userCompanyId}
+            onEntityChange={setUserCompanyId}
           />
 
           <TopNavigation />

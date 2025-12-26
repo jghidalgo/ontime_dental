@@ -37,6 +37,7 @@ export default function HREmployeesPage() {
   const { t } = useTranslations();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userName, setUserName] = useState('');
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(pageSizeOptions[0]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -55,7 +56,8 @@ export default function HREmployeesPage() {
       search: searchTerm || undefined,
       limit: 1000 // Get all employees, we'll handle pagination on the client
     },
-    pollInterval: 30000 // Refresh every 30 seconds
+    pollInterval: 30000, // Refresh every 30 seconds
+    skip: isCheckingAccess
   });
 
   const employees: EmployeeRecord[] = data?.employees || [];
@@ -64,7 +66,7 @@ export default function HREmployeesPage() {
     const token = window.localStorage.getItem('ontime.authToken');
 
     if (!token) {
-      router.push('/login');
+      router.replace('/login');
       return;
     }
 
@@ -72,7 +74,7 @@ export default function HREmployeesPage() {
     const user = getUserSession();
     if (user) {
       if (!hasModuleAccess(user, 'hr')) {
-        router.push('/dashboard');
+        router.replace('/dashboard');
         return;
       }
       
@@ -81,9 +83,12 @@ export default function HREmployeesPage() {
       // Only admins and managers can manage employees
       const userIsAdmin = user.role === 'admin' || user.role === 'manager';
       if (!userIsAdmin) {
-        router.push('/hr/my-info');
+        router.replace('/hr/my-info');
         return;
       }
+
+      // Keep page from rendering until access is confirmed
+      setIsCheckingAccess(false);
     }
   }, [router]);
 
@@ -163,6 +168,28 @@ export default function HREmployeesPage() {
 
   const rangeStart = filteredEmployees.length === 0 ? 0 : (clampedPage - 1) * pageSize + 1;
   const rangeEnd = Math.min(clampedPage * pageSize, filteredEmployees.length);
+
+  if (isCheckingAccess) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-slate-950">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
+        <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
+
+        <div className="relative w-full">
+          <section className="border-b border-slate-800 bg-slate-900/60">
+            <PageHeader category={t('HR')} title={t('Employee directory')} showEntitySelector={false} />
+            <TopNavigation />
+          </section>
+
+          <main className="mx-auto max-w-7xl px-6 py-10">
+            <div className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500/20 border-t-primary-500" />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">

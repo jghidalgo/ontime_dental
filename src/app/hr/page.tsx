@@ -237,13 +237,15 @@ export default function HRDashboardPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
 
   // Fetch employee location distribution from database
   const { data: locationData, loading } = useQuery(GET_EMPLOYEE_LOCATION_DISTRIBUTION, {
     variables: {
       companyId: selectedCompanyId || undefined
     },
-    pollInterval: 30000 // Refresh every 30 seconds
+    pollInterval: 30000, // Refresh every 30 seconds
+    skip: isCheckingAccess
   });
 
   // Fetch PTOs for the selected company
@@ -251,7 +253,8 @@ export default function HRDashboardPage() {
     variables: selectedCompanyId ? { companyId: selectedCompanyId } : {},
     pollInterval: 30000, // Refresh every 30 seconds
     fetchPolicy: 'network-only', // Always fetch fresh data
-    notifyOnNetworkStatusChange: true
+    notifyOnNetworkStatusChange: true,
+    skip: isCheckingAccess
   });
 
   // Log any PTO query errors
@@ -295,35 +298,40 @@ export default function HRDashboardPage() {
     const token = globalThis.localStorage.getItem('ontime.authToken');
 
     if (!token) {
-      router.push('/login');
+      router.replace('/login');
       return;
     }
 
-    // Check if user has HR module access
     const user = getUserSession();
-    if (user) {
-      if (!hasModuleAccess(user, 'hr')) {
-        router.push('/dashboard');
-        return;
-      }
-      
-      setUserName(user.name);
-      // Only admins and managers can see full HR dashboard
-      const userIsAdmin = user.role === 'admin' || user.role === 'manager';
-      setIsAdmin(userIsAdmin);
-      
-      // Set default company ID from user session if not already set
-      if (!selectedCompanyId && user.companyId) {
-        setSelectedCompanyId(user.companyId);
-      }
-      
-      // For non-admin users, redirect to their personal HR view
-      if (!userIsAdmin) {
-        router.push('/hr/my-info');
-        return;
-      }
+    if (!user) {
+      router.replace('/login');
+      return;
     }
-  }, [router, selectedCompanyId]);
+
+    if (!hasModuleAccess(user, 'hr')) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    setUserName(user.name);
+
+    // Only admins and managers can see full HR dashboard
+    const userIsAdmin = user.role === 'admin' || user.role === 'manager';
+    setIsAdmin(userIsAdmin);
+
+    // For non-admin users, redirect to their personal HR view before rendering admin UI
+    if (!userIsAdmin) {
+      router.replace('/hr/my-info');
+      return;
+    }
+
+    // Set default company ID from user session if not already set
+    if (user.companyId) {
+      setSelectedCompanyId((prev) => prev || user.companyId || '');
+    }
+
+    setIsCheckingAccess(false);
+  }, [router]);
 
   // Calculate total headcount from location distribution
   const totalHeadcount = useMemo(() => {
@@ -351,6 +359,32 @@ export default function HRDashboardPage() {
       .join(', ');
   }, [company]);
 
+  if (isCheckingAccess) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-slate-950">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
+        <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
+
+        <div className="relative w-full">
+          <div className="border-b border-slate-800 bg-slate-900/60">
+            <PageHeader
+              category={t('HR')}
+              title={t('People operations dashboard')}
+              showEntitySelector={false}
+            />
+            <TopNavigation />
+          </div>
+
+          <main className="mx-auto max-w-7xl px-6 py-10">
+            <div className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500/20 border-t-primary-500" />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   if (!company) {
     return null;
   }
@@ -367,7 +401,7 @@ export default function HRDashboardPage() {
             title={t('People operations dashboard')}
             // subtitle={t('Welcome back, {name}.', { name: userName || t('team') })}
             showEntitySelector={true}
-            entityLabel="Company"
+            entityLabel="Entity"
             selectedEntityId={selectedCompanyId}
             onEntityChange={setSelectedCompanyId}
           />
