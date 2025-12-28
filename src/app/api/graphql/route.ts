@@ -15,5 +15,10 @@ const handler = startServerAndCreateNextHandler<NextRequest>(apolloServer, {
   })
 });
 
-export const GET = handler;
-export const POST = handler;
+export async function GET(request: NextRequest): Promise<Response> {
+  return (await handler(request)) as unknown as Response;
+}
+
+export async function POST(request: NextRequest): Promise<Response> {
+  return (await handler(request)) as unknown as Response;
+}

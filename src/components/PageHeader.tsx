@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useQuery } from '@apollo/client';
+import { usePathname, useRouter } from 'next/navigation';
+import { useMutation, useQuery } from '@apollo/client';
 import Image from 'next/image';
 import { useLanguage, useTranslations } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { GET_COMPANIES } from '@/graphql/company-queries';
+import { GET_NOTIFICATIONS, GET_UNREAD_NOTIFICATION_COUNT } from '@/graphql/notification-queries';
+import { MARK_NOTIFICATION_READ } from '@/graphql/notification-mutations';
 import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type EntityOption = {
@@ -43,17 +45,20 @@ export default function PageHeader({
   onEntityChange,
 }: Readonly<PageHeaderProps>) {
   const router = useRouter();
+  const pathname = usePathname();
   const { language, setLanguage } = useLanguage();
   const { t } = useTranslations();
   const { mode, toggleMode } = useTheme();
   const isDark = mode === 'dark';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const [userRoleLabel, setUserRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false); // Check if user is admin
-  const [userCompanyId, setUserCompanyId] = useState<string>(''); // User's company ID
   const [hasSettingsAccess, setHasSettingsAccess] = useState(false); // Check if user can access settings
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const [hasAuthToken, setHasAuthToken] = useState(false);
 
   // Fetch companies from database if showEntitySelector is true and entities not provided
   const { data: companiesData } = useQuery(GET_COMPANIES, {
@@ -73,38 +78,111 @@ export default function PageHeader({
   // Check user role and company on mount
   useEffect(() => {
     const user = getUserSession();
-    if (user) {
-      // Admin and manager can switch companies
-      setIsAdmin(user.role === 'admin' || user.role === 'manager');
-      setUserCompanyId(user.companyId || '');
+    if (!user) return;
 
-      const roleLabel = (() => {
-        if (user.role === 'admin') return 'Admin';
-        if (user.role === 'manager') return 'Manager';
-        if (!user.role) return '';
-        return user.role
-          .split('_')
-          .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-          .join(' ');
-      })();
-      setUserRoleLabel(roleLabel);
-      
-      // Check if user has access to settings module
-      setHasSettingsAccess(hasModuleAccess(user, 'settings'));
-      
-      // For non-admin users, auto-select their company
-      if (user.role !== 'admin' && user.role !== 'manager' && user.companyId && showEntitySelector && onEntityChange) {
-        onEntityChange(user.companyId);
-      }
+    // Admin and manager can switch companies
+    setIsAdmin(user.role === 'admin' || user.role === 'manager');
+
+    const roleLabel = (() => {
+      if (user.role === 'admin') return 'Admin';
+      if (user.role === 'manager') return 'Manager';
+      if (!user.role) return '';
+      return user.role
+        .split('_')
+        .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+        .join(' ');
+    })();
+    setUserRoleLabel(roleLabel);
+
+    // Check if user has access to settings module
+    setHasSettingsAccess(hasModuleAccess(user, 'settings'));
+
+    // For non-admin users, auto-select their company
+    if (user.role !== 'admin' && user.role !== 'manager' && user.companyId && showEntitySelector && onEntityChange) {
+      onEntityChange(user.companyId);
     }
   }, [showEntitySelector, onEntityChange]);
 
+  // Detect auth token changes after login/logout navigation.
+  useEffect(() => {
+    const token = localStorage.getItem('ontime.authToken');
+    setHasAuthToken(Boolean(token));
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!hasAuthToken) return;
+    const session = getUserSession();
+    if (session) {
+      console.log('[notifications] session', { email: session.email, role: session.role, userId: session.userId });
+    } else {
+      console.log('[notifications] token present but no session');
+    }
+  }, [hasAuthToken]);
+
+  const {
+    data: unreadCountData,
+    refetch: refetchUnreadCount,
+    error: unreadCountError
+  } = useQuery(GET_UNREAD_NOTIFICATION_COUNT, {
+    skip: !hasAuthToken,
+    pollInterval: 30000,
+    fetchPolicy: 'cache-and-network'
+  });
+
+  const {
+    data: notificationsData,
+    refetch: refetchNotifications,
+    error: notificationsError
+  } = useQuery(GET_NOTIFICATIONS, {
+    variables: { unreadOnly: false, limit: 8, offset: 0 },
+    skip: !hasAuthToken || !isNotificationsOpen,
+    fetchPolicy: 'network-only'
+  });
+
+  useEffect(() => {
+    if (unreadCountError) console.error('unreadNotificationCount error', unreadCountError);
+  }, [unreadCountError]);
+
+  useEffect(() => {
+    if (notificationsError) console.error('notifications query error', notificationsError);
+  }, [notificationsError]);
+
+  const [markNotificationRead] = useMutation(MARK_NOTIFICATION_READ);
+
+  const unreadCount = unreadCountData?.unreadNotificationCount ?? 0;
+  const notifications = notificationsData?.notifications ?? [];
+
+  const formatTimestamp = (iso: string) => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleString();
+  };
+
+  useEffect(() => {
+    if (!hasAuthToken || !isNotificationsOpen) return;
+    void refetchUnreadCount();
+    void refetchNotifications();
+  }, [hasAuthToken, isNotificationsOpen, refetchNotifications, refetchUnreadCount]);
   // Auto-select first company if none selected (only for admins)
   useEffect(() => {
-    if (isAdmin && showEntitySelector && entityOptions.length > 0 && !selectedEntityId && onEntityChange) {
-      onEntityChange(entityOptions[0].id);
+    if (!isAdmin || !showEntitySelector || entityOptions.length === 0 || selectedEntityId || !onEntityChange) {
+      return;
     }
+
+    const savedEntityId = localStorage.getItem('ontime.selectedCompanyId');
+    if (savedEntityId && entityOptions.some((opt) => opt.id === savedEntityId)) {
+      onEntityChange(savedEntityId);
+      return;
+    }
+
+    onEntityChange(entityOptions[0].id);
   }, [entityOptions, selectedEntityId, showEntitySelector, onEntityChange, isAdmin]);
+
+  // Keep the last selected company persisted for admin/manager switching.
+  useEffect(() => {
+    if (!showEntitySelector || !selectedEntityId) return;
+    localStorage.setItem('ontime.selectedCompanyId', selectedEntityId);
+  }, [selectedEntityId, showEntitySelector]);
 
   // Load user name + role for profile menu
   useEffect(() => {
@@ -124,14 +202,17 @@ export default function PageHeader({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
     };
 
-    if (isProfileOpen) {
+    if (isProfileOpen || isNotificationsOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProfileOpen]);
+  }, [isProfileOpen, isNotificationsOpen]);
 
   const toggleTheme = () => toggleMode();
 
@@ -139,6 +220,7 @@ export default function PageHeader({
     localStorage.removeItem('ontime.authToken');
     localStorage.removeItem('ontime.userName');
     localStorage.removeItem('ontime.userPermissions');
+    setHasAuthToken(false);
     router.push('/login');
   };
 
@@ -191,14 +273,18 @@ export default function PageHeader({
                 <select
                   id="entity-select"
                   value={selectedEntityId}
-                  onChange={(e) => onEntityChange?.(e.target.value)}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    localStorage.setItem('ontime.selectedCompanyId', nextId);
+                    onEntityChange?.(nextId);
+                  }}
                   disabled={!isAdmin}
                   className={`border-none bg-transparent text-sm font-medium outline-none pr-2 ${
                     isAdmin 
                       ? 'cursor-pointer text-slate-200' 
                       : 'cursor-not-allowed text-slate-500'
                   }`}
-                  title={!isAdmin ? t('Only administrators can change the company') : undefined}
+                  title={isAdmin ? undefined : t('Only administrators can change the company')}
                 >
                   {entityOptions.map((entity) => (
                     <option key={entity.id} value={entity.id} className="bg-slate-900 text-slate-200">
@@ -247,6 +333,93 @@ export default function PageHeader({
               </svg>
             )}
           </button>
+
+          {/* Notifications */}
+          {hasAuthToken && (
+            <div className="relative z-50" ref={notificationsRef}>
+              <button
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  setIsNotificationsOpen((prev) => !prev);
+                }}
+                className="relative rounded-lg border border-slate-700 bg-slate-900/80 p-2 text-slate-400 transition hover:border-primary-400/40 hover:text-primary-300"
+                aria-label="Notifications"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-300 px-1 text-xs font-semibold text-slate-950">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationsOpen && (
+                <div className="absolute right-0 mt-2 w-80 rounded-lg border border-slate-700 bg-slate-900 py-2 shadow-xl z-50">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-700 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-200">Notifications</p>
+                    {unreadCount > 0 && (
+                      <p className="text-xs text-slate-400">{unreadCount} unread</p>
+                    )}
+                  </div>
+
+                  <div className="max-h-96 overflow-auto">
+                    {(() => {
+                      if (notificationsError || unreadCountError) {
+                        return (
+                          <div className="px-4 py-6 text-sm text-slate-400">
+                            Unable to load notifications. Check console for details.
+                          </div>
+                        );
+                      }
+
+                      if (notifications.length === 0) {
+                        return <div className="px-4 py-6 text-sm text-slate-400">No notifications</div>;
+                      }
+
+                      return notifications.map((notification: any) => (
+                        <button
+                          key={notification.id}
+                          onClick={async () => {
+                            if (notification.readAt) return;
+                            await markNotificationRead({ variables: { id: notification.id } });
+                            await refetchUnreadCount();
+                            await refetchNotifications();
+                          }}
+                          className="w-full px-4 py-3 text-left transition hover:bg-slate-800"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p
+                                className={`truncate text-sm ${
+                                  notification.readAt ? 'text-slate-300' : 'font-semibold text-slate-100'
+                                }`}
+                              >
+                                {notification.title}
+                              </p>
+                              {notification.message && (
+                                <p className="mt-1 line-clamp-2 text-xs text-slate-400">{notification.message}</p>
+                              )}
+                              {notification.createdAt && (
+                                <p className="mt-1 text-[11px] text-slate-500">{formatTimestamp(notification.createdAt)}</p>
+                              )}
+                            </div>
+                            {!notification.readAt && <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-primary-300" />}
+                          </div>
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Profile Menu */}
           <div className="relative z-50" ref={dropdownRef}>

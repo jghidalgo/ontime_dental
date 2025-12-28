@@ -71,7 +71,7 @@ export default function PatientsPage() {
     skip: !isAdmin && !userCompanyId,
   });
 
-  const patientRecords = useMemo(() => {
+  const patientRecords = useMemo<PatientRecord[]>(() => {
     if (!patientsData?.patients) return [];
     
     const casesByPatient = (labCasesData?.labCases || []).reduce((acc: any, labCase: any) => {

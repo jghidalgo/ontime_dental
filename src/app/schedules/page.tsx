@@ -16,6 +16,7 @@ import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import SelectEmployeeModal from '@/components/schedules/SelectEmployeeModal';
 import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
+import { useTranslations } from '@/lib/i18n';
 
 type Clinic = { id: string; name: string };
 type Employee = { id: string; name: string };
@@ -89,6 +90,7 @@ type DragPayload =
 
 export default function SchedulesPage() {
   const router = useRouter();
+  const { t } = useTranslations();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify schedules

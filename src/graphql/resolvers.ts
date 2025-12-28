@@ -1,6 +1,5 @@
 import { connectToDatabase } from '@/lib/db';
-import { createToken, verifyPassword } from '@/lib/auth';
-import { notifyTicketCreated } from '@/lib/slack';
+import { createToken, verifyPassword, verifyToken } from '@/lib/auth';
 import { ROLE_PERMISSIONS } from '@/lib/permissions';
 import User from '@/models/User';
 import DirectoryEntity from '@/models/DirectoryEntity';
@@ -17,14 +16,71 @@ import DocumentGroup from '@/models/DocumentGroup';
 import Employee from '@/models/Employee';
 import Company from '@/models/Company';
 import PTO from '@/models/PTO';
+import Notification from '@/models/Notification';
 import CompanyPTOPolicy from '@/models/CompanyPTOPolicy';
 import Insurance from '@/models/Insurance';
 import DMSIntegration from '@/models/DMSIntegration';
 import QRCode from 'qrcode';
 
+function getBearerToken(ctx: { req?: { headers?: { get?: (key: string) => string | null } } }) {
+  const authHeader = ctx?.req?.headers?.get?.('authorization') || '';
+  return authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : '';
+}
+
+async function getAuthedUser(ctx: { req?: { headers?: { get?: (key: string) => string | null } } }) {
+  const token = getBearerToken(ctx);
+  if (!token) throw new Error('Unauthorized');
+  const payload = verifyToken(token);
+  const userId = typeof payload.sub === 'string' ? payload.sub : '';
+  if (!userId) throw new Error('Unauthorized');
+  const user: any = await User.findById(userId).lean();
+  if (!user) throw new Error('Unauthorized');
+  return { user, payload };
+}
+
 export const resolvers = {
   Query: {
     health: () => 'ok',
+
+    notifications: async (
+      _: unknown,
+      { unreadOnly, limit, offset }: { unreadOnly?: boolean; limit?: number; offset?: number },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
+      await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+
+      const safeLimit = typeof limit === 'number' && limit > 0 ? Math.min(limit, 50) : 10;
+      const safeOffset = typeof offset === 'number' && offset >= 0 ? offset : 0;
+
+      const filter: any = { userId: user._id.toString() };
+      if (unreadOnly) {
+        filter.$or = [{ readAt: null }, { readAt: { $exists: false } }];
+      }
+
+      const rows = await Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(safeLimit)
+        .skip(safeOffset)
+        .lean();
+
+      return rows.map((n: any) => ({
+        ...n,
+        id: n._id.toString(),
+        createdAt: n.createdAt.toISOString(),
+        readAt: n.readAt ? n.readAt.toISOString() : null
+      }));
+    },
+
+    unreadNotificationCount: async (
+      _: unknown,
+      __: unknown,
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
+      await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      return Notification.countDocuments({ userId: user._id.toString(), $or: [{ readAt: null }, { readAt: { $exists: false } }] });
+    },
 
     // Directory Queries
     directoryEntities: async (_: unknown, { companyId }: { companyId?: string }) => {
@@ -691,7 +747,16 @@ export const resolvers = {
       
       // Build filter
       const filter: any = { status: 'active' };
-      if (companyId) filter.companyId = companyId;
+      if (companyId) {
+        // Some seed/demo employee records may not have a companyId.
+        // Include those "unassigned" employees so the widget still populates.
+        filter.$or = [
+          { companyId },
+          { companyId: { $exists: false } },
+          { companyId: null },
+          { companyId: '' }
+        ];
+      }
       
       // Aggregate employees by location
       const distribution = await Employee.aggregate([
@@ -2230,14 +2295,73 @@ export const resolvers = {
     },
 
     // PTO Mutations
-    createPTO: async (_: unknown, { input }: { input: any }) => {
+    createPTO: async (
+      _: unknown,
+      { input }: { input: any },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+
+      const { user, payload } = await getAuthedUser(ctx);
+
+      const requesterEmailRaw = typeof payload.email === 'string' && payload.email ? payload.email : user.email;
+      const requesterEmail = typeof requesterEmailRaw === 'string' ? requesterEmailRaw.toLowerCase() : '';
+      const requesterName = typeof user.name === 'string' ? user.name : 'User';
+
+      const companyId = input.companyId || user.companyId;
       
       const pto = new PTO({
         ...input,
+        companyId,
         status: 'pending'
+        ,
+        requestedBy: requesterEmail || requesterName
       });
       await pto.save();
+
+      // Notify all admins for this PTO's company.
+      // Also include "global" admins that don't have a companyId (legacy/system-wide).
+      // Treat users as active unless isActive is explicitly false (legacy records may not have the field).
+      const activeFilter: any = { $or: [{ isActive: true }, { isActive: { $exists: false } }, { isActive: null }] };
+
+      const recipientOr: any[] = [];
+      if (companyId) {
+        recipientOr.push({ role: 'admin', companyId });
+        recipientOr.push({ role: 'admin', companyId: { $exists: false } });
+        recipientOr.push({ role: 'admin', companyId: null });
+        recipientOr.push({ role: 'admin', companyId: '' });
+      } else {
+        recipientOr.push({ role: 'admin' });
+      }
+
+      const recipientsRaw: any[] = await User.find({ ...activeFilter, $or: recipientOr }).select('_id').lean();
+      const requesterId = user._id?.toString?.() || '';
+
+      const recipientIds = Array.from(
+        new Set(
+          recipientsRaw
+            .map((r) => r?._id?.toString?.())
+            .filter((id) => typeof id === 'string' && id.length > 0 && id !== requesterId)
+        )
+      );
+
+      if (recipientIds.length > 0) {
+        const title = 'New PTO request to approve';
+        const messageParts = [
+          `Employee: ${pto.employeeId}`,
+          `Dates: ${pto.startDate} - ${pto.endDate}`
+        ];
+
+        await Notification.insertMany(
+          recipientIds.map((userId) => ({
+            userId,
+            companyId: companyId || undefined,
+            title,
+            message: messageParts.join(' · '),
+            readAt: null
+          }))
+        );
+      }
       
       return {
         ...pto.toObject(),
@@ -2274,12 +2398,33 @@ export const resolvers = {
       };
     },
 
-    approvePTO: async (_: unknown, { id, reviewedBy }: { id: string; reviewedBy: string }) => {
+    approvePTO: async (
+      _: unknown,
+      { id, reviewedBy }: { id: string; reviewedBy: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+
+      const token = getBearerToken(ctx);
+      if (!token) throw new Error('Unauthorized');
+      const payload = verifyToken(token);
+      const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
+      if (role !== 'admin' && role !== 'manager') {
+        throw new Error('Forbidden');
+      }
+
+      const reviewer = typeof payload.email === 'string' && payload.email ? payload.email : reviewedBy;
+      if (!reviewer) {
+        throw new Error('Invalid reviewer');
+      }
       
       const pto: any = await PTO.findById(id);
       if (!pto) {
         throw new Error('PTO not found');
+      }
+
+      if (pto.status !== 'pending') {
+        throw new Error('Only pending PTO requests can be approved');
       }
       
       // Update employee PTO balance
@@ -2296,9 +2441,31 @@ export const resolvers = {
       
       // Update PTO status
       pto.status = 'approved';
-      pto.reviewedBy = reviewedBy;
+      pto.reviewedBy = reviewer;
       pto.reviewedAt = new Date();
       await pto.save();
+
+      // Notify requester that PTO was approved
+      const requesterEmail = typeof pto.requestedBy === 'string' ? pto.requestedBy.toLowerCase() : '';
+      let requesterUser: any = null;
+      if (requesterEmail.includes('@')) {
+        requesterUser = await User.findOne({ email: requesterEmail }).select('_id').lean();
+      }
+      if (!requesterUser) {
+        const employee: any = await Employee.findOne({ employeeId: pto.employeeId }).select('userId').lean();
+        if (employee?.userId) {
+          requesterUser = await User.findById(employee.userId).select('_id').lean();
+        }
+      }
+      if (requesterUser) {
+        await Notification.create({
+          userId: requesterUser._id.toString(),
+          companyId: pto.companyId || undefined,
+          title: 'Your PTO was approved',
+          message: `Dates: ${pto.startDate} - ${pto.endDate}`,
+          readAt: null
+        });
+      }
       
       return {
         ...pto.toObject(),
@@ -2307,14 +2474,40 @@ export const resolvers = {
       };
     },
 
-    rejectPTO: async (_: unknown, { id, reviewedBy }: { id: string; reviewedBy: string }) => {
+    rejectPTO: async (
+      _: unknown,
+      { id, reviewedBy }: { id: string; reviewedBy: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+
+      const token = getBearerToken(ctx);
+      if (!token) throw new Error('Unauthorized');
+      const payload = verifyToken(token);
+      const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
+      if (role !== 'admin' && role !== 'manager') {
+        throw new Error('Forbidden');
+      }
+
+      const reviewer = typeof payload.email === 'string' && payload.email ? payload.email : reviewedBy;
+      if (!reviewer) {
+        throw new Error('Invalid reviewer');
+      }
+
+      const existing: any = await PTO.findById(id);
+      if (!existing) {
+        throw new Error('PTO not found');
+      }
+
+      if (existing.status !== 'pending') {
+        throw new Error('Only pending PTO requests can be rejected');
+      }
       
       const pto: any = await PTO.findByIdAndUpdate(
         id,
         { 
           status: 'rejected',
-          reviewedBy,
+          reviewedBy: reviewer,
           reviewedAt: new Date()
         },
         { new: true }
@@ -2323,11 +2516,59 @@ export const resolvers = {
       if (!pto) {
         throw new Error('PTO not found');
       }
+
+      // Notify requester that PTO was rejected
+      const requesterEmail = typeof pto.requestedBy === 'string' ? pto.requestedBy.toLowerCase() : '';
+      let requesterUser: any = null;
+      if (requesterEmail.includes('@')) {
+        requesterUser = await User.findOne({ email: requesterEmail }).select('_id').lean();
+      }
+      if (!requesterUser) {
+        const employee: any = await Employee.findOne({ employeeId: pto.employeeId }).select('userId').lean();
+        if (employee?.userId) {
+          requesterUser = await User.findById(employee.userId).select('_id').lean();
+        }
+      }
+      if (requesterUser) {
+        await Notification.create({
+          userId: requesterUser._id.toString(),
+          companyId: pto.companyId || undefined,
+          title: 'Your PTO was rejected',
+          message: `Dates: ${pto.startDate} - ${pto.endDate}`,
+          readAt: null
+        });
+      }
       
       return {
         ...pto.toObject(),
         id: pto._id.toString(),
         reviewedAt: pto.reviewedAt.toISOString()
+      };
+    },
+
+    markNotificationRead: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
+      await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+
+      const notification: any = await Notification.findOneAndUpdate(
+        { _id: id, userId: user._id.toString() },
+        { $set: { readAt: new Date() } },
+        { new: true }
+      ).lean();
+
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+
+      return {
+        ...notification,
+        id: notification._id.toString(),
+        createdAt: notification.createdAt.toISOString(),
+        readAt: notification.readAt ? notification.readAt.toISOString() : null
       };
     },
 

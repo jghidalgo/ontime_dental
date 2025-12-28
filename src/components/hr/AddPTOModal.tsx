@@ -6,6 +6,7 @@ import { useMutation, useQuery, gql } from '@apollo/client';
 import { CREATE_PTO, UPDATE_PTO } from '@/graphql/pto-mutations';
 import { GET_PTOS } from '@/graphql/pto-queries';
 import { GET_EMPLOYEES } from '@/graphql/employee-queries';
+import { getUserSession } from '@/lib/permissions';
 
 const GET_COMPANY_PTO_POLICIES = gql`
   query GetCompanyPTOPolicies($companyId: ID!) {
@@ -37,6 +38,8 @@ type AddPTOModalProps = {
   } | null;
   pto?: {
     id: string;
+    leaveType?: string | null;
+    policyLeaveTypeName?: string | null;
     status?: 'pending' | 'approved' | 'rejected';
     policyLeaveTypeId?: string | null;
     startDate: string;
@@ -303,6 +306,8 @@ export default function AddPTOModal({ isOpen, onClose, employee, pto }: AddPTOMo
           },
         });
       } else {
+        const user = getUserSession();
+        const requestedBy = user?.email || user?.name || employee.employeeId;
         await createPTO({
           variables: {
             input: {
@@ -315,7 +320,7 @@ export default function AddPTOModal({ isOpen, onClose, employee, pto }: AddPTOMo
               endDate: formData.endDate,
               requestedDays,
               comment: formData.comment,
-              requestedBy: employee.employeeId,
+              requestedBy,
             },
           },
         });

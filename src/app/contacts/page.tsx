@@ -9,6 +9,7 @@ import { UPDATE_DIRECTORY_ENTRY, DELETE_DIRECTORY_ENTRY } from '@/graphql/mutati
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
+import { useTranslations } from '@/lib/i18n';
 
 type GroupKey = 'corporate' | 'frontdesk' | 'offices';
 
@@ -48,6 +49,7 @@ const groupLabels: Record<GroupKey, string> = {
 
 export default function ContactsPage() {
   const router = useRouter();
+  const { t } = useTranslations();
   const [userName, setUserName] = useState<string>('');
   const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify contacts
   const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');

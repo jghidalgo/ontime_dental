@@ -25,11 +25,13 @@ const UPDATE_LABORATORY = gql`
 `;
 
 type Procedure = {
-  id: string;
+  id?: string;
   name: string;
   dailyCapacity: number;
   price?: number;
 };
+
+type EditableProcedure = Omit<Procedure, 'id'> & { id: string };
 
 type Department = {
   id: string;
@@ -65,7 +67,7 @@ export default function LaboratorySettingsModal({
 }: LaboratorySettingsModalProps) {
   const { t } = useTranslations();
   const [activeTab, setActiveTab] = useState<'procedures' | 'departments' | 'pricing' | 'materials'>('procedures');
-  const [procedures, setProcedures] = useState<Procedure[]>(
+  const [procedures, setProcedures] = useState<EditableProcedure[]>(
     (laboratory.procedures || []).map((proc, index) => ({
       ...proc,
       id: proc.id || `${Date.now()}-${index}`,
@@ -76,9 +78,10 @@ export default function LaboratorySettingsModal({
   const [newProcedurePrice, setNewProcedurePrice] = useState('0');
   
   // Departments state
+  const initialDepartments = laboratory.departments ?? [];
   const [departments, setDepartments] = useState<Department[]>(
-    (laboratory.departments || []).length > 0
-      ? laboratory.departments.map((dept, index) => ({
+    initialDepartments.length > 0
+      ? initialDepartments.map((dept, index) => ({
           ...dept,
           id: dept.id || `${Date.now()}-${index}`,
         }))
@@ -113,7 +116,7 @@ export default function LaboratorySettingsModal({
     e.preventDefault();
     if (!newProcedureName.trim()) return;
 
-    const newProcedure: Procedure = {
+    const newProcedure: EditableProcedure = {
       id: Date.now().toString(),
       name: newProcedureName.trim(),
       dailyCapacity: Number.parseInt(newProcedureCapacity) || 10,

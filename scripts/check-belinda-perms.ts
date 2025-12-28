@@ -6,7 +6,9 @@ import User from '../src/models/User';
 config({ path: resolve(__dirname, '../.env.local') });
 
 async function check() {
-  await mongoose.connect(process.env.MONGODB_URI!);
+  await mongoose.connect(process.env.MONGODB_URI!, {
+    dbName: process.env.MONGODB_DB ?? 'ontime_dental'
+  });
   const user = await User.findOne({ email: 'belinda@completedentalsolutions.net' }).lean();
   if (!user) {
     console.log('User not found!');

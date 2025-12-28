@@ -207,6 +207,14 @@ const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Notification {
+    id: ID!
+    title: String!
+    message: String!
+    readAt: String
+    createdAt: String!
+  }
+
   input PTOCreateInput {
     employeeId: String!
     companyId: String
@@ -996,6 +1004,10 @@ const typeDefs = gql`
     ptos(employeeId: String, companyId: ID, status: String): [PTO!]!
     pto(id: ID!): PTO
     employeePTOBalance(employeeId: String!): Employee
+
+    # Notification queries
+    notifications(unreadOnly: Boolean, limit: Int, offset: Int): [Notification!]!
+    unreadNotificationCount: Int!
     
     # Insurance queries
     insurances(companyId: ID, isActive: Boolean): [Insurance!]!
@@ -1112,6 +1124,9 @@ const typeDefs = gql`
     approvePTO(id: ID!, reviewedBy: String!): PTO!
     rejectPTO(id: ID!, reviewedBy: String!): PTO!
     deletePTO(id: ID!): Boolean!
+
+    # Notification mutations
+    markNotificationRead(id: ID!): Notification!
     
     # Company PTO Policy mutations
     createLeaveType(companyId: ID!, input: LeaveTypeInput!): CompanyPTOPolicy!

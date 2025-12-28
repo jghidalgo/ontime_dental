@@ -7,6 +7,7 @@ import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import { GET_INSURANCES } from '@/graphql/insurance-queries';
 import { CREATE_INSURANCE, UPDATE_INSURANCE, DELETE_INSURANCE } from '@/graphql/insurance-mutations';
+import { useTranslations } from '@/lib/i18n';
 
 interface Insurance {
   id: string;
@@ -46,6 +47,7 @@ interface FormData {
 
 export default function InsurancesPage() {
   const router = useRouter();
+  const { t } = useTranslations();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showInactive, setShowInactive] = useState(false);

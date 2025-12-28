@@ -496,7 +496,7 @@ export default function LaboratoryPage() {
   });
 
   // Transform lab cases from GraphQL to search format
-  const caseSearchRecords = useMemo(() => {
+  const caseSearchRecords = useMemo<CaseSearchRecord[]>(() => {
     if (!labCasesData?.labCases) return [];
     
     return labCasesData.labCases.map((labCase: any) => ({
@@ -547,7 +547,7 @@ export default function LaboratoryPage() {
   );
 
   // Get laboratories from database
-  const availableLabs = useMemo(() => {
+  const availableLabs = useMemo<string[]>(() => {
     if (!laboratoriesData?.laboratories) return [];
     return laboratoriesData.laboratories
       .map((lab: any) => lab.name)
@@ -555,7 +555,7 @@ export default function LaboratoryPage() {
   }, [laboratoriesData]);
 
   // Get clinics from database
-  const availableClinics = useMemo(() => {
+  const availableClinics = useMemo<string[]>(() => {
     if (!clinicsData?.clinicLocations) return [];
     
     const allClinics: string[] = [];
@@ -574,7 +574,7 @@ export default function LaboratoryPage() {
   }, [clinicsData]);
 
   // Get doctors from database (users with position="Dentist")
-  const availableDoctors = useMemo(() => {
+  const availableDoctors = useMemo<string[]>(() => {
     if (!usersData?.users) return [];
     return usersData.users
       .filter((user: any) => user.position === 'Dentist')

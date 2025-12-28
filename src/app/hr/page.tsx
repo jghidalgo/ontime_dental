@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { GET_EMPLOYEE_LOCATION_DISTRIBUTION } from '@/graphql/hr-dashboard-queries';
 import { GET_PTOS } from '@/graphql/pto-queries';
+import { GET_COMPANIES } from '@/graphql/company-queries';
+import { APPROVE_PTO, REJECT_PTO } from '@/graphql/pto-mutations';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import HrSubNavigation from '@/components/hr/HrSubNavigation';
@@ -51,43 +53,13 @@ type CompanyProfile = {
   id: string;
   name: string;
   location: string;
-  headcount: number;
-  openRoles: number;
-  activePTO: number;
-  departmentDistribution: DepartmentShare[];
-  ptoStats: PTOStat[];
-  highlights: HighlightMetric[];
   updates: TeamUpdate[];
   peopleMoments: EmployeeMoment[];
 };
 
-const companies: CompanyProfile[] = [
+// Template-only content (updates + moments). These get attached to real companies from the DB.
+const companyTemplates: Array<Pick<CompanyProfile, 'updates' | 'peopleMoments'>> = [
   {
-    id: 'complete-dental-solutions',
-    name: 'Complete Dental Solutions of Florida',
-    location: 'Jacksonville, FL',
-    headcount: 128,
-    openRoles: 6,
-    activePTO: 14,
-    departmentDistribution: [
-      { id: 'tamami', label: 'TAMAMI', value: 38, color: '#34d399' },
-      { id: 'lilite', label: 'LILITE', value: 28, color: '#60a5fa' },
-      { id: 'harama', label: 'HARAMA', value: 22, color: '#f97316' },
-      { id: 'pinecrest', label: 'PINECREST', value: 18, color: '#a855f7' },
-      { id: 'lab', label: 'LAB', value: 12, color: '#f472b6' },
-      { id: 'support', label: 'SUPPORT', value: 10, color: '#38bdf8' }
-    ],
-    ptoStats: [
-      { label: 'Pending PTOs', value: '8', helper: 'Awaiting manager review' },
-      { label: 'Approved PTOs', value: '108', helper: 'Scheduled across teams' },
-      { label: 'Return Today', value: '4', helper: 'Employees coming back from PTO' }
-    ],
-    highlights: [
-      { id: 'headcount', label: 'Total Headcount', value: '128', change: '+3 vs last month', tone: 'positive' },
-      { id: 'new-hires', label: 'New Hires (30d)', value: '5', change: 'Onboarding complete', tone: 'neutral' },
-      { id: 'engagement', label: 'Engagement Index', value: '82', change: '+4 pts vs Q1', tone: 'positive' },
-      { id: 'turnover', label: 'Turnover Risk', value: '6%', change: '-1.5 pts vs avg', tone: 'positive' }
-    ],
     updates: [
       {
         id: 'leadership-huddle',
@@ -115,31 +87,6 @@ const companies: CompanyProfile[] = [
     ]
   },
   {
-    id: 'blanco-dental-group',
-    name: 'Blanco Jamris Dental Group',
-    location: 'Orlando, FL',
-    headcount: 86,
-    openRoles: 4,
-    activePTO: 9,
-    departmentDistribution: [
-      { id: 'tamami', label: 'TAMAMI', value: 24, color: '#34d399' },
-      { id: 'lilite', label: 'LILITE', value: 20, color: '#60a5fa' },
-      { id: 'harama', label: 'HARAMA', value: 14, color: '#f97316' },
-      { id: 'pinecrest', label: 'PINECREST', value: 12, color: '#a855f7' },
-      { id: 'lab', label: 'LAB', value: 9, color: '#f472b6' },
-      { id: 'support', label: 'SUPPORT', value: 7, color: '#38bdf8' }
-    ],
-    ptoStats: [
-      { label: 'Pending PTOs', value: '5', helper: 'Awaiting manager review' },
-      { label: 'Approved PTOs', value: '72', helper: 'Scheduled across teams' },
-      { label: 'Return Today', value: '2', helper: 'Employees coming back from PTO' }
-    ],
-    highlights: [
-      { id: 'headcount', label: 'Total Headcount', value: '86', change: '+1 vs last month', tone: 'positive' },
-      { id: 'new-hires', label: 'New Hires (30d)', value: '3', change: 'Two start this week', tone: 'neutral' },
-      { id: 'engagement', label: 'Engagement Index', value: '78', change: '+2 pts vs Q1', tone: 'positive' },
-      { id: 'turnover', label: 'Turnover Risk', value: '8%', change: '+0.5 pts vs avg', tone: 'negative' }
-    ],
     updates: [
       {
         id: 'recruiting-event',
@@ -167,30 +114,6 @@ const companies: CompanyProfile[] = [
     ]
   },
   {
-    id: 'complete-dental-lab',
-    name: 'Complete Dental Lab',
-    location: 'Tampa, FL',
-    headcount: 64,
-    openRoles: 3,
-    activePTO: 6,
-    departmentDistribution: [
-      { id: 'production', label: 'Production', value: 28, color: '#34d399' },
-      { id: 'design', label: 'Design', value: 14, color: '#60a5fa' },
-      { id: 'qa', label: 'Quality Assurance', value: 10, color: '#f97316' },
-      { id: 'logistics', label: 'Logistics', value: 6, color: '#a855f7' },
-      { id: 'support', label: 'Support', value: 6, color: '#f472b6' }
-    ],
-    ptoStats: [
-      { label: 'Pending PTOs', value: '2', helper: 'Awaiting manager review' },
-      { label: 'Approved PTOs', value: '34', helper: 'Scheduled across teams' },
-      { label: 'Return Today', value: '1', helper: 'Employees coming back from PTO' }
-    ],
-    highlights: [
-      { id: 'headcount', label: 'Total Headcount', value: '64', change: 'Stable this month', tone: 'neutral' },
-      { id: 'new-hires', label: 'New Hires (30d)', value: '2', change: 'Offer letters accepted', tone: 'positive' },
-      { id: 'engagement', label: 'Engagement Index', value: '80', change: '+3 pts vs Q1', tone: 'positive' },
-      { id: 'turnover', label: 'Turnover Risk', value: '5%', change: '-0.5 pts vs avg', tone: 'positive' }
-    ],
     updates: [
       {
         id: 'shift-coverage',
@@ -235,27 +158,35 @@ export default function HRDashboardPage() {
   const router = useRouter();
   const { t } = useTranslations();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
-  const [userName, setUserName] = useState<string>('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [ptoActionError, setPtoActionError] = useState<string | null>(null);
+  const [ptoActionId, setPtoActionId] = useState<string | null>(null);
+
+  const { data: companiesData } = useQuery(GET_COMPANIES, {
+    fetchPolicy: 'cache-first',
+    skip: isCheckingAccess
+  });
 
   // Fetch employee location distribution from database
   const { data: locationData, loading } = useQuery(GET_EMPLOYEE_LOCATION_DISTRIBUTION, {
     variables: {
-      companyId: selectedCompanyId || undefined
+      companyId: selectedCompanyId
     },
     pollInterval: 30000, // Refresh every 30 seconds
-    skip: isCheckingAccess
+    skip: isCheckingAccess || !selectedCompanyId
   });
 
   // Fetch PTOs for the selected company
-  const { data: ptosData, refetch: refetchPTOs, error: ptosError } = useQuery(GET_PTOS, {
-    variables: selectedCompanyId ? { companyId: selectedCompanyId } : {},
+  const { data: ptosData, error: ptosError, refetch: refetchPTOs } = useQuery(GET_PTOS, {
+    variables: { companyId: selectedCompanyId },
     pollInterval: 30000, // Refresh every 30 seconds
     fetchPolicy: 'network-only', // Always fetch fresh data
     notifyOnNetworkStatusChange: true,
-    skip: isCheckingAccess
+    skip: isCheckingAccess || !selectedCompanyId
   });
+
+  const [approvePTO, { loading: approving }] = useMutation(APPROVE_PTO);
+  const [rejectPTO, { loading: rejecting }] = useMutation(REJECT_PTO);
 
   // Log any PTO query errors
   useEffect(() => {
@@ -271,12 +202,7 @@ export default function HRDashboardPage() {
   // Calculate PTO stats from real data
   const ptoStats = useMemo(() => {
     const ptos = ptosData?.ptos || [];
-    console.log('PTO Data:', { 
-      companyId: selectedCompanyId, 
-      totalPTOs: ptos.length, 
-      ptos: ptos 
-    });
-    
+
     const pending = ptos.filter((pto: any) => pto.status === 'pending').length;
     const approved = ptos.filter((pto: any) => pto.status === 'approved').length;
     const activePTO = ptos.filter((pto: any) => {
@@ -293,6 +219,49 @@ export default function HRDashboardPage() {
       { label: 'Active PTOs', value: activePTO.toString(), helper: 'Currently out of office' }
     ];
   }, [ptosData, selectedCompanyId]);
+
+  const pendingPTOs = useMemo(() => {
+    const ptos = ptosData?.ptos || [];
+    return ptos
+      .filter((pto: any) => pto.status === 'pending')
+      .slice(0, 8);
+  }, [ptosData]);
+
+  const formatDate = (iso: string) => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleDateString();
+  };
+
+  const handleApprove = async (ptoId: string) => {
+    setPtoActionError(null);
+    setPtoActionId(ptoId);
+    try {
+      const user = getUserSession();
+      const reviewedBy = user?.email || user?.name || 'admin';
+      await approvePTO({ variables: { id: ptoId, reviewedBy } });
+      await refetchPTOs();
+    } catch (error) {
+      setPtoActionError(error instanceof Error ? error.message : 'Failed to approve PTO');
+    } finally {
+      setPtoActionId(null);
+    }
+  };
+
+  const handleReject = async (ptoId: string) => {
+    setPtoActionError(null);
+    setPtoActionId(ptoId);
+    try {
+      const user = getUserSession();
+      const reviewedBy = user?.email || user?.name || 'admin';
+      await rejectPTO({ variables: { id: ptoId, reviewedBy } });
+      await refetchPTOs();
+    } catch (error) {
+      setPtoActionError(error instanceof Error ? error.message : 'Failed to reject PTO');
+    } finally {
+      setPtoActionId(null);
+    }
+  };
 
   useEffect(() => {
     const token = globalThis.localStorage.getItem('ontime.authToken');
@@ -313,11 +282,9 @@ export default function HRDashboardPage() {
       return;
     }
 
-    setUserName(user.name);
-
     // Only admins and managers can see full HR dashboard
-    const userIsAdmin = user.role === 'admin' || user.role === 'manager';
-    setIsAdmin(userIsAdmin);
+    const role = (user.role || '').toLowerCase();
+    const userIsAdmin = role === 'admin' || role === 'manager';
 
     // For non-admin users, redirect to their personal HR view before rendering admin UI
     if (!userIsAdmin) {
@@ -325,8 +292,11 @@ export default function HRDashboardPage() {
       return;
     }
 
-    // Set default company ID from user session if not already set
-    if (user.companyId) {
+    // Set default company ID (admin: persisted selection; otherwise from session)
+    const savedCompanyId = globalThis.localStorage.getItem('ontime.selectedCompanyId');
+    if (userIsAdmin && savedCompanyId) {
+      setSelectedCompanyId((prev) => prev || savedCompanyId);
+    } else if (user.companyId) {
       setSelectedCompanyId((prev) => prev || user.companyId || '');
     }
 
@@ -338,26 +308,128 @@ export default function HRDashboardPage() {
     return locationDistribution.reduce((sum: number, item: any) => sum + item.count, 0);
   }, [locationDistribution]);
 
-  const company = useMemo(
-    () => companies.find((entry) => entry.id === selectedCompanyId) ?? companies[0],
-    [selectedCompanyId]
-  );
+  const company = useMemo(() => {
+    const activeCompanies = (companiesData?.companies || []).filter((c: any) => c.isActive);
+    if (activeCompanies.length === 0) {
+      return {
+        id: selectedCompanyId || 'unknown',
+        name: 'Company',
+        location: '',
+        ...companyTemplates[0]
+      } satisfies CompanyProfile;
+    }
 
-  const departmentGradient = useMemo(() => {
-    if (!company) return '';
+    const selected = activeCompanies.find((c: any) => c.id === selectedCompanyId) || activeCompanies[0];
+    const templateIndex = Math.max(0, activeCompanies.findIndex((c: any) => c.id === selected.id));
+    const template = companyTemplates[templateIndex % companyTemplates.length];
 
-    const total = company.departmentDistribution.reduce((sum, item) => sum + item.value, 0);
+    return {
+      id: selected.id,
+      name: selected.shortName || selected.name,
+      location: selected.location || '',
+      ...template
+    } satisfies CompanyProfile;
+  }, [companiesData, selectedCompanyId]);
+
+  const locationGradient = useMemo(() => {
+    const total = locationDistribution.reduce((sum: number, item: any) => sum + item.count, 0);
+    if (!total) return '';
+
     let current = 0;
-
-    return company.departmentDistribution
-      .map((item) => {
+    return locationDistribution
+      .map((item: any) => {
         const start = (current / total) * 360;
-        current += item.value;
+        current += item.count;
         const end = (current / total) * 360;
         return `${item.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
       })
       .join(', ');
-  }, [company]);
+  }, [locationDistribution]);
+
+  const highlights = useMemo<HighlightMetric[]>(() => {
+    const pending = Number(ptoStats[0]?.value || 0);
+    const approved = Number(ptoStats[1]?.value || 0);
+    const active = Number(ptoStats[2]?.value || 0);
+
+    return [
+      {
+        id: 'headcount',
+        label: 'Total Headcount',
+        value: totalHeadcount.toString(),
+        change: 'Active employees',
+        tone: 'neutral'
+      },
+      {
+        id: 'pto-pending',
+        label: 'Pending PTOs',
+        value: pending.toString(),
+        change: 'Awaiting manager review',
+        tone: pending > 0 ? 'negative' : 'positive'
+      },
+      {
+        id: 'pto-approved',
+        label: 'Approved PTOs',
+        value: approved.toString(),
+        change: 'Scheduled across teams',
+        tone: 'neutral'
+      },
+      {
+        id: 'pto-active',
+        label: 'Active PTOs',
+        value: active.toString(),
+        change: 'Currently out of office',
+        tone: 'neutral'
+      }
+    ];
+  }, [ptoStats, totalHeadcount]);
+
+  const renderLocationContent = () => {
+    if (loading) {
+      return (
+        <div className="mt-8 flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500/20 border-t-primary-500" />
+        </div>
+      );
+    }
+
+    if (locationDistribution.length === 0) {
+      return (
+        <div className="mt-8 text-center text-sm text-slate-400">
+          {t('No employee data available')}
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="mx-auto h-48 w-48 rounded-full border border-white/10 bg-white/[0.02] p-6">
+          <div
+            className="relative h-full w-full rounded-full"
+            style={{ backgroundImage: `conic-gradient(${locationGradient})` }}
+          >
+            <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/90" />
+          </div>
+        </div>
+        <ul className="space-y-3">
+          {locationDistribution.map((item: any) => (
+            <li
+              key={item.location}
+              className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
+            >
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-100">{item.location}</p>
+                <p className="text-xs text-slate-400">
+                  {totalHeadcount > 0 ? Math.round((item.count / totalHeadcount) * 100) : 0}% {t('of team')}
+                </p>
+              </div>
+              <p className="text-sm font-semibold text-slate-100">{item.count}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
 
   if (isCheckingAccess) {
     return (
@@ -419,7 +491,7 @@ export default function HRDashboardPage() {
             <section className="space-y-6">
               {/* Metrics Cards */}
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                {company.highlights.map((metric) => (
+                {highlights.map((metric) => (
                   <div
                     key={metric.id}
                     className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-primary-400/30 hover:bg-white/[0.06]"
@@ -448,40 +520,7 @@ export default function HRDashboardPage() {
                     </div>
                   </div>
 
-                  {loading ? (
-                    <div className="mt-8 flex items-center justify-center py-12">
-                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500/20 border-t-primary-500" />
-                    </div>
-                  ) : locationDistribution.length === 0 ? (
-                    <div className="mt-8 text-center text-sm text-slate-400">
-                      {t('No employee data available')}
-                    </div>
-                  ) : (
-                    <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
-                      <div className="mx-auto h-48 w-48 rounded-full border border-white/10 bg-white/[0.02] p-6">
-                        <div
-                          className="relative h-full w-full rounded-full"
-                          style={{ backgroundImage: `conic-gradient(${departmentGradient})` }}
-                        >
-                          <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950/90" />
-                        </div>
-                      </div>
-                      <ul className="space-y-3">
-                        {locationDistribution.map((item: any) => (
-                          <li key={item.location} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-slate-100">{item.location}</p>
-                              <p className="text-xs text-slate-400">
-                                {totalHeadcount > 0 ? Math.round((item.count / totalHeadcount) * 100) : 0}% {t('of team')}
-                              </p>
-                            </div>
-                            <p className="text-sm font-semibold text-slate-100">{item.count}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {renderLocationContent()}
                 </div>
 
                 {/* PTO Activity */}
@@ -507,6 +546,63 @@ export default function HRDashboardPage() {
                         <p className="text-2xl font-semibold text-slate-50">{stat.value}</p>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-8">
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="text-sm font-semibold text-slate-100">{t('Pending PTO requests')}</h3>
+                      <span className="text-xs text-slate-400">{pendingPTOs.length}</span>
+                    </div>
+
+                    {ptoActionError && (
+                      <p className="mt-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
+                        {ptoActionError}
+                      </p>
+                    )}
+
+                    {pendingPTOs.length === 0 ? (
+                      <p className="mt-3 text-xs text-slate-400">{t('No pending PTO requests')}</p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {pendingPTOs.map((pto: any) => {
+                          const isBusy = (approving || rejecting) && ptoActionId === pto.id;
+                          return (
+                            <div
+                              key={pto.id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
+                            >
+                              <div className="min-w-[14rem]">
+                                <p className="text-sm font-semibold text-slate-100">
+                                  {pto.policyLeaveTypeName || pto.leaveType || t('PTO')}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  {t('Employee')}: {pto.employeeId} • {formatDate(pto.startDate)} - {formatDate(pto.endDate)} • {pto.requestedDays} {t('days')}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleApprove(pto.id)}
+                                  className="rounded-xl bg-emerald-500/90 px-3 py-2 text-xs font-semibold text-slate-900 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isBusy ? t('Working...') : t('Approve')}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleReject(pto.id)}
+                                  className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isBusy ? t('Working...') : t('Deny')}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <button className="mt-6 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-primary-400/30 hover:text-white">
