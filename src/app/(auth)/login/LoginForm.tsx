@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { saveUserSession } from '@/lib/permissions';
 
@@ -152,11 +151,9 @@ export default function LoginForm() {
       <div className="flex items-center justify-between text-sm text-slate-400">
         <label className="inline-flex items-center gap-2">
           <input type="checkbox" className="h-4 w-4 rounded border-slate-600 bg-slate-900 accent-primary-500" />
-          Remember me
+          <span>Remember me</span>
         </label>
-        <Link href="#" className="font-medium text-primary-300 hover:text-primary-200">
-          Forgot password?
-        </Link>
+        <span className="text-slate-500">Forgot password? Contact your administrator.</span>
       </div>
 
       {error && (
