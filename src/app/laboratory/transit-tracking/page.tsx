@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
@@ -8,6 +8,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_TRANSIT_CASES, GET_TRANSIT_ROUTES, UPDATE_TRANSIT_STATUS } from '@/graphql/transit-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type TransitStatus = 'pending-pickup' | 'picked-up' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed-delivery';
 
@@ -64,6 +65,7 @@ export default function TransitTrackingPage() {
   const router = useRouter();
   const { t } = useTranslations();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [canSwitchEntity, setCanSwitchEntity] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cases');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedCase, setSelectedCase] = useState<TransitCase | null>(null);
@@ -74,6 +76,24 @@ export default function TransitTrackingPage() {
     const token = globalThis.localStorage.getItem('ontime.authToken');
     if (!token) {
       router.push('/login');
+      return;
+    }
+
+    const user = getUserSession();
+    if (!user || !hasModuleAccess(user, 'laboratory')) {
+      router.push('/dashboard');
+      return;
+    }
+
+    const isAdmin = user.role === 'admin';
+    setCanSwitchEntity(isAdmin);
+    if (!isAdmin) {
+      setSelectedEntityId(user.companyId || '');
+      return;
+    }
+
+    if (!selectedEntityId) {
+      setSelectedEntityId(user.companyId || 'complete-dental-solutions');
     }
   }, [router]);
 
@@ -184,10 +204,13 @@ export default function TransitTrackingPage() {
           category={t('Laboratory')}
           title={t('Transit Tracking')}
           subtitle={t('Monitor deliveries, track routes, and manage shipments in real-time')}
-          showEntitySelector={true}
+          showEntitySelector={canSwitchEntity}
           entityLabel={t('Company')}
           selectedEntityId={selectedEntityId}
-          onEntityChange={(id) => setSelectedEntityId(id)}
+          onEntityChange={(id) => {
+            if (!canSwitchEntity) return;
+            setSelectedEntityId(id);
+          }}
         />
         <TopNavigation />
       </div>

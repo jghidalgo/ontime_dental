@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_PRODUCTION_BOARD_CASES } from '@/graphql/production-board-queries';
 import { GET_USERS } from '@/graphql/user-queries';
-import { GET_COMPANIES } from '@/graphql/company-queries';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import clsx from 'clsx';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type ProductionStage = 'design' | 'printing' | 'milling' | 'finishing' | 'qc' | 'packaging';
 
@@ -100,23 +101,56 @@ const stages: StageInfo[] = [
 ];
 
 export default function ProductionBoardPage() {
+  const router = useRouter();
   const { t } = useTranslations();
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [canSwitchEntity, setCanSwitchEntity] = useState<boolean>(false);
   const [selectedStage, setSelectedStage] = useState<ProductionStage | 'all'>('all');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'kanban' | 'technician'>('kanban');
 
-  // Fetch companies for selector
-  const { data: companiesData } = useQuery(GET_COMPANIES);
+  const utilizationBarColor = (utilization: number) => {
+    if (utilization >= 90) return 'bg-red-500';
+    if (utilization >= 70) return 'bg-amber-500';
+    return 'bg-emerald-500';
+  };
+
+  useEffect(() => {
+    const token = globalThis.localStorage.getItem('ontime.authToken');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getUserSession();
+    if (!user || !hasModuleAccess(user, 'laboratory')) {
+      router.push('/dashboard');
+      return;
+    }
+
+    const isAdmin = user.role === 'admin';
+    setCanSwitchEntity(isAdmin);
+
+    if (!isAdmin) {
+      setSelectedEntityId(user.companyId || '');
+      return;
+    }
+
+    if (!selectedEntityId) {
+      setSelectedEntityId(user.companyId || 'complete-dental-solutions');
+    }
+  }, [router]);
 
   // Fetch production board cases
   const { data: labCasesData, loading: loadingCases } = useQuery(GET_PRODUCTION_BOARD_CASES, {
     variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
   });
 
   // Fetch technicians
   const { data: usersData, loading: loadingUsers } = useQuery(GET_USERS, {
     variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
   });
 
   // Get cases from the query (already filtered to in-production status)
@@ -255,10 +289,13 @@ export default function ProductionBoardPage() {
           category={t('Laboratory')}
           title={t('Production Board')}
           subtitle={t('Real-time work-in-progress tracking by stage and technician')}
-          showEntitySelector={true}
+          showEntitySelector={canSwitchEntity}
           entityLabel={t('Company')}
           selectedEntityId={selectedEntityId}
-          onEntityChange={(id) => setSelectedEntityId(id)}
+          onEntityChange={(id) => {
+            if (!canSwitchEntity) return;
+            setSelectedEntityId(id);
+          }}
         />
         <TopNavigation />
       </div>
@@ -467,7 +504,7 @@ export default function ProductionBoardPage() {
                             <div className="mt-2 flex flex-wrap gap-1">
                               {labCase.toothNumbers.slice(0, 3).map((tooth: string, idx: number) => (
                                 <span
-                                  key={idx}
+                                  key={tooth}
                                   className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400"
                                 >
                                   #{tooth}
@@ -531,9 +568,7 @@ export default function ProductionBoardPage() {
                   <div
                     className={clsx(
                       'h-full rounded-full transition-all',
-                      workload.utilization >= 90 ? 'bg-red-500' :
-                      workload.utilization >= 70 ? 'bg-amber-500' :
-                      'bg-emerald-500'
+                      utilizationBarColor(workload.utilization)
                     )}
                     style={{ width: `${Math.min(workload.utilization, 100)}%` }}
                   />

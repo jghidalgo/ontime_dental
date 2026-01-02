@@ -653,7 +653,7 @@ const typeDefs = gql`
     patientFirstName: String!
     patientLastName: String!
     birthday: String!
-    reservationDate: String!
+    reservationDate: String
     doctorId: String
     doctor: String!
     procedure: String!

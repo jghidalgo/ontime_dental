@@ -4,6 +4,7 @@ import { useState, type FormEvent, useEffect } from 'react';
 import { useMutation, useQuery, gql } from '@apollo/client';
 import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
 import { useTranslations } from '@/lib/i18n';
+import { getUserSession } from '@/lib/permissions';
 
 const GET_LABORATORIES = gql`
   query GetLaboratories {
@@ -72,12 +73,17 @@ const GET_PATIENTS = gql`
 type CreateCaseModalProps = {
   procedure: string;
   date: Date;
+  autoSchedule?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 };
 
-export default function CreateCaseModal({ procedure, date, onClose, onSuccess }: CreateCaseModalProps) {
+export default function CreateCaseModal({ procedure, date, autoSchedule = false, onClose, onSuccess }: Readonly<CreateCaseModalProps>) {
   const { t } = useTranslations();
+  const userSession = getUserSession();
+  const isAdminLike = userSession?.role === 'admin' || userSession?.role === 'manager';
+  const userCompanyId = userSession?.companyId;
+
   const [patientType, setPatientType] = useState<'existing' | 'new'>('new');
   const [selectedPatient, setSelectedPatient] = useState<string>('');
   const [patientSearch, setPatientSearch] = useState<string>('');
@@ -92,6 +98,7 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
+  const [selectedProcedure, setSelectedProcedure] = useState<string>(() => (procedure && procedure !== 'New Case' ? procedure : ''));
   const [availableProcedures, setAvailableProcedures] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,6 +132,8 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     }))
   );
 
+  const visibleClinics = isAdminLike || !userCompanyId ? allClinics : allClinics.filter((clinic: any) => clinic.companyId === userCompanyId);
+
   // Filter users with dentist role only
   const doctors = users.filter((user: any) => user.role === 'dentist');
 
@@ -140,29 +149,9 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
     }
   });
 
-  // Update available procedures when lab is selected
-  useEffect(() => {
-    if (selectedLab) {
-      const lab = laboratories.find((l: any) => l.id === selectedLab);
-      if (lab && lab.procedures) {
-        setAvailableProcedures(lab.procedures.map((p: any) => p.name));
-      } else {
-        setAvailableProcedures([]);
-      }
-    } else {
-      setAvailableProcedures([]);
-    }
-  }, [selectedLab, laboratories]);
-
-  const handleLabChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedLab(e.target.value);
-  };
-
-  const handleClinicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const clinicId = e.target.value;
+  const applyClinicSelection = (clinicId: string) => {
     setSelectedClinicId(clinicId);
-    
-    // Find the selected clinic and get its details
+
     const clinic = allClinics.find((c: any) => c.clinicId === clinicId);
     if (clinic) {
       setSelectedClinic(clinic.name);
@@ -171,10 +160,94 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
       setSelectedClinic('');
       setSelectedCompanyId('');
     }
-    
-    // Reset doctor selection when clinic changes
+
     setSelectedDoctor('');
     setSelectedDoctorId('');
+  };
+
+  // Default clinic for non-admin users to their company clinic.
+  useEffect(() => {
+    if (isAdminLike) return;
+    if (!userCompanyId) return;
+    if (selectedClinicId) return;
+    if (visibleClinics.length === 0) return;
+
+    applyClinicSelection(visibleClinics[0].clinicId);
+  }, [isAdminLike, selectedClinicId, visibleClinics]);
+
+  // Update available procedures when lab is selected
+  useEffect(() => {
+    const lab = selectedLab ? laboratories.find((l: any) => l.id === selectedLab) : undefined;
+    const procedures = lab?.procedures?.map((p: any) => p.name) ?? [];
+    setAvailableProcedures(procedures);
+
+    if (procedures.length === 0) {
+      if (selectedProcedure) setSelectedProcedure('');
+      return;
+    }
+
+    if (selectedProcedure && procedures.includes(selectedProcedure)) return;
+    if (procedure && procedure !== 'New Case' && procedures.includes(procedure)) {
+      setSelectedProcedure(procedure);
+      return;
+    }
+
+    setSelectedProcedure(procedures[0] ?? '');
+  }, [selectedLab, laboratories, procedure, selectedProcedure]);
+
+  // Auto-select a lab that supports the selected procedure.
+  useEffect(() => {
+    if (selectedLab) return;
+    if (!procedure || procedure === 'New Case') return;
+    if (laboratories.length === 0) return;
+
+    const candidateLabs = laboratories.filter((lab: any) =>
+      Array.isArray(lab?.procedures) && lab.procedures.some((p: any) => p?.name === procedure)
+    );
+    if (candidateLabs.length === 0) return;
+
+    const companyForDefaults = selectedCompanyId || userCompanyId;
+    const savedKey = companyForDefaults ? `ontime.defaultLab.${companyForDefaults}.${procedure}` : undefined;
+    if (savedKey) {
+      const savedLabId = globalThis.localStorage.getItem(savedKey);
+      if (savedLabId && candidateLabs.some((lab: any) => lab.id === savedLabId)) {
+        setSelectedLab(savedLabId);
+        setSelectedProcedure(procedure);
+        return;
+      }
+    }
+
+    const bestLab = candidateLabs
+      .map((lab: any) => {
+        const capacity = lab.procedures?.find((p: any) => p?.name === procedure)?.dailyCapacity ?? 0;
+        return { lab, capacity };
+      })
+      .sort((a: any, b: any) => {
+        if (b.capacity !== a.capacity) return b.capacity - a.capacity;
+        return String(a.lab?.name || '').localeCompare(String(b.lab?.name || ''));
+      })[0]?.lab;
+
+    if (bestLab?.id) {
+      setSelectedLab(bestLab.id);
+      setSelectedProcedure(procedure);
+    }
+  }, [laboratories, procedure, selectedLab, selectedCompanyId, userCompanyId]);
+
+  // Persist the last selected lab for this company+procedure.
+  useEffect(() => {
+    if (!selectedLab) return;
+    if (!selectedProcedure) return;
+    const companyForDefaults = selectedCompanyId || userCompanyId;
+    if (!companyForDefaults) return;
+    globalThis.localStorage.setItem(`ontime.defaultLab.${companyForDefaults}.${selectedProcedure}`, selectedLab);
+  }, [selectedLab, selectedCompanyId, selectedProcedure, userCompanyId]);
+
+  const handleLabChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedLab(e.target.value);
+  };
+
+  const handleClinicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    applyClinicSelection(e.target.value);
   };
 
   const handleDoctorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -227,6 +300,16 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
       return;
     }
 
+    if (!selectedLab) {
+      setError('Please select a laboratory');
+      return;
+    }
+
+    if (!selectedProcedure) {
+      setError('Please select a procedure');
+      return;
+    }
+
     // Validate patient selection for existing patient
     if (patientType === 'existing' && !selectedPatient) {
       setError('Please select an existing patient');
@@ -272,11 +355,11 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
           clinicId: selectedClinicId,
           clinic: selectedClinic,
           ...patientInfo,
-          reservationDate: formatDate(date),
+          reservationDate: autoSchedule ? undefined : formatDate(date),
           doctorId: selectedDoctorId,
           doctor: selectedDoctor,
-          procedure: formData.get('category'), // Using category (procedure from lab) as the procedure
-          category: formData.get('category'),
+          procedure: selectedProcedure,
+          category: selectedProcedure,
           priority: formData.get('priority') || 'normal',
           shadeGuide: formData.get('shadeGuide') || undefined,
           materialType: formData.get('materialType') || undefined,
@@ -298,7 +381,7 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
           <div>
             <h2 className="text-xl sm:text-2xl font-semibold text-white">{t('Create Laboratory Case')}</h2>
             <p className="mt-1 text-xs sm:text-sm text-slate-400">
-              {date.toLocaleDateString()} - {procedure || t('New case')}
+              {autoSchedule ? t('Auto-scheduled based on availability') : date.toLocaleDateString()} - {procedure || t('New case')}
             </p>
           </div>
           <button
@@ -362,7 +445,7 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
                 className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">{clinicsLoading ? t('Loading clinics...') : t('Select a clinic')}</option>
-                {allClinics.map((clinic: any) => (
+                {visibleClinics.map((clinic: any) => (
                   <option key={clinic.clinicId} value={clinic.clinicId}>
                     {clinic.name} ({clinic.companyName})
                   </option>
@@ -508,6 +591,8 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
                 <select
                   name="category"
                   required
+                  value={selectedProcedure}
+                  onChange={(e) => setSelectedProcedure(e.target.value)}
                   disabled={!selectedLab || availableProcedures.length === 0}
                   className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 focus:border-primary-400/70 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -634,6 +719,7 @@ export default function CreateCaseModal({ procedure, date, onClose, onSuccess }:
           <div className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Notes')}</h3>
             <label className="block">
+              <span className="sr-only">{t('Notes')}</span>
               <textarea
                 name="notes"
                 rows={3}

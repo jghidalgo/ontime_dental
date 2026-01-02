@@ -27,10 +27,33 @@ function getBearerToken(ctx: { req?: { headers?: { get?: (key: string) => string
   return authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : '';
 }
 
+function isLegacyDefaultPermissions(permissions: any): boolean {
+  if (!permissions || typeof permissions !== 'object') return false;
+
+  const legacyModules = ['dashboard', 'documents', 'tickets'];
+  const modules = Array.isArray(permissions.modules) ? permissions.modules : [];
+  const modulesMatch =
+    modules.length === legacyModules.length &&
+    legacyModules.every((mod) => modules.includes(mod));
+
+  return (
+    modulesMatch &&
+    permissions.canModifySchedules === false &&
+    permissions.canModifyDocuments === true &&
+    permissions.canViewAllTickets === false &&
+    permissions.canModifyTickets === true &&
+    permissions.canViewReports === false &&
+    permissions.canManageUsers === false &&
+    permissions.canModifyContacts === false &&
+    permissions.canAccessLaboratory === false &&
+    permissions.canManageTransit === false
+  );
+}
+
 function getEffectivePermissions(user: any) {
   const role = typeof user?.role === 'string' ? user.role.trim().toLowerCase() : '';
   const defaultPermissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS['dentist'];
-  const permissions = user?.permissions || defaultPermissions;
+  const permissions = isLegacyDefaultPermissions(user?.permissions) ? defaultPermissions : (user?.permissions || defaultPermissions);
 
   return {
     modules: permissions.modules || defaultPermissions.modules,
@@ -75,6 +98,89 @@ function assertTicketAccessForNonAdmins(permissions: any, user: any, ticket: any
 
 function isResolvingTicket(input: any, existing: any): boolean {
   return typeof input?.status === 'string' && input.status === 'Resolved' && existing?.status !== 'Resolved';
+}
+
+function isAdminUser(user: any): boolean {
+  return typeof user?.role === 'string' && user.role.trim().toLowerCase() === 'admin';
+}
+
+function assertCanAccessLaboratory(permissions: any) {
+  if (!permissions?.canAccessLaboratory) {
+    throw new Error('Unauthorized');
+  }
+}
+
+function getScopedCompanyIdForLaboratory(user: any, companyIdArg?: string): string | undefined {
+  const userCompanyId = typeof user?.companyId === 'string' ? user.companyId : '';
+
+  if (isAdminUser(user)) {
+    // Admins can view any company (or all if companyIdArg is omitted).
+    return companyIdArg || userCompanyId || undefined;
+  }
+
+  if (!userCompanyId) {
+    throw new Error('Unauthorized');
+  }
+
+  return userCompanyId;
+}
+
+function formatISODateOnly(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+async function getNextAvailableReservationDate(args: {
+  companyId: string;
+  labId?: string;
+  procedure?: string;
+  horizonDays?: number;
+}): Promise<string | undefined> {
+  const { companyId, labId, procedure, horizonDays = 60 } = args;
+  if (!companyId || !labId || !procedure) return undefined;
+
+  const lab: any = await Laboratory.findById(labId).select('procedures').lean();
+  const configuredCapacity = lab?.procedures?.find((p: any) => p?.name === procedure)?.dailyCapacity;
+  const dailyCapacity = typeof configuredCapacity === 'number' && configuredCapacity > 0 ? configuredCapacity : undefined;
+  if (!dailyCapacity) return undefined;
+
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+
+  const dateStrings: string[] = [];
+  for (let i = 0; i < horizonDays; i += 1) {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() + i);
+    dateStrings.push(formatISODateOnly(d));
+  }
+
+  const counts = await LabCase.aggregate([
+    {
+      $match: {
+        companyId,
+        labId,
+        procedure,
+        reservationDate: { $in: dateStrings },
+      },
+    },
+    {
+      $group: {
+        _id: '$reservationDate',
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const countMap = new Map<string, number>();
+  for (const row of counts) {
+    if (row?._id) countMap.set(String(row._id), Number(row.count ?? 0));
+  }
+
+  for (const dateStr of dateStrings) {
+    const used = countMap.get(dateStr) ?? 0;
+    if (used < dailyCapacity) return dateStr;
+  }
+
+  return dateStrings.at(-1);
 }
 
 async function notifyTicketResolved(existing: any, updatedTicket: any) {
@@ -579,9 +685,18 @@ export const resolvers = {
     },
 
     // Lab Case Queries
-    labCases: async (_: unknown, { companyId }: { companyId?: string }) => {
+    labCases: async (
+      _: unknown,
+      { companyId }: { companyId?: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
-      const filter = companyId ? { companyId } : {};
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, companyId);
+      const filter = scopedCompanyId ? { companyId: scopedCompanyId } : {};
       const cases = await LabCase.find(filter).sort({ createdAt: -1 }).lean();
       return cases.map((labCase: any) => ({
         ...labCase,
@@ -589,20 +704,45 @@ export const resolvers = {
       }));
     },
 
-    labCase: async (_: unknown, { id }: { id: string }) => {
+    labCase: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
       const labCase: any = await LabCase.findById(id).lean();
       if (!labCase) return null;
+
+      if (!isAdminUser(user)) {
+        const scopedCompanyId = getScopedCompanyIdForLaboratory(user);
+        if (scopedCompanyId && labCase.companyId !== scopedCompanyId) {
+          throw new Error('Unauthorized');
+        }
+      }
+
       return {
         ...labCase,
         id: labCase._id.toString()
       };
     },
 
-    labCaseByNumber: async (_: unknown, { caseId, companyId }: { caseId: string; companyId?: string }) => {
+    labCaseByNumber: async (
+      _: unknown,
+      { caseId, companyId }: { caseId: string; companyId?: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, companyId);
       const filter: any = { caseId };
-      if (companyId) filter.companyId = companyId;
+      if (scopedCompanyId) filter.companyId = scopedCompanyId;
       const labCase: any = await LabCase.findOne(filter).lean();
       if (!labCase) return null;
       return {
@@ -614,10 +754,19 @@ export const resolvers = {
     productionBoardCases: async (
       _: unknown, 
       { companyId, productionStage, technicianId }: { companyId: string; productionStage?: string; technicianId?: string }
+      ,
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, companyId);
+      if (!scopedCompanyId) throw new Error('Unauthorized');
+
       const filter: any = { 
-        companyId,
+        companyId: scopedCompanyId,
         status: { $in: ['in-production', 'in-planning'] } // Get cases that are in production or planning
       };
       
@@ -642,10 +791,19 @@ export const resolvers = {
     billingCases: async (
       _: unknown,
       { companyId, startDate, endDate }: { companyId: string; startDate?: string; endDate?: string }
+      ,
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, companyId);
+      if (!scopedCompanyId) throw new Error('Unauthorized');
+
       const filter: any = {
-        companyId,
+        companyId: scopedCompanyId,
         status: 'completed' // Only get completed cases for billing
       };
 
@@ -673,10 +831,19 @@ export const resolvers = {
     transitCases: async (
       _: unknown,
       { companyId, transitStatus }: { companyId: string; transitStatus?: string }
+      ,
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, companyId);
+      if (!scopedCompanyId) throw new Error('Unauthorized');
+
       const filter: any = {
-        companyId,
+        companyId: scopedCompanyId,
         status: 'in-transit' // Only get cases currently in transit
       };
 
@@ -695,12 +862,22 @@ export const resolvers = {
       }));
     },
 
-    transitRoutes: async (_: unknown, { companyId }: { companyId: string }) => {
+    transitRoutes: async (
+      _: unknown,
+      { companyId }: { companyId: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, companyId);
+      if (!scopedCompanyId) throw new Error('Unauthorized');
       
       // Get all in-transit cases for the company
       const cases = await LabCase.find({
-        companyId,
+        companyId: scopedCompanyId,
         status: 'in-transit'
       }).lean();
 
@@ -1258,7 +1435,7 @@ export const resolvers = {
 
       // Get default permissions based on role, or use stored permissions if they exist
       const defaultPermissions = ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS['dentist'];
-      const permissions = user.permissions || defaultPermissions;
+      const permissions = isLegacyDefaultPermissions(user.permissions) ? defaultPermissions : (user.permissions || defaultPermissions);
 
       // Ensure all permission fields are present (merge with defaults)
       const completePermissions = {
@@ -2229,14 +2406,50 @@ export const resolvers = {
     },
 
     // Lab Case Mutations
-    createLabCase: async (_: unknown, { input }: { input: any }) => {
+    createLabCase: async (
+      _: unknown,
+      { input }: { input: any },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const scopedCompanyId = getScopedCompanyIdForLaboratory(user, input?.companyId);
+      if (!scopedCompanyId) throw new Error('Unauthorized');
+
+      const normalizedInput = {
+        ...input,
+        companyId: scopedCompanyId
+      };
+
+      const isAdmin = isAdminUser(user);
+      const autoScheduledDate = isAdmin
+        ? undefined
+        : await getNextAvailableReservationDate({
+            companyId: scopedCompanyId,
+            labId: normalizedInput.labId,
+            procedure: normalizedInput.procedure,
+          });
+
+      const finalInput = {
+        ...normalizedInput,
+        reservationDate: autoScheduledDate || normalizedInput.reservationDate,
+      };
+
+      if (finalInput.reservationDate) {
+        // ok
+      } else {
+        throw new Error('Reservation date is required');
+      }
       
-      let patientId = input.patientId;
+      let patientId = finalInput.patientId;
       
       // If no patientId provided, check if patient exists or create new one
       if (!patientId) {
-        const { patientFirstName, patientLastName, birthday, companyId } = input;
+        const { patientFirstName, patientLastName, birthday, companyId } = finalInput;
         
         if (!patientFirstName || !patientLastName || !birthday) {
           throw new Error('Patient information is required');
@@ -2275,14 +2488,14 @@ export const resolvers = {
       // Include: Case ID, Patient Name, Lab, Procedure, Date, and a verification hash
       const qrCodeData = JSON.stringify({
         caseId,
-        patient: `${input.patientFirstName} ${input.patientLastName}`,
-        lab: input.lab,
-        procedure: input.procedure,
-        date: input.reservationDate,
-        clinic: input.clinic,
+        patient: `${finalInput.patientFirstName} ${finalInput.patientLastName}`,
+        lab: finalInput.lab,
+        procedure: finalInput.procedure,
+        date: finalInput.reservationDate,
+        clinic: finalInput.clinic,
         timestamp: new Date().toISOString(),
         // You could add a hash here for verification if needed
-        verify: Buffer.from(`${caseId}-${input.companyId}-${Date.now()}`).toString('base64').substring(0, 16)
+        verify: Buffer.from(`${caseId}-${finalInput.companyId}-${Date.now()}`).toString('base64').substring(0, 16)
       });
       
       // Generate QR Code as base64 image
@@ -2295,7 +2508,7 @@ export const resolvers = {
       
       // Create lab case with patient reference and QR code
       const labCase = new LabCase({
-        ...input,
+        ...finalInput,
         caseId,
         patientId,
         qrCode: qrCodeImage,
@@ -2311,12 +2524,37 @@ export const resolvers = {
       };
     },
 
-    updateLabCase: async (_: unknown, { id, input }: { id: string; input: any }) => {
+    updateLabCase: async (
+      _: unknown,
+      { id, input }: { id: string; input: any },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const existing: any = await LabCase.findById(id).lean();
+      if (!existing) {
+        throw new Error('Lab case not found');
+      }
+
+      if (!isAdminUser(user)) {
+        const scopedCompanyId = getScopedCompanyIdForLaboratory(user);
+        if (scopedCompanyId && existing.companyId !== scopedCompanyId) {
+          throw new Error('Unauthorized');
+        }
+      }
+
+      const safeInput = { ...input };
+      if (!isAdminUser(user)) {
+        delete safeInput.companyId;
+      }
       
       const labCase: any = await LabCase.findByIdAndUpdate(
         id,
-        { $set: input },
+        { $set: safeInput },
         { new: true, runValidators: true }
       );
       
@@ -2333,13 +2571,26 @@ export const resolvers = {
     updateTransitStatus: async (
       _: unknown,
       { id, transitStatus, location, notes }: { id: string; transitStatus: string; location?: string; notes?: string }
+      ,
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
+
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
       
       const labCase: any = await LabCase.findById(id);
       
       if (!labCase) {
         throw new Error('Lab case not found');
+      }
+
+      if (!isAdminUser(user)) {
+        const scopedCompanyId = getScopedCompanyIdForLaboratory(user);
+        if (scopedCompanyId && labCase.companyId !== scopedCompanyId) {
+          throw new Error('Unauthorized');
+        }
       }
 
       // Create transit history entry
@@ -2381,8 +2632,26 @@ export const resolvers = {
       };
     },
 
-    deleteLabCase: async (_: unknown, { id }: { id: string }) => {
+    deleteLabCase: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+      assertCanAccessLaboratory(permissions);
+
+      const existing: any = await LabCase.findById(id).lean();
+      if (!existing) return false;
+
+      if (!isAdminUser(user)) {
+        const scopedCompanyId = getScopedCompanyIdForLaboratory(user);
+        if (scopedCompanyId && existing.companyId !== scopedCompanyId) {
+          throw new Error('Unauthorized');
+        }
+      }
       
       const result = await LabCase.findByIdAndDelete(id);
       return !!result;

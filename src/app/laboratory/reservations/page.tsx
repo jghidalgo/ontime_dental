@@ -2,14 +2,26 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@apollo/client';
+import { gql, useQuery } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
-// import { CREATE_LAB_CASE } from '@/graphql/lab-mutations'; // Commented out - will be used with CreateCaseModal
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import CreateCaseModal from './CreateCaseModal';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
+
+const GET_LABORATORIES_WITH_PROCEDURES = gql`
+  query GetLaboratoriesWithProcedures {
+    laboratories {
+      id
+      procedures {
+        name
+        dailyCapacity
+      }
+    }
+  }
+`;
 
 type ReservationStatus =
   | 'in-production'
@@ -572,12 +584,16 @@ export default function LaboratoryReservationsPage() {
   const [focusedMonth, setFocusedMonth] = useState<Date>(new Date());
   const monthSelectorValue = `${focusedMonth.getFullYear()}-${String(focusedMonth.getMonth() + 1).padStart(2, '0')}-01`;
   const [monthSelector, setMonthSelector] = useState<string>(monthSelectorValue);
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const { t, language } = useTranslations();
+
+  const { data: labsData, loading: labsLoading } = useQuery(GET_LABORATORIES_WITH_PROCEDURES);
   
   // Fetch lab cases from GraphQL with companyId filtering
   const { data: labCasesData, refetch: refetchLabCases } = useQuery(GET_LAB_CASES, {
     variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
   });
   
   // Create lab case mutation (currently unused - to be integrated with CreateCaseModal)
@@ -605,6 +621,7 @@ export default function LaboratoryReservationsPage() {
   const [activeProcedure, setActiveProcedure] = useState<{ date: Date; procedure: string } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createModalDate, setCreateModalDate] = useState<Date | null>(null);
+  const [createModalProcedure, setCreateModalProcedure] = useState<string>('New Case');
   
   // Old create form state - commented out, to be replaced with CreateCaseModal
   // const [showCreateForm, setShowCreateForm] = useState(false);
@@ -615,6 +632,32 @@ export default function LaboratoryReservationsPage() {
   // const [createError, setCreateError] = useState<string | null>(null);
   
   const locale = language === 'es' ? 'es-ES' : 'en-US';
+
+  useEffect(() => {
+    const token = globalThis.localStorage.getItem('ontime.authToken');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getUserSession();
+    if (!user || !hasModuleAccess(user, 'laboratory')) {
+      router.push('/dashboard');
+      return;
+    }
+
+    const role = typeof user.role === 'string' ? user.role.trim().toLowerCase() : '';
+    const admin = role === 'admin';
+    setIsAdmin(admin);
+    if (!admin) {
+      setSelectedEntityId(user.companyId || '');
+      return;
+    }
+
+    if (!selectedEntityId) {
+      setSelectedEntityId(user.companyId || 'complete-dental-solutions');
+    }
+  }, [router]);
 
   // Old form reset function - commented out
   // const resetCreateForm = useCallback(
@@ -675,7 +718,25 @@ export default function LaboratoryReservationsPage() {
   }, []);
 
   const openCreateModal = useCallback((date: Date) => {
+    setCreateModalProcedure('New Case');
     setCreateModalDate(date);
+    setShowCreateModal(true);
+  }, []);
+
+  const availableProcedurePanels = useMemo(() => {
+    const laboratories = labsData?.laboratories ?? [];
+    const uniqueProcedures = new Set<string>();
+    for (const lab of laboratories) {
+      for (const proc of lab?.procedures ?? []) {
+        if (proc?.name) uniqueProcedures.add(proc.name);
+      }
+    }
+    return Array.from(uniqueProcedures).sort((a, b) => a.localeCompare(b));
+  }, [labsData]);
+
+  const openCreateForProcedure = useCallback((procedureName: string) => {
+    setCreateModalProcedure(procedureName);
+    setCreateModalDate(new Date());
     setShowCreateModal(true);
   }, []);
 
@@ -837,7 +898,7 @@ export default function LaboratoryReservationsPage() {
 
   const weekLabel = useMemo(() => {
     const start = weekDates[0];
-    const end = weekDates[weekDates.length - 1];
+    const end = weekDates.at(-1);
     if (!start || !end) return '';
 
     return `${dayFormatter.format(start)} – ${dayFormatter.format(end)}`;
@@ -918,6 +979,44 @@ export default function LaboratoryReservationsPage() {
         <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
 
+            {!isAdmin && (
+              <section className="mt-8 space-y-4">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl">
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Reservations')}</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">{t('Create a lab case')}</h2>
+                  <p className="mt-2 text-sm text-slate-400">{t('Select a procedure to create a case. The system will assign the earliest available day.')}</p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {labsLoading && (
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-sm text-slate-400">
+                      {t('Loading procedures...')}
+                    </div>
+                  )}
+
+                  {!labsLoading && availableProcedurePanels.length === 0 && (
+                    <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-sm text-slate-500">
+                      {t('No procedures configured.')}
+                    </div>
+                  )}
+
+                  {availableProcedurePanels.map((proc) => (
+                    <button
+                      key={proc}
+                      type="button"
+                      onClick={() => openCreateForProcedure(proc)}
+                      className="group rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-left shadow-xl transition hover:border-primary-400/40 hover:bg-white/[0.04]"
+                    >
+                      <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{t('Procedure')}</p>
+                      <p className="mt-2 text-lg font-semibold text-white group-hover:text-primary-100">{proc}</p>
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-primary-200">{t('Create case')}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {isAdmin && (
             <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-5">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Cases this month')}</p>
@@ -940,7 +1039,9 @@ export default function LaboratoryReservationsPage() {
                 <p className="text-xs text-emerald-200/70">{t('Includes completed routes')}</p>
               </div>
             </section>
+            )}
 
+            {isAdmin && (
             <section className="mt-10 flex flex-col gap-8 xl:flex-row">
               <div className="flex-1 space-y-6">
                 <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl">
@@ -1020,8 +1121,8 @@ export default function LaboratoryReservationsPage() {
                         ))}
                       </div>
                       <div className="grid grid-cols-7 gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10">
-                        {monthMatrix.map((week, weekIndex) => (
-                          <div key={weekIndex} className="contents">
+                        {monthMatrix.map((week) => (
+                          <div key={formatISODate(week[0])} className="contents">
                             {week.map((date) => {
                               const key = formatISODate(date);
                               const cases = casesByDate.get(key) ?? [];
@@ -1058,8 +1159,9 @@ export default function LaboratoryReservationsPage() {
                                   </div>
                                   <div className="space-y-1">
                                     {sortedProcedures.map(({ procedure, total }) => (
-                                      <div
+                                      <button
                                         key={procedure}
+                                        type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           openProcedureModal(date, procedure);
@@ -1071,7 +1173,7 @@ export default function LaboratoryReservationsPage() {
                                       >
                                         <span className="truncate pr-2">{procedure}</span>
                                         <span className="font-semibold">{total}</span>
-                                      </div>
+                                      </button>
                                     ))}
                                     {cases.length === 0 && (
                                       <p className="rounded-lg border border-dashed border-white/10 bg-white/[0.01] px-2 py-3 text-center text-[11px] text-slate-500">
@@ -1282,11 +1384,12 @@ export default function LaboratoryReservationsPage() {
                 </div>
               </aside>
             </section>
+            )}
           </div>
         </main>
       </div>
 
-      {activeProcedure && (
+      {isAdmin && activeProcedure && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-10 backdrop-blur-sm">
           <div className="relative w-full max-w-6xl max-h-[80vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/95 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.8)]">
             <button
@@ -1412,23 +1515,6 @@ export default function LaboratoryReservationsPage() {
                 )}
               </section>
 
-              <section className="rounded-3xl border border-dashed border-primary-400/30 bg-primary-500/5 p-6">
-                {/* TODO: Replace with CreateCaseModal component */}
-                <div className="flex flex-col gap-3 text-sm text-primary-100">
-                  <p className="text-base font-semibold text-white">{t('Need to create a new case?')}</p>
-                  <p>
-                    {t('Use the Create Case button in the main Laboratory page to add new cases.')}
-                  </p>
-                  <p className="text-xs text-primary-200/70 mt-2">
-                    {t('The inline case creation form will be available in a future update.')}
-                  </p>
-                </div>
-                {/* {showCreateForm ? (
-                  Old wizard form code commented out - to be replaced with CreateCaseModal
-                ) : (
-                  Start case builder button
-                )} */}
-              </section>
             </div>
           </div>
         </div>
@@ -1437,8 +1523,9 @@ export default function LaboratoryReservationsPage() {
       {/* Create Case Modal */}
       {showCreateModal && createModalDate && (
         <CreateCaseModal
-          procedure="New Case"
+          procedure={createModalProcedure}
           date={createModalDate}
+          autoSchedule={!isAdmin}
           onClose={closeCreateModal}
           onSuccess={() => {
             closeCreateModal();

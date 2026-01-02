@@ -11,7 +11,7 @@ import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
 import { GET_USERS } from '@/graphql/user-queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
-import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type NavigationItem = {
   label: string;
@@ -65,23 +65,6 @@ type TransitRoute = {
   clinics: number;
   departure: string;
   status: 'On time' | 'Delayed' | 'Departed';
-};
-
-type ClinicSnapshot = {
-  id: string;
-  clinic: string;
-  dentist: string;
-  cases: number;
-  satisfaction: number;
-  focus: string;
-};
-
-type QualityInsight = {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  sentiment: 'positive' | 'negative' | 'neutral';
 };
 
 type CaseStatus = 'in-production' | 'in-transit' | 'completed' | 'in-planning';
@@ -234,57 +217,6 @@ const transitRoutes: TransitRoute[] = [
   { id: 'route-b', region: 'Broward Coastal', cases: 9, clinics: 4, departure: '3:15 PM', status: 'Departed' },
   { id: 'route-c', region: 'Orlando Corridor', cases: 8, clinics: 3, departure: '4:05 PM', status: 'On time' },
   { id: 'route-d', region: 'Tampa Bay', cases: 7, clinics: 3, departure: '5:20 PM', status: 'Delayed' }
-];
-
-const clinicSnapshots: ClinicSnapshot[] = [
-  {
-    id: 'clinic-1',
-    clinic: 'Miller Dental - Coral Gables',
-    dentist: 'Dr. Alexis Stone',
-    cases: 28,
-    satisfaction: 97,
-    focus: 'Prefers layered zirconia · digital-only'
-  },
-  {
-    id: 'clinic-2',
-    clinic: 'Bayfront Smiles',
-    dentist: 'Dr. Maya Jensen',
-    cases: 22,
-    satisfaction: 94,
-    focus: 'Increase aligner slots · loves scan feedback loops'
-  },
-  {
-    id: 'clinic-3',
-    clinic: 'Sunset Orthodontics',
-    dentist: 'Dr. Luis Carmona',
-    cases: 18,
-    satisfaction: 91,
-    focus: 'Requests expedited thermoform production on Mondays'
-  }
-];
-
-const qualityInsights: QualityInsight[] = [
-  {
-    id: 'ontime-rate',
-    label: 'On-time delivery',
-    value: '96.4%',
-    delta: '+1.2 pts vs SLA',
-    sentiment: 'positive'
-  },
-  {
-    id: 'turnaround',
-    label: 'Average turnaround',
-    value: '6.3 days',
-    delta: '-0.8 days vs last month',
-    sentiment: 'positive'
-  },
-  {
-    id: 'digital-adoption',
-    label: 'Digital impressions',
-    value: '72%',
-    delta: '+9 scans submitted this week',
-    sentiment: 'neutral'
-  }
 ];
 
 const same = (value: string): LocalizedField => ({ en: value, es: value });
@@ -452,9 +384,9 @@ type CaseSearchForm = {
 
 export default function LaboratoryPage() {
   const router = useRouter();
-  const { t, language } = useTranslations();
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
-  const [userName, setUserName] = useState<string>('');
+  const { t } = useTranslations();
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [canSwitchEntity, setCanSwitchEntity] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<SubSectionId>('dashboard');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchForm, setSearchForm] = useState<CaseSearchForm>({
@@ -475,17 +407,20 @@ export default function LaboratoryPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const { data: labCasesData, loading: loadingCases, refetch: refetchCases } = useQuery(GET_LAB_CASES, {
-    variables: { companyId: undefined },
+    variables: { companyId: selectedEntityId || undefined },
+    skip: !selectedEntityId,
   });
   
-  const { data: laboratoriesData, loading: loadingLabs } = useQuery(GET_LABORATORIES);
+  const { data: laboratoriesData } = useQuery(GET_LABORATORIES);
   
-  const { data: clinicsData, loading: loadingClinics } = useQuery(GET_CLINIC_LOCATIONS, {
-    variables: { companyId: undefined }, // Temporarily fetch all clinics to debug
+  const { data: clinicsData } = useQuery(GET_CLINIC_LOCATIONS, {
+    variables: { companyId: selectedEntityId || undefined },
+    skip: !selectedEntityId,
   });
   
-  const { data: usersData, loading: loadingUsers } = useQuery(GET_USERS, {
+  const { data: usersData } = useQuery(GET_USERS, {
     variables: { companyId: selectedEntityId },
+    skip: !selectedEntityId,
   });
   
   const [createLabCase] = useMutation(CREATE_LAB_CASE, {
@@ -519,7 +454,7 @@ export default function LaboratoryPage() {
   const activeCaseRecords = caseSearchRecords;
 
   useEffect(() => {
-    const token = window.localStorage.getItem('ontime.authToken');
+    const token = globalThis.localStorage.getItem('ontime.authToken');
 
     if (!token) {
       router.push('/login');
@@ -528,12 +463,24 @@ export default function LaboratoryPage() {
 
     // Check module access for laboratory
     const user = getUserSession();
-    if (user && !hasModuleAccess(user, 'laboratory')) {
+    if (!user || !hasModuleAccess(user, 'laboratory')) {
       router.push('/dashboard');
       return;
     }
 
-    setUserName('Dr. Carter');
+    const isAdmin = user.role === 'admin';
+    setCanSwitchEntity(isAdmin);
+
+    // Non-admins are scoped to their own company.
+    if (!isAdmin) {
+      setSelectedEntityId(user.companyId || '');
+      return;
+    }
+
+    // Admin default entity selection.
+    if (!selectedEntityId) {
+      setSelectedEntityId(user.companyId || 'complete-dental-solutions');
+    }
   }, [router]);
 
   const totalCases = useMemo(
@@ -628,45 +575,28 @@ export default function LaboratoryPage() {
   }, [formatFeedback, hasSearched, lastEmptyMessageKey, searchResults.length, t]);
 
   const matchesSearchCriteria = (record: any) => {
-    if (searchForm.caseId && record.caseId && !record.caseId.toLowerCase().includes(searchForm.caseId.toLowerCase())) {
-      return false;
-    }
+    const includesText = (value: unknown, query: string) => {
+      const trimmed = query.trim();
+      if (!trimmed) return true;
+      if (typeof value !== 'string') return false;
+      return value.toLowerCase().includes(trimmed.toLowerCase());
+    };
 
-    if (searchForm.lab && searchForm.lab.trim() !== '' && record.lab && !record.lab.toLowerCase().includes(searchForm.lab.toLowerCase())) {
-      return false;
-    }
+    const matchesStatus = (value: unknown, status: CaseStatus | '') => {
+      if (!status) return true;
+      return value === status;
+    };
 
-    if (searchForm.clinic && searchForm.clinic.trim() !== '' && record.clinic && !record.clinic.toLowerCase().includes(searchForm.clinic.toLowerCase())) {
-      return false;
-    }
-
-    if (
-      searchForm.patientFirstName && record.patientFirstName &&
-      !record.patientFirstName.toLowerCase().includes(searchForm.patientFirstName.toLowerCase())
-    ) {
-      return false;
-    }
-
-    if (
-      searchForm.patientLastName && record.patientLastName &&
-      !record.patientLastName.toLowerCase().includes(searchForm.patientLastName.toLowerCase())
-    ) {
-      return false;
-    }
-
-    if (searchForm.doctor && record.doctor && !record.doctor.toLowerCase().includes(searchForm.doctor.toLowerCase())) {
-      return false;
-    }
-
-    if (searchForm.procedure && record.procedure && !record.procedure.toLowerCase().includes(searchForm.procedure.toLowerCase())) {
-      return false;
-    }
-
-    if (searchForm.status && record.status && record.status !== searchForm.status) {
-      return false;
-    }
-
-    return true;
+    return (
+      includesText(record.caseId, searchForm.caseId) &&
+      includesText(record.lab, searchForm.lab) &&
+      includesText(record.clinic, searchForm.clinic) &&
+      includesText(record.patientFirstName, searchForm.patientFirstName) &&
+      includesText(record.patientLastName, searchForm.patientLastName) &&
+      includesText(record.doctor, searchForm.doctor) &&
+      includesText(record.procedure, searchForm.procedure) &&
+      matchesStatus(record.status, searchForm.status)
+    );
   };
 
   const renderSearchResults = () => {
@@ -750,32 +680,6 @@ export default function LaboratoryPage() {
     return 'Holding steady';
   };
 
-  const renderActiveSectionContent = () => {
-    if (activeSection === 'case-search') {
-      return (
-        <div className="space-y-8">
-          {/* Case Search Content will be rendered here by the parent component */}
-        </div>
-      );
-    }
-
-    if (activeSection !== 'dashboard') {
-      return (
-        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center text-slate-400">
-          <h2 className="text-2xl font-semibold text-white">
-            {laboratorySubNavigation.find((section) => section.id === activeSection)?.label ?? 'Coming soon'}
-          </h2>
-          <p className="mt-3 text-sm">
-            This workspace is on our roadmap. Let the product team know what workflows you&apos;d like to streamline here.
-          </p>
-          <p className="mt-6 text-xs uppercase tracking-[0.4em] text-primary-200/70">Module in discovery</p>
-        </div>
-      );
-    }
-
-    return null; // Dashboard content will be rendered inline
-  };
-
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const results = activeCaseRecords.filter(matchesSearchCriteria);
@@ -821,17 +725,6 @@ export default function LaboratoryPage() {
     }
   };
 
-  const qualitySentimentClass = (sentiment: QualityInsight['sentiment']) => {
-    switch (sentiment) {
-      case 'positive':
-        return 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30';
-      case 'negative':
-        return 'bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30';
-      default:
-        return 'bg-slate-500/10 text-slate-300 ring-1 ring-slate-400/30';
-    }
-  };
-
   const statusBadgeClass = (status: CaseStatus) => {
     switch (status) {
       case 'completed':
@@ -856,10 +749,13 @@ export default function LaboratoryPage() {
             category={t('Laboratory')}
             title={t('Operations Command Center')}
             subtitle={t('Monitor the production floor, shipping timelines and clinic satisfaction at a glance.')}
-            showEntitySelector={true}
+            showEntitySelector={canSwitchEntity}
             entityLabel={t('Entity')}
             selectedEntityId={selectedEntityId}
-            onEntityChange={(id) => setSelectedEntityId(id)}
+            onEntityChange={(id) => {
+              if (!canSwitchEntity) return;
+              setSelectedEntityId(id);
+            }}
           />
 
           <TopNavigation />
@@ -1041,57 +937,7 @@ export default function LaboratoryPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-6">
-                      <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
-                        <h2 className="text-lg font-semibold text-white">Clinic sentiment</h2>
-                        <p className="mt-1 text-xs text-slate-500">Weekly NPS survey pulse across partner clinics.</p>
-
-                        <div className="mt-5 space-y-4">
-                          {clinicSnapshots.map((clinic) => (
-                            <div key={clinic.id} className="rounded-2xl border border-white/5 bg-slate-900/60 p-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-semibold text-white">{clinic.clinic}</p>
-                                  <p className="text-xs text-slate-400">{clinic.dentist}</p>
-                                </div>
-                                <span className="text-sm font-semibold text-primary-100">{clinic.satisfaction}%</span>
-                              </div>
-                              <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                                <p>{clinic.cases} active cases</p>
-                                <p className="text-right">{clinic.focus}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
-                        <h2 className="text-lg font-semibold text-white">Quality & SLAs</h2>
-                        <p className="mt-1 text-xs text-slate-500">Monitor commitments before tomorrow&apos;s huddle.</p>
-
-                        <div className="mt-5 space-y-3">
-                          {qualityInsights.map((insight) => (
-                            <div
-                              key={insight.id}
-                              className="flex items-center justify-between rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3"
-                            >
-                              <div>
-                                <p className="text-sm font-semibold text-white">{insight.label}</p>
-                                <p className="text-xs text-slate-400">{insight.delta}</p>
-                              </div>
-                              <span
-                                className={clsx(
-                                  'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
-                                  qualitySentimentClass(insight.sentiment)
-                                )}
-                              >
-                                {insight.value}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    <div />
                   </div>
                 </div>
               )}

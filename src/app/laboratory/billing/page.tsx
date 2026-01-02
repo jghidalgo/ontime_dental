@@ -7,6 +7,7 @@ import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import { GET_BILLING_CASES } from '@/graphql/billing-queries';
+import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
 type LabCase = {
   id: string;
@@ -55,11 +56,12 @@ export default function LaboratoryBillingPage() {
   const { t } = useTranslations();
   const locale = 'en-US';
 
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [canSwitchEntity, setCanSwitchEntity] = useState<boolean>(false);
   const [formStartDate, setFormStartDate] = useState<string>(defaultFilters.startDate);
   const [formEndDate, setFormEndDate] = useState<string>(defaultFilters.endDate);
   const [filters, setFilters] = useState({
-    companyId: 'complete-dental-solutions',
+    companyId: '',
     startDate: defaultFilters.startDate,
     endDate: defaultFilters.endDate
   });
@@ -86,41 +88,61 @@ export default function LaboratoryBillingPage() {
     [locale]
   );
 
-  const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        dateStyle: 'medium'
-      }),
-    [locale]
-  );
-
   useEffect(() => {
     const token = globalThis.localStorage.getItem('ontime.authToken');
+                    {(() => {
+                      if (loading) {
+                        return (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
+                              {t('Loading billing data...')}
+                            </td>
+                          </tr>
+                        );
+                      }
 
-    if (!token) {
-      router.push('/login');
-    }
-  }, [router]);
+                      if (aggregated.clinics.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
+                              {t('No billing records found for the selected period.')}
+                            </td>
+                          </tr>
+                        );
+                      }
 
-  // Update filters when company selector changes
-  useEffect(() => {
-    setFilters((prev) => ({
-      ...prev,
-      companyId: selectedEntityId
-    }));
-  }, [selectedEntityId]);
-
-  const aggregated = useMemo<AggregatedData>(() => {
-    const cases: LabCase[] = billingData?.billingCases || [];
-
-    const clinicMap = new Map<
-      string,
-      {
-        clinic: string;
-        clinicId?: string;
-        totalQuantity: number;
-        totalAmount: number;
-        procedureMap: Map<string, AggregatedProcedure>;
+                      return (
+                        <>
+                          {aggregated.clinics.map((entry) => (
+                            <Fragment key={entry.clinicId || entry.clinic}>
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="bg-white/[0.04] px-6 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-primary-200/80"
+                                >
+                                  {entry.clinic}
+                                </td>
+                              </tr>
+                              {entry.procedures.map((procedure) => (
+                                <tr key={`${entry.clinicId || entry.clinic}-${procedure.key}`} className="text-sm text-slate-200">
+                                  <td className="px-6 py-4 font-medium text-white">{procedure.procedure}</td>
+                                  <td className="px-6 py-4 text-center">{procedure.quantity}</td>
+                                  <td className="px-6 py-4 text-slate-300">{currencyFormatter.format(procedure.amount)}</td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      type="button"
+                                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
+                                    >
+                                      {t('Export')}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </Fragment>
+                          ))}
+                        </>
+                      );
+                    })()}
       }
     >();
 
@@ -208,10 +230,13 @@ export default function LaboratoryBillingPage() {
           category={t('Laboratory')}
           title={t('Billing Control Center')}
           subtitle={t('Review production invoices by clinic, procedure, and totals.')}
-          showEntitySelector={true}
+            showEntitySelector={canSwitchEntity}
           entityLabel={t('Company')}
           selectedEntityId={selectedEntityId}
-          onEntityChange={(id) => setSelectedEntityId(id)}
+            onEntityChange={(id) => {
+              if (!canSwitchEntity) return;
+              setSelectedEntityId(id);
+            }}
         />
         <TopNavigation />
       </div>
