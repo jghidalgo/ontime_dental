@@ -1,13 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useMemo, useState, useEffect, type FormEvent } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 
 import { useTranslations } from '@/lib/i18n';
 import { GET_TICKETS } from '@/graphql/ticket-queries';
-import { CREATE_TICKET, UPDATE_TICKET, DELETE_TICKET } from '@/graphql/ticket-mutations';
+import { CREATE_TICKET, UPDATE_TICKET } from '@/graphql/ticket-mutations';
+import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import { getUserSession, hasPermission, hasModuleAccess } from '@/lib/permissions';
@@ -26,6 +26,7 @@ type Ticket = {
   subject: string;
   requester: string;
   location: string;
+  companyId: string;
   channel: string;
   category: string;
   description: string;
@@ -90,6 +91,7 @@ export default function TicketsPage() {
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [canViewAll, setCanViewAll] = useState<boolean>(true); // Permission to view all tickets
   const [canModify, setCanModify] = useState<boolean>(true); // Permission to create/edit tickets
+  const [canResolve, setCanResolve] = useState<boolean>(false); // Permission to resolve/close tickets
   const [userEmail, setUserEmail] = useState<string>(''); // Current user's email for filtering
 
   const statusLabels = useMemo<Record<TicketStatus, string>>(
@@ -190,10 +192,13 @@ export default function TicketsPage() {
   };
 
   // Fetch tickets from GraphQL
-  const { data, loading, refetch } = useQuery(GET_TICKETS);
+  const { data, refetch } = useQuery(GET_TICKETS, {
+    variables: {
+      companyId: selectedEntityId || undefined
+    }
+  });
   const [createTicketMutation] = useMutation(CREATE_TICKET);
   const [updateTicketMutation] = useMutation(UPDATE_TICKET);
-  const [deleteTicketMutation] = useMutation(DELETE_TICKET);
 
   // Check permissions on mount
   useEffect(() => {
@@ -212,9 +217,11 @@ export default function TicketsPage() {
     // Set permissions
     const userCanViewAll = hasPermission(user, 'canViewAllTickets');
     const userCanModify = hasPermission(user, 'canModifyTickets');
+    const userCanResolve = hasPermission(user, 'canViewAllTickets');
 
     setCanViewAll(userCanViewAll);
     setCanModify(userCanModify);
+    setCanResolve(userCanResolve);
     setUserEmail(user.email);
 
     // Auto-select user's company for non-admin users (entity selector is disabled globally)
@@ -253,6 +260,23 @@ export default function TicketsPage() {
   const [form, setForm] = useState<TicketFormState>(defaultFormState);
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
   const [search, setSearch] = useState('');
+
+  const { data: clinicLocationsData } = useQuery(GET_CLINIC_LOCATIONS, {
+    variables: { companyId: selectedEntityId || undefined },
+    skip: !selectedEntityId
+  });
+
+  const clinicOptions = useMemo(() => {
+    const locations = clinicLocationsData?.clinicLocations || [];
+    const clinics = locations.flatMap((loc: any) => loc?.clinics || []);
+    return clinics
+      .map((clinic: any) => ({
+        id: clinic.clinicId as string,
+        name: clinic.name as string
+      }))
+      .filter((c: any) => typeof c.id === 'string' && c.id.length > 0 && typeof c.name === 'string' && c.name.length > 0)
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+  }, [clinicLocationsData]);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -274,9 +298,14 @@ export default function TicketsPage() {
     const satisfaction = tickets.length
       ? Math.round(
           tickets.reduce((acc, ticket) => {
-            const val = ticket.satisfaction ? 
-              (ticket.satisfaction === 'Satisfied' ? 100 : ticket.satisfaction === 'Neutral' ? 50 : 0) : 
-              100;
+            let val = 100;
+            if (ticket.satisfaction) {
+              if (ticket.satisfaction === 'Neutral') {
+                val = 50;
+              } else {
+                val = 0;
+              }
+            }
             return acc + val;
           }, 0) / tickets.length
         )
@@ -317,17 +346,6 @@ export default function TicketsPage() {
     const endIndex = startIndex + itemsPerPage;
     return filteredTickets.slice(startIndex, endIndex);
   }, [filteredTickets, currentPage, itemsPerPage]);
-
-  // Reset to page 1 when filters change
-  const handleFilterChange = useCallback((newFilter: 'all' | TicketStatus) => {
-    setStatusFilter(newFilter);
-    setCurrentPage(1);
-  }, []);
-
-  const handleSearchChange = useCallback((newSearch: string) => {
-    setSearch(newSearch);
-    setCurrentPage(1);
-  }, []);
 
   const statusBreakdown = useMemo(() => {
     return ticketStatuses.map((status) => {
@@ -393,6 +411,56 @@ export default function TicketsPage() {
       showSnackbar(t('Failed to create ticket. Please try again.'), 'error');
     }
   };
+
+  const handleResolveTicket = useCallback(
+    async (ticket: Ticket) => {
+      if (!canResolve) return;
+      if (ticket.status === 'resolved') return;
+
+      const now = new Date().toISOString();
+      const sanitizedUpdates = (ticket.updates || []).map((update: any) => ({
+        timestamp: update.timestamp,
+        message: update.message,
+        user: update.user
+      }));
+
+      try {
+        await updateTicketMutation({
+          variables: {
+            id: ticket.id,
+            input: {
+              subject: ticket.subject,
+              requester: ticket.requester,
+              location: ticket.location,
+              companyId: ticket.companyId,
+              channel: ticket.channel,
+              category: ticket.category,
+              description: ticket.description,
+              status: mapStatusToBackend('resolved'),
+              priority: mapPriorityToBackend(ticket.priority),
+              dueDate: ticket.dueDate,
+              updates: [
+                ...sanitizedUpdates,
+                {
+                  timestamp: now,
+                  message: 'Marked as resolved',
+                  user: userEmail || ticket.requester
+                }
+              ],
+              satisfaction: ticket.satisfaction || ''
+            }
+          }
+        });
+
+        await refetch();
+        showSnackbar(t('Ticket marked as resolved.'), 'success');
+      } catch (error) {
+        console.error('Error resolving ticket:', error);
+        showSnackbar(t('Failed to resolve ticket. Please try again.'), 'error');
+      }
+    },
+    [canResolve, mapPriorityToBackend, mapStatusToBackend, refetch, showSnackbar, t, updateTicketMutation, userEmail]
+  );
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -566,6 +634,16 @@ export default function TicketsPage() {
                             <p className="font-semibold text-slate-200">{t('Updates')}</p>
                             <p>{t('{count} touchpoints logged', { count: ticket.updates.length.toString() })}</p>
                           </div>
+
+                          {canResolve && ticket.status !== 'resolved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleResolveTicket(ticket)}
+                              className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                            >
+                              {t('Mark resolved')}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </article>
@@ -649,13 +727,22 @@ export default function TicketsPage() {
               </label>
               <label className="space-y-2 text-sm text-slate-200">
                 {t('Clinic / Location')}
-                <input
+                <select
                   value={form.location}
                   onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                  placeholder={t('Where is this happening?')}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none"
+                  disabled={clinicOptions.length === 0}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white focus:border-primary-400 focus:outline-none disabled:opacity-60"
                   required
-                />
+                >
+                  <option value="" disabled>
+                    {clinicOptions.length === 0 ? t('No clinics available') : t('Select a clinic')}
+                  </option>
+                  {clinicOptions.map((clinic: any) => (
+                    <option key={clinic.id} value={clinic.name}>
+                      {clinic.name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="space-y-2 text-sm text-slate-200">
                 {t('Category')}

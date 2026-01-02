@@ -1,12 +1,13 @@
 import { gql } from '@apollo/client';
 
 export const GET_TICKETS = gql`
-  query GetTickets {
-    tickets {
+  query GetTickets($companyId: ID) {
+    tickets(companyId: $companyId) {
       id
       subject
       requester
       location
+      companyId
       channel
       category
       description

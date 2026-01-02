@@ -27,6 +27,25 @@ function getBearerToken(ctx: { req?: { headers?: { get?: (key: string) => string
   return authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : '';
 }
 
+function getEffectivePermissions(user: any) {
+  const role = typeof user?.role === 'string' ? user.role.trim().toLowerCase() : '';
+  const defaultPermissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS['dentist'];
+  const permissions = user?.permissions || defaultPermissions;
+
+  return {
+    modules: permissions.modules || defaultPermissions.modules,
+    canModifySchedules: permissions.canModifySchedules ?? defaultPermissions.canModifySchedules,
+    canModifyDocuments: permissions.canModifyDocuments ?? defaultPermissions.canModifyDocuments,
+    canViewAllTickets: permissions.canViewAllTickets ?? defaultPermissions.canViewAllTickets,
+    canModifyTickets: permissions.canModifyTickets ?? defaultPermissions.canModifyTickets,
+    canViewReports: permissions.canViewReports ?? defaultPermissions.canViewReports,
+    canManageUsers: permissions.canManageUsers ?? defaultPermissions.canManageUsers,
+    canModifyContacts: permissions.canModifyContacts ?? defaultPermissions.canModifyContacts,
+    canAccessLaboratory: permissions.canAccessLaboratory ?? defaultPermissions.canAccessLaboratory,
+    canManageTransit: permissions.canManageTransit ?? defaultPermissions.canManageTransit
+  };
+}
+
 async function getAuthedUser(ctx: { req?: { headers?: { get?: (key: string) => string | null } } }) {
   const token = getBearerToken(ctx);
   if (!token) throw new Error('Unauthorized');
@@ -36,6 +55,89 @@ async function getAuthedUser(ctx: { req?: { headers?: { get?: (key: string) => s
   const user: any = await User.findById(userId).lean();
   if (!user) throw new Error('Unauthorized');
   return { user, payload };
+}
+
+function assertCanModifyTicket(permissions: any) {
+  if (!permissions?.canModifyTickets) {
+    throw new Error('Unauthorized');
+  }
+}
+
+function assertTicketAccessForNonAdmins(permissions: any, user: any, ticket: any) {
+  if (permissions?.canViewAllTickets) return;
+  if (ticket?.requester !== user?.email) {
+    throw new Error('Unauthorized');
+  }
+  if (user?.companyId && ticket?.companyId !== user.companyId) {
+    throw new Error('Unauthorized');
+  }
+}
+
+function isResolvingTicket(input: any, existing: any): boolean {
+  return typeof input?.status === 'string' && input.status === 'Resolved' && existing?.status !== 'Resolved';
+}
+
+async function notifyTicketResolved(existing: any, updatedTicket: any) {
+  const requesterEmail = typeof existing?.requester === 'string' ? existing.requester.toLowerCase() : '';
+  if (!requesterEmail.includes('@')) return;
+
+  const requesterUser: any = await User.findOne({ email: requesterEmail }).select('_id').lean();
+  if (!requesterUser) return;
+
+  await Notification.create({
+    userId: requesterUser._id.toString(),
+    companyId: (updatedTicket.companyId as string) || undefined,
+    title: 'Ticket resolved',
+    message: `Your ticket "${updatedTicket.subject}" for "${updatedTicket.location}" was marked as resolved.`,
+    readAt: null
+  });
+}
+
+async function notifyAdminsNewTicket(createdTicket: any, actorUserId: string) {
+  const companyId = typeof createdTicket?.companyId === 'string' ? createdTicket.companyId : '';
+
+  // Treat users as active unless isActive is explicitly false (legacy records may not have the field).
+  const activeFilter: any = { $or: [{ isActive: true }, { isActive: { $exists: false } }, { isActive: null }] };
+
+  const adminRoles = ['admin', 'manager'];
+  const recipientOr: any[] = companyId
+    ? [
+        { role: { $in: adminRoles }, companyId },
+        { role: { $in: adminRoles }, companyId: { $exists: false } },
+        { role: { $in: adminRoles }, companyId: null },
+        { role: { $in: adminRoles }, companyId: '' }
+      ]
+    : [{ role: { $in: adminRoles } }];
+
+  const recipientsRaw: any[] = await User.find({ ...activeFilter, $or: recipientOr }).select('_id').lean();
+
+  const recipientIds = Array.from(
+    new Set(
+      recipientsRaw
+        .map((r) => r?._id?.toString?.())
+        .filter((id) => typeof id === 'string' && id.length > 0 && id !== actorUserId)
+    )
+  );
+
+  if (recipientIds.length === 0) return;
+
+  const title = 'New ticket created';
+  const messageParts = [
+    `Subject: ${createdTicket.subject}`,
+    `Requester: ${createdTicket.requester}`,
+    `Clinic: ${createdTicket.location}`,
+    `Priority: ${createdTicket.priority}`
+  ];
+
+  await Notification.insertMany(
+    recipientIds.map((userId) => ({
+      userId,
+      companyId: companyId || undefined,
+      title,
+      message: messageParts.join(' · '),
+      readAt: null
+    }))
+  );
 }
 
 export const resolvers = {
@@ -370,9 +472,27 @@ export const resolvers = {
     },
 
     // Ticket Queries
-    tickets: async (_: unknown, { companyId }: { companyId?: string }) => {
+    tickets: async (
+      _: unknown,
+      { companyId }: { companyId?: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
-      const filter = companyId ? { companyId } : {};
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+
+      const filter: any = {};
+      if (companyId) {
+        filter.companyId = companyId;
+      } else if (!permissions.canViewAllTickets) {
+        if (!user.companyId) throw new Error('Unauthorized');
+        filter.companyId = user.companyId;
+      }
+
+      if (!permissions.canViewAllTickets) {
+        filter.requester = user.email;
+      }
+
       const tickets = await Ticket.find(filter).sort({ createdAt: -1 }).lean();
       return tickets.map((ticket: any) => ({
         ...ticket,
@@ -380,10 +500,26 @@ export const resolvers = {
       }));
     },
 
-    ticket: async (_: unknown, { id }: { id: string }) => {
+    ticket: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+
       const ticket: any = await Ticket.findById(id).lean();
       if (!ticket) return null;
+
+      if (!permissions.canViewAllTickets && ticket.requester !== user.email) {
+        throw new Error('Unauthorized');
+      }
+
+      if (!permissions.canViewAllTickets && user.companyId && ticket.companyId !== user.companyId) {
+        throw new Error('Unauthorized');
+      }
+
       return {
         ...ticket,
         id: ticket._id.toString()
@@ -1117,10 +1253,11 @@ export const resolvers = {
         throw new Error('Invalid credentials');
       }
 
-      const token = createToken({ sub: user._id.toString(), role: user.role, email: user.email });
+      const normalizedRole = typeof user.role === 'string' ? user.role.trim().toLowerCase() : user.role;
+      const token = createToken({ sub: user._id.toString(), role: normalizedRole, email: user.email });
 
       // Get default permissions based on role, or use stored permissions if they exist
-      const defaultPermissions = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS['dentist'];
+      const defaultPermissions = ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS['dentist'];
       const permissions = user.permissions || defaultPermissions;
 
       // Ensure all permission fields are present (merge with defaults)
@@ -1144,7 +1281,7 @@ export const resolvers = {
           id: user._id.toString(),
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: normalizedRole,
           companyId: user.companyId,
           permissions: completePermissions
         }
@@ -1642,16 +1779,39 @@ export const resolvers = {
     // Ticket Mutations
     createTicket: async (
       _: unknown,
-      { input }: { input: any }
+      { input }: { input: any },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
-      
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+
+      if (!permissions.canModifyTickets) {
+        throw new Error('Unauthorized');
+      }
+
+      if (!permissions.canViewAllTickets) {
+        if (input.requester !== user.email) {
+          throw new Error('Unauthorized');
+        }
+        if (user.companyId && input.companyId !== user.companyId) {
+          throw new Error('Unauthorized');
+        }
+      }
+
       const ticketData = {
         ...input,
         createdAt: new Date().toISOString()
       };
-      
+
       const ticket: any = await Ticket.create(ticketData);
+
+      // Notify admins/managers that a new ticket was created.
+      const actorUserId = user._id?.toString?.() || '';
+      if (actorUserId) {
+        await notifyAdminsNewTicket(ticket, actorUserId);
+      }
+
       return {
         ...ticket.toObject(),
         id: ticket._id.toString()
@@ -1660,20 +1820,35 @@ export const resolvers = {
 
     updateTicket: async (
       _: unknown,
-      { id, input }: { id: string; input: any }
+      { id, input }: { id: string; input: any },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
-      
-      const ticket: any = await Ticket.findByIdAndUpdate(
-        id,
-        input,
-        { new: true }
-      );
-      
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+
+      assertCanModifyTicket(permissions);
+
+      const existing: any = await Ticket.findById(id).lean();
+      if (!existing) {
+        throw new Error('Ticket not found');
+      }
+
+      assertTicketAccessForNonAdmins(permissions, user, existing);
+
+      const resolving = isResolvingTicket(input, existing);
+      if (resolving && !permissions.canViewAllTickets) throw new Error('Unauthorized');
+
+      const ticket: any = await Ticket.findByIdAndUpdate(id, input, { new: true });
+
       if (!ticket) {
         throw new Error('Ticket not found');
       }
-      
+
+      if (resolving) {
+        await notifyTicketResolved(existing, ticket);
+      }
+
       return {
         ...ticket.toObject(),
         id: ticket._id.toString()
@@ -1682,10 +1857,24 @@ export const resolvers = {
 
     deleteTicket: async (
       _: unknown,
-      { id }: { id: string }
+      { id }: { id: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
     ) => {
       await connectToDatabase();
-      
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
+
+      const existing: any = await Ticket.findById(id).lean();
+      if (!existing) return false;
+
+      if (!permissions.canViewAllTickets && existing.requester !== user.email) {
+        throw new Error('Unauthorized');
+      }
+
+      if (!permissions.canViewAllTickets && user.companyId && existing.companyId !== user.companyId) {
+        throw new Error('Unauthorized');
+      }
+
       const result = await Ticket.findByIdAndDelete(id);
       return !!result;
     },
