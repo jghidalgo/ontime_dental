@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { gql, useQuery } from '@apollo/client';
+import { gql, useMutation, useQuery } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
+import { DELETE_LAB_CASE } from '@/graphql/lab-mutations';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
@@ -24,6 +25,8 @@ const GET_LABORATORIES_WITH_PROCEDURES = gql`
 `;
 
 type ReservationStatus =
+  | 'office-reservation'
+  | 'received-cdl'
   | 'in-production'
   | 'in-transit'
   | 'completed'
@@ -42,6 +45,7 @@ type ReservationCase = {
   chair: string;
   durationMinutes: number;
   status: ReservationStatus;
+  createdByUserId?: string;
   category?: string;
   priority?: string;
   shadeGuide?: string;
@@ -133,7 +137,7 @@ const materialTypeOptions = [
 
 const chairOptions = ['CAD-01', 'CAD-02', 'CAD-03', 'ALN-01', 'ALN-02', 'MILL-02', 'CER-02', 'CER-03', 'EST-02'];
 
-const statusOptions: ReservationStatus[] = ['in-planning', 'in-production', 'in-transit', 'completed'];
+const statusOptions: ReservationStatus[] = ['office-reservation', 'received-cdl', 'in-production', 'in-transit', 'completed', 'in-planning'];
 
 const createInitialFormState = (procedure: string, date: string): CreateCaseFormState => ({
   patientType: 'existing',
@@ -496,6 +500,8 @@ const initialReservationCases: ReservationCase[] = [
 ];
 
 const statusStyles: Record<ReservationStatus, string> = {
+  'office-reservation': 'bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/40',
+  'received-cdl': 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/40',
   'in-planning': 'bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/40',
   'in-production': 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/40',
   'in-transit': 'bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/40',
@@ -567,6 +573,7 @@ const labCaseToReservation = (labCase: any): ReservationCase => {
     chair: labCase.toothNumbers?.join(', ') || 'N/A',
     durationMinutes: 60,
     status: labCase.status,
+    createdByUserId: typeof labCase.createdByUserId === 'string' ? labCase.createdByUserId : undefined,
     category: labCase.category,
     priority: labCase.priority,
     shadeGuide: labCase.shadeGuide,
@@ -587,6 +594,9 @@ export default function LaboratoryReservationsPage() {
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const { t, language } = useTranslations();
+
+  const userSession = getUserSession();
+  const sessionUserId = userSession?.userId;
 
   const { data: labsData, loading: labsLoading } = useQuery(GET_LABORATORIES_WITH_PROCEDURES);
 
@@ -612,6 +622,12 @@ export default function LaboratoryReservationsPage() {
   const { data: labCasesData, refetch: refetchLabCases } = useQuery(GET_LAB_CASES, {
     variables: { companyId: selectedEntityId },
     skip: !selectedEntityId,
+  });
+
+  const [deleteLabCase, { loading: deletingLabCase }] = useMutation(DELETE_LAB_CASE, {
+    onCompleted: () => {
+      refetchLabCases();
+    }
   });
   
   // Create lab case mutation (currently unused - to be integrated with CreateCaseModal)
@@ -640,6 +656,8 @@ export default function LaboratoryReservationsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createModalDate, setCreateModalDate] = useState<Date | null>(null);
   const [createModalProcedure, setCreateModalProcedure] = useState<string>('New Case');
+  const [cancelTarget, setCancelTarget] = useState<ReservationCase | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   
   // Old create form state - commented out, to be replaced with CreateCaseModal
   // const [showCreateForm, setShowCreateForm] = useState(false);
@@ -707,6 +725,8 @@ export default function LaboratoryReservationsPage() {
   );
   const statusLabelMap = useMemo(
     () => ({
+      'office-reservation': t('Lab reservation made at the office'),
+      'received-cdl': t('Received and Waiting to be distribuite at CDL'),
       'in-planning': t('In Planning'),
       'in-production': t('In Production'),
       'in-transit': t('In Transit'),
@@ -728,6 +748,11 @@ export default function LaboratoryReservationsPage() {
 
   const closeModal = useCallback(() => {
     setActiveProcedure(null);
+  }, []);
+
+  const closeCancelModal = useCallback(() => {
+    setCancelTarget(null);
+    setCancelError(null);
   }, []);
 
   const openCreateModal = useCallback((date: Date) => {
@@ -1504,9 +1529,30 @@ export default function LaboratoryReservationsPage() {
                           <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{t('Case ID')}</p>
                           <p className="mt-1 text-sm font-semibold text-slate-200">{reservation.id}</p>
                         </div>
-                        <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide', statusStyles[reservation.status])}>
-                          {statusLabelMap[reservation.status]}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide', statusStyles[reservation.status])}>
+                            {statusLabelMap[reservation.status]}
+                          </span>
+                          {(isAdmin || (sessionUserId && reservation.createdByUserId === sessionUserId)) &&
+                            reservation.status === 'office-reservation' && (
+                              <button
+                                type="button"
+                                disabled={deletingLabCase}
+                                onClick={async () => {
+                                  setCancelError(null);
+                                  setCancelTarget(reservation);
+                                }}
+                                className={clsx(
+                                  'inline-flex items-center justify-center rounded-lg px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition',
+                                  deletingLabCase
+                                    ? 'cursor-not-allowed bg-white/5 text-slate-500'
+                                    : 'bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20'
+                                )}
+                              >
+                                {t('Cancel')}
+                              </button>
+                            )}
+                        </div>
                       </div>
                       <div className="mt-4 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
                         <div>
@@ -1583,6 +1629,93 @@ export default function LaboratoryReservationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <dialog
+          open
+          aria-label={t('Cancel case')}
+          className="fixed inset-0 z-[60] m-0 flex h-full w-full items-center justify-center bg-slate-950/80 px-4 py-10 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.8)]">
+            <button
+              type="button"
+              onClick={closeCancelModal}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-slate-200 transition hover:border-primary-400/40 hover:text-white"
+              aria-label={t('Close')}
+            >
+              ×
+            </button>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-rose-200/80">{t('Cancel case')}</p>
+                <h3 className="mt-2 text-xl font-semibold text-white">{t('Confirm cancellation')}</h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  {t('This will permanently delete the lab case. This action cannot be undone.')}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Case')}</span>
+                  <span className="font-semibold text-slate-100">{cancelTarget.caseId}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Procedure')}</span>
+                  <span className="font-semibold text-slate-100">{cancelTarget.procedure}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</span>
+                  <span className="font-semibold text-slate-100">
+                    {cancelTarget.patientFirstName} {cancelTarget.patientLastName}
+                  </span>
+                </div>
+              </div>
+
+              {cancelError && (
+                <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+                  {cancelError}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeCancelModal}
+                  disabled={deletingLabCase}
+                  className={clsx(
+                    'inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-white/10 hover:text-white',
+                    deletingLabCase && 'cursor-not-allowed opacity-60'
+                  )}
+                >
+                  {t('Keep case')}
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingLabCase}
+                  onClick={async () => {
+                    try {
+                      setCancelError(null);
+                      await deleteLabCase({ variables: { id: cancelTarget.id } });
+                      closeCancelModal();
+                      closeModal();
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : t('Unable to cancel case');
+                      setCancelError(message);
+                    }
+                  }}
+                  className={clsx(
+                    'inline-flex items-center justify-center rounded-2xl bg-rose-500 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-rose-900/30 transition hover:bg-rose-400',
+                    deletingLabCase && 'cursor-not-allowed bg-rose-500/50 text-slate-200'
+                  )}
+                >
+                  {deletingLabCase ? t('Cancelling...') : t('Cancel case')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </dialog>
       )}
 
       {/* Create Case Modal */}

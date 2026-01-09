@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { Language, useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LAB_CASES, GET_LABORATORIES } from '@/graphql/lab-queries';
-import { CREATE_LAB_CASE } from '@/graphql/lab-mutations';
+import { CREATE_LAB_CASE, DELETE_LAB_CASE } from '@/graphql/lab-mutations';
 import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
 import { GET_USERS } from '@/graphql/user-queries';
 import TopNavigation from '@/components/TopNavigation';
@@ -67,9 +67,16 @@ type TransitRoute = {
   status: 'On time' | 'Delayed' | 'Departed';
 };
 
-type CaseStatus = 'in-production' | 'in-transit' | 'completed' | 'in-planning';
+type CaseStatus =
+  | 'office-reservation'
+  | 'received-cdl'
+  | 'in-production'
+  | 'in-transit'
+  | 'completed'
+  | 'in-planning';
 
 type CaseSearchRecord = {
+  id: string;
   caseId: string;
   lab: string;
   clinic: string;
@@ -80,6 +87,7 @@ type CaseSearchRecord = {
   doctor: string;
   procedure: string;
   status: CaseStatus;
+  createdByUserId?: string | null;
   qrCode?: string;
   qrCodeData?: string;
 };
@@ -352,6 +360,7 @@ const caseSearchRecordData: LocalizedCaseSearchRecord[] = [
 
 const localizeCaseSearchRecords = (language: Language): CaseSearchRecord[] =>
   caseSearchRecordData.map((record) => ({
+    id: record.caseId,
     caseId: record.caseId,
     lab: record.lab[language],
     clinic: record.clinic[language],
@@ -361,7 +370,8 @@ const localizeCaseSearchRecords = (language: Language): CaseSearchRecord[] =>
     reservationDate: record.reservationDate,
     doctor: record.doctor[language],
     procedure: record.procedure[language],
-    status: record.status
+    status: record.status,
+    createdByUserId: null
   }));
 
 const caseSearchRecordsByLanguage: Record<Language, CaseSearchRecord[]> = {
@@ -369,7 +379,7 @@ const caseSearchRecordsByLanguage: Record<Language, CaseSearchRecord[]> = {
   es: localizeCaseSearchRecords('es')
 };
 
-const statusOrder: CaseStatus[] = ['in-production', 'in-transit', 'completed', 'in-planning'];
+const statusOrder: CaseStatus[] = ['office-reservation', 'received-cdl', 'in-production', 'in-transit', 'completed', 'in-planning'];
 
 type CaseSearchForm = {
   caseId: string;
@@ -389,6 +399,8 @@ export default function LaboratoryPage() {
   const [canSwitchEntity, setCanSwitchEntity] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<SubSectionId>('dashboard');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<CaseSearchRecord | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [searchForm, setSearchForm] = useState<CaseSearchForm>({
     caseId: '',
     lab: '',
@@ -405,6 +417,10 @@ export default function LaboratoryPage() {
   const [lastEmptyMessageKey, setLastEmptyMessageKey] = useState<string | undefined>(undefined);
   const [selectedCase, setSelectedCase] = useState<CaseSearchRecord | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const userSession = getUserSession();
+  const sessionUserId = userSession?.userId;
+  const isAdminUser = userSession?.role === 'admin';
 
   const { data: labCasesData, loading: loadingCases, refetch: refetchCases } = useQuery(GET_LAB_CASES, {
     variables: { companyId: selectedEntityId || undefined },
@@ -430,11 +446,18 @@ export default function LaboratoryPage() {
     },
   });
 
+  const [deleteLabCase, { loading: deletingLabCase }] = useMutation(DELETE_LAB_CASE, {
+    onCompleted: () => {
+      refetchCases();
+    },
+  });
+
   // Transform lab cases from GraphQL to search format
   const caseSearchRecords = useMemo<CaseSearchRecord[]>(() => {
     if (!labCasesData?.labCases) return [];
     
     return labCasesData.labCases.map((labCase: any) => ({
+      id: labCase.id ?? labCase._id,
       caseId: labCase.caseId,
       lab: labCase.lab,
       clinic: labCase.clinic,
@@ -445,6 +468,7 @@ export default function LaboratoryPage() {
       doctor: labCase.doctor,
       procedure: labCase.procedure,
       status: labCase.status as CaseStatus,
+      createdByUserId: labCase.createdByUserId ?? null,
       qrCode: labCase.qrCode,
       qrCodeData: labCase.qrCodeData
     }));
@@ -535,6 +559,8 @@ export default function LaboratoryPage() {
   );
 
   const caseStatusLabels: Record<CaseStatus, string> = {
+    'office-reservation': 'Lab reservation made at the office',
+    'received-cdl': 'Received and Waiting to be distribuite at CDL',
     'in-production': 'In production',
     'in-transit': 'In transit',
     completed: 'Completed',
@@ -599,6 +625,11 @@ export default function LaboratoryPage() {
     );
   };
 
+  const closeCancelModal = useCallback(() => {
+    setCancelTarget(null);
+    setCancelError(null);
+  }, []);
+
   const renderSearchResults = () => {
     if (!hasSearched) {
       return (
@@ -649,16 +680,39 @@ export default function LaboratoryPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCase(record);
-                      setShowDetailsModal(true);
-                    }}
-                    className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
-                  >
-                    {t('View details')}
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCase(record);
+                        setShowDetailsModal(true);
+                      }}
+                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
+                    >
+                      {t('View details')}
+                    </button>
+
+                    {(isAdminUser || (sessionUserId && record.createdByUserId === sessionUserId)) &&
+                      record.status === 'office-reservation' &&
+                      Boolean(record.id) && (
+                        <button
+                          type="button"
+                          disabled={deletingLabCase}
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelTarget(record);
+                          }}
+                          className={clsx(
+                            'rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wide transition',
+                            deletingLabCase
+                              ? 'cursor-not-allowed bg-white/5 text-slate-500'
+                              : 'bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20'
+                          )}
+                        >
+                          {t('Cancel')}
+                        </button>
+                      )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -731,8 +785,12 @@ export default function LaboratoryPage() {
         return 'bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40';
       case 'in-transit':
         return 'bg-sky-500/10 text-sky-200 ring-1 ring-sky-400/40';
-      case 'in-planning':
+      case 'in-production':
+      case 'received-cdl':
         return 'bg-amber-500/10 text-amber-200 ring-1 ring-amber-400/40';
+      case 'office-reservation':
+      case 'in-planning':
+        return 'bg-slate-500/10 text-slate-200 ring-1 ring-slate-400/40';
       default:
         return 'bg-primary-500/10 text-primary-100 ring-1 ring-primary-400/40';
     }
@@ -1665,6 +1723,97 @@ export default function LaboratoryPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <dialog
+          open
+          aria-label={t('Cancel case')}
+          className="fixed inset-0 z-[60] m-0 flex h-full w-full items-center justify-center bg-slate-950/80 px-4 py-10 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.8)]">
+            <button
+              type="button"
+              onClick={closeCancelModal}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-slate-200 transition hover:border-primary-400/40 hover:text-white"
+              aria-label={t('Close')}
+            >
+              ×
+            </button>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-rose-200/80">{t('Cancel case')}</p>
+                <h3 className="mt-2 text-xl font-semibold text-white">{t('Confirm cancellation')}</h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  {t('This will permanently delete the lab case. This action cannot be undone.')}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Case')}</span>
+                  <span className="font-semibold text-slate-100">{cancelTarget.caseId}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Procedure')}</span>
+                  <span className="font-semibold text-slate-100">{cancelTarget.procedure}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Patient')}</span>
+                  <span className="font-semibold text-slate-100">
+                    {cancelTarget.patientFirstName} {cancelTarget.patientLastName}
+                  </span>
+                </div>
+              </div>
+
+              {cancelError && (
+                <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+                  {cancelError}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeCancelModal}
+                  disabled={deletingLabCase}
+                  className={clsx(
+                    'inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-white/10 hover:text-white',
+                    deletingLabCase && 'cursor-not-allowed opacity-60'
+                  )}
+                >
+                  {t('Keep case')}
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingLabCase}
+                  onClick={async () => {
+                    try {
+                      setCancelError(null);
+                      await deleteLabCase({ variables: { id: cancelTarget.id } });
+                      setSearchResults((previous) => previous.filter((record) => record.id !== cancelTarget.id));
+                      if (selectedCase?.id === cancelTarget.id) {
+                        setShowDetailsModal(false);
+                        setSelectedCase(null);
+                      }
+                      closeCancelModal();
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : t('Unable to cancel case');
+                      setCancelError(message);
+                    }
+                  }}
+                  className={clsx(
+                    'inline-flex items-center justify-center rounded-2xl bg-rose-500 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-slate-950 shadow-lg shadow-rose-900/30 transition hover:bg-rose-400',
+                    deletingLabCase && 'cursor-not-allowed bg-rose-500/50 text-slate-200'
+                  )}
+                >
+                  {deletingLabCase ? t('Cancelling...') : t('Cancel case')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </dialog>
       )}
     </div>
   );

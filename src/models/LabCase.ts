@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ILabCase extends Document {
   caseId: string;
   companyId: string;
+  createdByUserId?: string;
   patientId: string; // Reference to Patient
   labId?: string; // Reference to Laboratory
   lab: string;
@@ -16,7 +17,13 @@ export interface ILabCase extends Document {
   doctor: string;
   procedure: string;
   price?: number;
-  status: 'in-production' | 'in-transit' | 'completed' | 'in-planning';
+  status:
+    | 'office-reservation'
+    | 'received-cdl'
+    | 'in-production'
+    | 'in-transit'
+    | 'completed'
+    | 'in-planning';
   productionStage?: 'design' | 'printing' | 'milling' | 'finishing' | 'qc' | 'packaging';
   category: string;
   priority: 'normal' | 'rush' | 'urgent';
@@ -63,6 +70,10 @@ const LabCaseSchema: Schema = new Schema(
     companyId: {
       type: String,
       required: true,
+      index: true,
+    },
+    createdByUserId: {
+      type: String,
       index: true,
     },
     patientId: {
@@ -126,8 +137,8 @@ const LabCaseSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      enum: ['in-production', 'in-transit', 'completed', 'in-planning'],
-      default: 'in-planning',
+      enum: ['office-reservation', 'received-cdl', 'in-production', 'in-transit', 'completed', 'in-planning'],
+      default: 'office-reservation',
     },
     productionStage: {
       type: String,

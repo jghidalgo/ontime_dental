@@ -2855,9 +2855,10 @@ export const resolvers = {
         ...finalInput,
         caseId,
         patientId,
+        createdByUserId: user?._id?.toString?.() ?? undefined,
         qrCode: qrCodeImage,
         qrCodeData,
-        status: 'in-planning'
+        status: 'office-reservation'
       });
       
       await labCase.save();
@@ -2997,9 +2998,23 @@ export const resolvers = {
       const existing: any = await LabCase.findById(id).lean();
       if (!existing) return false;
 
-      if (!isAdminUser(user)) {
+      const isAdmin = isAdminUser(user);
+
+      if (!isAdmin) {
         const scopedCompanyId = getScopedCompanyIdForLaboratory(user);
         if (scopedCompanyId && existing.companyId !== scopedCompanyId) {
+          throw new Error('Unauthorized');
+        }
+
+        // Only allow cancellation while the case is in the initial "office reservation" status,
+        // and only by the user who created it.
+        if (existing.status !== 'office-reservation') {
+          throw new Error('Unauthorized');
+        }
+
+        const requesterId = user?._id?.toString?.() ?? '';
+        const creatorId = typeof existing.createdByUserId === 'string' ? existing.createdByUserId : '';
+        if (!requesterId || !creatorId || requesterId !== creatorId) {
           throw new Error('Unauthorized');
         }
       }

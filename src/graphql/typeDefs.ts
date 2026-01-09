@@ -568,6 +568,7 @@ const typeDefs = gql`
     id: ID!
     caseId: String!
     companyId: String!
+    createdByUserId: String
     patientId: String!
     labId: String
     lab: String!

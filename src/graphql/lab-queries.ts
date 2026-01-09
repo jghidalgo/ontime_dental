@@ -20,6 +20,7 @@ export const GET_LAB_CASES = gql`
       id
       caseId
       companyId
+      createdByUserId
       lab
       clinic
       patientFirstName
@@ -51,6 +52,7 @@ export const GET_LAB_CASE = gql`
     labCase(id: $id) {
       id
       caseId
+      createdByUserId
       lab
       clinic
       patientFirstName
@@ -82,6 +84,7 @@ export const GET_LAB_CASE_BY_NUMBER = gql`
     labCaseByNumber(caseId: $caseId) {
       id
       caseId
+      createdByUserId
       lab
       clinic
       patientFirstName

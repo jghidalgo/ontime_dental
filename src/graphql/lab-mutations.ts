@@ -6,6 +6,7 @@ export const CREATE_LAB_CASE = gql`
       id
       caseId
       companyId
+      createdByUserId
       patientId
       labId
       lab
@@ -42,6 +43,7 @@ export const UPDATE_LAB_CASE = gql`
     updateLabCase(id: $id, input: $input) {
       id
       caseId
+      createdByUserId
       lab
       clinic
       patientFirstName
