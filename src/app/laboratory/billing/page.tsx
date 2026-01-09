@@ -90,59 +90,41 @@ export default function LaboratoryBillingPage() {
 
   useEffect(() => {
     const token = globalThis.localStorage.getItem('ontime.authToken');
-                    {(() => {
-                      if (loading) {
-                        return (
-                          <tr>
-                            <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
-                              {t('Loading billing data...')}
-                            </td>
-                          </tr>
-                        );
-                      }
+    if (!token) {
+      router.push('/login');
+      return;
+    }
 
-                      if (aggregated.clinics.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
-                              {t('No billing records found for the selected period.')}
-                            </td>
-                          </tr>
-                        );
-                      }
+    const user = getUserSession();
+    if (!user || !hasModuleAccess(user, 'laboratory')) {
+      router.push('/dashboard');
+      return;
+    }
 
-                      return (
-                        <>
-                          {aggregated.clinics.map((entry) => (
-                            <Fragment key={entry.clinicId || entry.clinic}>
-                              <tr>
-                                <td
-                                  colSpan={4}
-                                  className="bg-white/[0.04] px-6 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-primary-200/80"
-                                >
-                                  {entry.clinic}
-                                </td>
-                              </tr>
-                              {entry.procedures.map((procedure) => (
-                                <tr key={`${entry.clinicId || entry.clinic}-${procedure.key}`} className="text-sm text-slate-200">
-                                  <td className="px-6 py-4 font-medium text-white">{procedure.procedure}</td>
-                                  <td className="px-6 py-4 text-center">{procedure.quantity}</td>
-                                  <td className="px-6 py-4 text-slate-300">{currencyFormatter.format(procedure.amount)}</td>
-                                  <td className="px-6 py-4 text-right">
-                                    <button
-                                      type="button"
-                                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100 transition hover:border-primary-400/40 hover:text-primary-50"
-                                    >
-                                      {t('Export')}
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </Fragment>
-                          ))}
-                        </>
-                      );
-                    })()}
+    const role = typeof user.role === 'string' ? user.role.trim().toLowerCase() : '';
+    const isAdmin = role === 'admin';
+
+    setCanSwitchEntity(isAdmin);
+    if (!isAdmin) {
+      const companyId = user.companyId || '';
+      setSelectedEntityId(companyId);
+      setFilters((previous) => ({
+        ...previous,
+        companyId
+      }));
+    }
+  }, [router]);
+
+  const aggregated = useMemo<AggregatedData>(() => {
+    const cases: LabCase[] = billingData?.billingCases ?? [];
+    const clinicMap = new Map<
+      string,
+      {
+        clinic: string;
+        clinicId?: string;
+        totalQuantity: number;
+        totalAmount: number;
+        procedureMap: Map<string, AggregatedProcedure>;
       }
     >();
 
@@ -222,6 +204,72 @@ export default function LaboratoryBillingPage() {
       endDate: formEndDate
     });
   };
+
+  const billingTableBody = useMemo(() => {
+    if (loading) {
+      return (
+        <tr>
+          <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
+            {t('Loading billing data...')}
+          </td>
+        </tr>
+      );
+    }
+
+    if (aggregated.clinics.length === 0) {
+      return (
+        <tr>
+          <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
+            {t('No billing records found for the selected period.')}
+          </td>
+        </tr>
+      );
+    }
+
+    return (
+      <>
+        {aggregated.clinics.map((entry) => (
+          <Fragment key={entry.clinicId || entry.clinic}>
+            <tr>
+              <td
+                colSpan={4}
+                className="bg-white/[0.04] px-6 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-primary-200/80"
+              >
+                {entry.clinic}
+              </td>
+            </tr>
+            {entry.procedures.map((procedure) => (
+              <tr key={`${entry.clinicId || entry.clinic}-${procedure.key}`} className="text-sm text-slate-200">
+                <td className="px-6 py-4 font-medium text-white">{procedure.procedure}</td>
+                <td className="px-6 py-4 text-center">{procedure.quantity}</td>
+                <td className="px-6 py-4 text-slate-300">{currencyFormatter.format(procedure.amount)}</td>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
+                  >
+                    {t('Download detail')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            <tr className="text-sm font-semibold text-primary-100">
+              <td className="px-6 py-3">{t('Total by clinic')}</td>
+              <td className="px-6 py-3 text-center">{entry.totalQuantity}</td>
+              <td className="px-6 py-3">{currencyFormatter.format(entry.totalAmount)}</td>
+              <td className="px-6 py-3" />
+            </tr>
+          </Fragment>
+        ))}
+        <tr className="text-sm font-semibold uppercase tracking-wide text-primary-100">
+          <td className="px-6 py-4">{t('Grand total')}</td>
+          <td className="px-6 py-4 text-center">{aggregated.totalQuantity}</td>
+          <td className="px-6 py-4">{currencyFormatter.format(aggregated.totalAmount)}</td>
+          <td className="px-6 py-4" />
+        </tr>
+      </>
+    );
+  }, [aggregated, currencyFormatter, loading, t]);
 
   return (
     <main className="min-h-screen bg-slate-950">
@@ -335,61 +383,7 @@ export default function LaboratoryBillingPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {loading ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
-                          {t('Loading billing data...')}
-                        </td>
-                      </tr>
-                    ) : aggregated.clinics.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
-                          {t('No billing records found for the selected period.')}
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        {aggregated.clinics.map((entry) => (
-                          <Fragment key={entry.clinicId || entry.clinic}>
-                            <tr>
-                              <td
-                                colSpan={4}
-                                className="bg-white/[0.04] px-6 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-primary-200/80"
-                              >
-                                {entry.clinic}
-                              </td>
-                            </tr>
-                            {entry.procedures.map((procedure) => (
-                              <tr key={`${entry.clinicId || entry.clinic}-${procedure.key}`} className="text-sm text-slate-200">
-                                <td className="px-6 py-4 font-medium text-white">{procedure.procedure}</td>
-                                <td className="px-6 py-4 text-center">{procedure.quantity}</td>
-                                <td className="px-6 py-4 text-slate-300">{currencyFormatter.format(procedure.amount)}</td>
-                                <td className="px-6 py-4 text-right">
-                                  <button
-                                    type="button"
-                                    className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-                                  >
-                                    {t('Download detail')}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="text-sm font-semibold text-primary-100">
-                              <td className="px-6 py-3">{t('Total by clinic')}</td>
-                              <td className="px-6 py-3 text-center">{entry.totalQuantity}</td>
-                              <td className="px-6 py-3">{currencyFormatter.format(entry.totalAmount)}</td>
-                              <td className="px-6 py-3" />
-                            </tr>
-                          </Fragment>
-                        ))}
-                        <tr className="text-sm font-semibold uppercase tracking-wide text-primary-100">
-                          <td className="px-6 py-4">{t('Grand total')}</td>
-                          <td className="px-6 py-4 text-center">{aggregated.totalQuantity}</td>
-                          <td className="px-6 py-4">{currencyFormatter.format(aggregated.totalAmount)}</td>
-                          <td className="px-6 py-4" />
-                        </tr>
-                      </>
-                    )}
+                    {billingTableBody}
                   </tbody>
                 </table>
               </div>

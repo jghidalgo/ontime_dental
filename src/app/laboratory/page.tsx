@@ -743,24 +743,24 @@ export default function LaboratoryPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
+      <div className="border-b border-slate-800 bg-slate-900/60">
+        <PageHeader
+          category={t('Laboratory')}
+          title={t('Operations Command Center')}
+          // subtitle={t('Monitor the production floor, shipping timelines and clinic satisfaction at a glance.')}
+          showEntitySelector={canSwitchEntity}
+          entityLabel={t('Entity')}
+          selectedEntityId={selectedEntityId}
+          onEntityChange={(id) => {
+            if (!canSwitchEntity) return;
+            setSelectedEntityId(id);
+          }}
+        />
+
+        <TopNavigation />
+      </div>
+
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <div className="border-b border-slate-800 bg-slate-900/60">
-          <PageHeader
-            category={t('Laboratory')}
-            title={t('Operations Command Center')}
-            subtitle={t('Monitor the production floor, shipping timelines and clinic satisfaction at a glance.')}
-            showEntitySelector={canSwitchEntity}
-            entityLabel={t('Entity')}
-            selectedEntityId={selectedEntityId}
-            onEntityChange={(id) => {
-              if (!canSwitchEntity) return;
-              setSelectedEntityId(id);
-            }}
-          />
-
-          <TopNavigation />
-        </div>
-
         <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
 

@@ -13,6 +13,10 @@ interface SlackMessageBlock {
     type: string;
     text: string;
   }>;
+  elements?: Array<{
+    type: string;
+    text: string;
+  }>;
   accessory?: {
     type: string;
     text: {

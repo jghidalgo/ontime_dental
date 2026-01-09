@@ -62,7 +62,7 @@ export default function DashboardPage() {
       case 'admin':
       case 'manager':
       default:
-        return <AdminDashboard />;
+        return <AdminDashboard companyId={selectedEntityId} />;
     }
   };
 

@@ -530,7 +530,6 @@ const translations: Record<Language, Record<string, string>> = {
     'Save changes': 'Guardar cambios',
     'Log out': 'Cerrar sesión',
     'Reservations Control Center': 'Centro de control de reservaciones',
-    'Billing': 'Facturación',
     'Billing Control Center': 'Centro de control de facturación',
     'Review production invoices by clinic, procedure, and totals. Filter by company and date range to align collections with operations.':
       'Revisa las facturas de producción por clínica, procedimiento y totales. Filtra por compañía y rango de fechas para alinear las cobranzas con operaciones.',

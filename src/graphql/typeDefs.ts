@@ -341,9 +341,19 @@ const typeDefs = gql`
     value: Float!
   }
 
+  type DashboardPriorityTask {
+    id: ID!
+    kind: String!
+    title: String!
+    description: String!
+    badge: String!
+    timestamp: String!
+  }
+
   type DashboardData {
     metrics: [DashboardMetric!]!
     upcomingAppointments: [DashboardAppointment!]!
+    priorityTasks: [DashboardPriorityTask!]!
     revenueTrend: [RevenueTrendPoint!]!
     teamActivity: [DashboardActivity!]!
     announcements: [DashboardAnnouncement!]!
@@ -1020,7 +1030,7 @@ const typeDefs = gql`
     dmsSyncStatus(integrationId: ID!): DMSSyncStatus
     
     # Dashboard query
-    dashboardData: DashboardData!
+    dashboardData(companyId: ID): DashboardData!
   }
 
   type Mutation {

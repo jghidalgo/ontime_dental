@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { gql, useQuery } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
@@ -589,6 +589,24 @@ export default function LaboratoryReservationsPage() {
   const { t, language } = useTranslations();
 
   const { data: labsData, loading: labsLoading } = useQuery(GET_LABORATORIES_WITH_PROCEDURES);
+
+  const procedureDailyCapacity = useMemo(() => {
+    const map = new Map<string, number>();
+    const laboratories = labsData?.laboratories ?? [];
+
+    for (const lab of laboratories) {
+      for (const proc of lab?.procedures ?? []) {
+        const name = proc?.name;
+        const dailyCapacity = proc?.dailyCapacity;
+        if (!name) continue;
+        if (typeof dailyCapacity !== 'number' || dailyCapacity <= 0) continue;
+
+        map.set(name, (map.get(name) ?? 0) + dailyCapacity);
+      }
+    }
+
+    return map;
+  }, [labsData]);
   
   // Fetch lab cases from GraphQL with companyId filtering
   const { data: labCasesData, refetch: refetchLabCases } = useQuery(GET_LAB_CASES, {
@@ -651,11 +669,6 @@ export default function LaboratoryReservationsPage() {
     setIsAdmin(admin);
     if (!admin) {
       setSelectedEntityId(user.companyId || '');
-      return;
-    }
-
-    if (!selectedEntityId) {
-      setSelectedEntityId(user.companyId || 'complete-dental-solutions');
     }
   }, [router]);
 
@@ -722,6 +735,39 @@ export default function LaboratoryReservationsPage() {
     setCreateModalDate(date);
     setShowCreateModal(true);
   }, []);
+
+  const handleMonthCellSelect = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    const dateValue = event.currentTarget.dataset.date;
+    if (!dateValue) return;
+    setSelectedDate(parseISODate(dateValue));
+  }, []);
+
+  const handleMonthCellDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      const dateValue = event.currentTarget.dataset.date;
+      if (!dateValue) return;
+
+      const countValue = event.currentTarget.dataset.caseCount;
+      const caseCount = Number(countValue ?? '0');
+      if (caseCount !== 0) return;
+
+      openCreateModal(parseISODate(dateValue));
+    },
+    [openCreateModal]
+  );
+
+  const handleMonthProcedureClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+
+      const dateValue = event.currentTarget.dataset.date;
+      const procedure = event.currentTarget.dataset.procedure;
+      if (!dateValue || !procedure) return;
+
+      openProcedureModal(parseISODate(dateValue), procedure);
+    },
+    [openProcedureModal]
+  );
 
   const availableProcedurePanels = useMemo(() => {
     const laboratories = labsData?.laboratories ?? [];
@@ -930,15 +976,15 @@ export default function LaboratoryReservationsPage() {
   };
 
   const monthOptions = useMemo(() => {
-    const start = new Date(2025, 7, 1);
-    return Array.from({ length: 6 }, (_, index) => {
+    const start = new Date(focusedMonth.getFullYear(), focusedMonth.getMonth() - 5, 1);
+    return Array.from({ length: 12 }, (_, index) => {
       const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
       return {
         value: formatISODate(date),
         label: monthFormatter.format(date)
       };
     });
-  }, [monthFormatter]);
+  }, [focusedMonth, monthFormatter]);
 
   // Old create form submit handler - commented out, will be replaced with CreateCaseModal
   // const handleCreateSubmit = useCallback(
@@ -964,18 +1010,20 @@ export default function LaboratoryReservationsPage() {
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
+      <div className="border-b border-slate-800 bg-slate-900/60">
+        <PageHeader
+          category="Laboratory"
+          title="Reservations Control Center"
+          // subtitle="Coordinate laboratory production."
+          showEntitySelector={isAdmin}
+          selectedEntityId={selectedEntityId}
+          onEntityChange={setSelectedEntityId}
+        />
+
+        <TopNavigation />
+      </div>
+
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <div className="border-b border-slate-800 bg-slate-900/60">
-          <PageHeader
-            category="Laboratory"
-            title="Reservations Control Center"
-            subtitle="Coordinate laboratory production and deliveries with an integrated view of active cases."
-            showEntitySelector={false}
-          />
-
-          <TopNavigation />
-        </div>
-
         <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
 
@@ -1126,53 +1174,70 @@ export default function LaboratoryReservationsPage() {
                             {week.map((date) => {
                               const key = formatISODate(date);
                               const cases = casesByDate.get(key) ?? [];
-                              const grouped = cases.reduce<Record<string, number>>((acc, current) => {
-                                acc[current.procedure] = (acc[current.procedure] ?? 0) + 1;
-                                return acc;
-                              }, {});
+                              const grouped: Record<string, number> = {};
+                              for (const reservation of cases) {
+                                grouped[reservation.procedure] = (grouped[reservation.procedure] ?? 0) + 1;
+                              }
                               const sortedProcedures = Object.entries(grouped)
-                                .map(([procedure, total]) => ({ procedure, total }))
+                                .map(([procedure, total]) => ({
+                                  procedure,
+                                  total,
+                                  capacity: procedureDailyCapacity.get(procedure)
+                                }))
                                 .sort((a, b) => b.total - a.total)
                                 .slice(0, 3);
                               const isCurrentMonth = isSameMonth(date, focusedMonth);
                               const isSelected = isSameDay(date, selectedDate);
 
                               return (
-                                <button
+                                <div
                                   key={key}
-                                  type="button"
-                                  onClick={() => setSelectedDate(date)}
-                                  onDoubleClick={() => {
-                                    if (cases.length === 0) {
-                                      openCreateModal(date);
-                                    }
-                                  }}
                                   className={clsx(
-                                    'flex min-h-[8.5rem] flex-col gap-2 bg-slate-950/40 p-3 text-left transition',
+                                    'relative flex min-h-[8.5rem] flex-col gap-2 bg-slate-950/40 p-3 text-left transition',
                                     isCurrentMonth ? 'text-slate-100' : 'text-slate-500',
                                     isSelected && 'ring-2 ring-primary-400'
                                   )}
                                 >
-                                  <div className="flex items-center justify-between">
+                                  <button
+                                    type="button"
+                                    aria-label={t('Select date') + ` ${date.toLocaleDateString()}`}
+                                    data-date={key}
+                                    data-case-count={cases.length}
+                                    onClick={handleMonthCellSelect}
+                                    onDoubleClick={handleMonthCellDoubleClick}
+                                    className="absolute inset-0 z-10"
+                                  />
+
+                                  <div className="relative z-20 flex items-center justify-between pointer-events-none">
                                     <span className="text-lg font-semibold">{date.getDate()}</span>
                                     <span className="text-xs text-slate-500">{formatCaseCount(cases.length)}</span>
                                   </div>
-                                  <div className="space-y-1">
-                                    {sortedProcedures.map(({ procedure, total }) => (
+
+                                  <div className="relative z-20 space-y-1">
+                                    {sortedProcedures.map(({ procedure, total, capacity }) => (
                                       <button
                                         key={procedure}
                                         type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openProcedureModal(date, procedure);
-                                        }}
+                                        data-date={key}
+                                        data-procedure={procedure}
+                                        onClick={handleMonthProcedureClick}
+                                        title={
+                                          typeof capacity === 'number' && capacity > 0
+                                            ? `${procedure}: ${total} of ${capacity}`
+                                            : `${procedure}: ${total}`
+                                        }
                                         className={clsx(
-                                          'flex w-full items-center justify-between rounded-lg px-2 py-1 text-left text-[11px] font-medium transition hover:shadow-lg hover:shadow-primary-900/20 focus:outline-none cursor-pointer',
+                                          'pointer-events-auto flex h-6 w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] font-medium leading-none transition hover:shadow-lg hover:shadow-primary-900/20 focus:outline-none cursor-pointer',
                                           procedureColorMap.get(procedure) ?? palette[0]
                                         )}
                                       >
-                                        <span className="truncate pr-2">{procedure}</span>
-                                        <span className="font-semibold">{total}</span>
+                                        <span className="min-w-0 flex-1 truncate">{procedure}</span>
+                                        <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums">
+                                          {total}
+                                          {typeof capacity === 'number' && capacity > 0
+                                            ? ` of ${capacity}`
+                                            : ''}
+                                        </span>
                                       </button>
                                     ))}
                                     {cases.length === 0 && (
@@ -1181,7 +1246,7 @@ export default function LaboratoryReservationsPage() {
                                       </p>
                                     )}
                                   </div>
-                                </button>
+                                </div>
                               );
                             })}
                           </div>

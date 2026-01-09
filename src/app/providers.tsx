@@ -1,9 +1,11 @@
 'use client';
 
 import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@apollo/client';
+import { onError } from '@apollo/client/link/error';
 import { setContext } from '@apollo/client/link/context';
 import { LanguageProvider } from '@/lib/i18n';
 import { ThemeProvider } from '@/lib/theme';
+import { clearUserSession } from '@/lib/permissions';
 
 const httpLink = createHttpLink({
   uri: '/api/graphql',
@@ -19,8 +21,29 @@ const authLink = setContext((_, { headers }) => {
   };
 });
 
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+  const graphQlMessages = (graphQLErrors ?? []).map((err) => String(err.message ?? '')).filter(Boolean);
+  const networkMessage = networkError ? String(networkError.message ?? '') : '';
+  const combined = [...graphQlMessages, networkMessage].join(' | ').toLowerCase();
+
+  const isAuthError =
+    combined.includes('jwt expired') ||
+    combined.includes('invalid token') ||
+    combined.includes('unauthorized') ||
+    combined.includes('not authenticated');
+
+  if (!isAuthError) return;
+
+  if (typeof window !== 'undefined') {
+    clearUserSession();
+    if (window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+  }
+});
+
 const client = new ApolloClient({
-  link: authLink.concat(httpLink),
+  link: errorLink.concat(authLink.concat(httpLink)),
   cache: new InMemoryCache({
     typePolicies: {
       Query: {

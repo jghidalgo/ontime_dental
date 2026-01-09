@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_DASHBOARD_DATA = gql`
-  query GetDashboardData {
-    dashboardData {
+  query GetDashboardData($companyId: ID) {
+    dashboardData(companyId: $companyId) {
       metrics {
         label
         value
@@ -14,6 +14,14 @@ export const GET_DASHBOARD_DATA = gql`
         patient
         treatment
         practitioner
+      }
+      priorityTasks {
+        id
+        kind
+        title
+        description
+        badge
+        timestamp
       }
       revenueTrend {
         month

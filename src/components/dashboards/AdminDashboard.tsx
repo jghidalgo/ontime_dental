@@ -5,27 +5,62 @@ import { useTranslations } from '@/lib/i18n';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_DATA } from '@/graphql/dashboard-queries';
 
-export default function AdminDashboard() {
+type AdminDashboardProps = {
+  companyId?: string;
+};
+
+export default function AdminDashboard({ companyId }: Readonly<AdminDashboardProps>) {
   const { t } = useTranslations();
   
   const { data } = useQuery(GET_DASHBOARD_DATA, {
+    variables: { companyId: companyId || null },
     pollInterval: 30000, // Refresh every 30 seconds
   });
 
   const metrics = useMemo(() => data?.dashboardData?.metrics || [], [data]);
-  const upcomingAppointments = useMemo(() => data?.dashboardData?.upcomingAppointments || [], [data]);
+  const priorityTasks = useMemo(() => data?.dashboardData?.priorityTasks || [], [data]);
   const revenueTrend = useMemo(() => data?.dashboardData?.revenueTrend || [], [data]);
   const announcements = useMemo(() => data?.dashboardData?.announcements || [], [data]);
 
+  const hasRevenueTrendData = useMemo(() => {
+    return revenueTrend.some((item: any) => Number(item?.value ?? 0) > 0);
+  }, [revenueTrend]);
+
   const revenueMax = useMemo(() => {
-    if (revenueTrend.length === 0) return 100;
-    return Math.max(...revenueTrend.map((item: any) => item.value));
+    const values = revenueTrend
+      .map((item: any) => Number(item?.value ?? 0))
+      .filter((value: number) => Number.isFinite(value));
+    const max = values.length > 0 ? Math.max(...values) : 0;
+    return Math.max(1, max);
+  }, [revenueTrend]);
+
+  const revenueTrendDeltaLabel = useMemo(() => {
+    if (revenueTrend.length < 2) return null;
+    const first = Number(revenueTrend[0]?.value ?? 0);
+    const last = Number(revenueTrend[revenueTrend.length - 1]?.value ?? 0);
+    if (!Number.isFinite(first) || !Number.isFinite(last) || first <= 0) return null;
+    const pct = Math.round(((last - first) / first) * 100);
+    const sign = pct >= 0 ? '+' : '';
+    return `${sign}${pct}%`;
   }, [revenueTrend]);
 
   const getTrendColor = (trend: string) => {
     if (trend === 'positive') return 'text-emerald-300';
     if (trend === 'negative') return 'text-rose-300';
     return 'text-slate-400';
+  };
+
+  const getAnnouncementBadgeClasses = (badge: string) => {
+    if (badge === 'URGENT' || badge === 'Critical') return 'bg-rose-500/20 text-rose-300';
+    if (badge === 'Priority') return 'bg-amber-500/20 text-amber-300';
+    return 'bg-emerald-500/20 text-emerald-300';
+  };
+
+  const getTaskBadgeClasses = (badge: string) => {
+    if (badge === 'URGENT') return 'bg-rose-500/20 text-rose-300';
+    if (badge === 'DELAYED') return 'bg-amber-500/20 text-amber-300';
+    if (badge === 'YESTERDAY') return 'bg-sky-500/20 text-sky-300';
+    return 'bg-emerald-500/20 text-emerald-300';
   };
 
   if (!data) {
@@ -82,21 +117,37 @@ export default function AdminDashboard() {
               <h2 className="mt-3 text-xl font-semibold text-slate-50">{t('Lab Case Completions')}</h2>
               <p className="mt-1 text-sm text-slate-400">{t('Production volume over the last six months')}</p>
             </div>
-            <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200 whitespace-nowrap">
-              {revenueTrend.length > 1 ? `+${Math.round(((revenueTrend[revenueTrend.length - 1].value - revenueTrend[0].value) / revenueTrend[0].value) * 100)}%` : '+9.5%'}
-            </div>
-          </div>
-          <div className="mt-8 flex items-end gap-4 overflow-x-auto pb-2">
-            {revenueTrend.map((point: any) => (
-              <div key={point.month} className="flex w-full min-w-[40px] flex-col items-center gap-3">
-                <div
-                  className="w-full rounded-2xl bg-gradient-to-t from-primary-500/10 via-primary-400/50 to-primary-300/80 shadow-inner shadow-primary-900/40"
-                  style={{ height: `${(point.value / revenueMax) * 160 + 24}px` }}
-                />
-                <p className="text-xs font-medium text-slate-400 whitespace-nowrap">{t(point.month)}</p>
+            {hasRevenueTrendData && (
+              <div className="flex-shrink-0 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-200 whitespace-nowrap">
+                {revenueTrendDeltaLabel ?? '—'}
               </div>
-            ))}
+            )}
           </div>
+          {hasRevenueTrendData ? (
+            <div className="mt-8 flex items-end gap-4 overflow-x-auto pb-2">
+              {revenueTrend.map((point: any) => (
+                <div key={point.month} className="flex w-full min-w-[40px] flex-col items-center gap-3">
+                  <div
+                    className="w-full rounded-2xl bg-gradient-to-t from-primary-500/10 via-primary-400/50 to-primary-300/80 shadow-inner shadow-primary-900/40"
+                    style={{ height: `${(Number(point.value ?? 0) / revenueMax) * 160 + 24}px` }}
+                  />
+                  <p className="text-xs font-medium text-slate-400 whitespace-nowrap">{t(point.month)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-8 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-12 text-center">
+              <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-primary-400/20 bg-primary-500/10">
+                <div className="relative h-10 w-10 rounded-full border border-white/10 bg-white/[0.03]">
+                  <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-3 -translate-y-1.5 rounded-full bg-slate-200/80" />
+                  <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 translate-x-1.5 -translate-y-1.5 rounded-full bg-slate-200/80" />
+                  <div className="absolute left-1/2 top-1/2 h-[2px] w-3 -translate-x-1/2 translate-y-2 rounded-full bg-slate-200/50" />
+                </div>
+              </div>
+              <p className="text-sm font-semibold text-slate-200">{t('No data to display')}</p>
+              <p className="mt-2 text-xs text-slate-500">{t('Complete some lab cases to see the trend here.')}</p>
+            </div>
+          )}
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
@@ -111,21 +162,37 @@ export default function AdminDashboard() {
             </button>
           </div>
           <div className="mt-8 space-y-4">
-            {upcomingAppointments.map((appointment: any, index: number) => (
-              <div
-                key={`${appointment.time}-${appointment.patient}-${index}`}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-primary-400/30 hover:bg-white/[0.06]"
-              >
-                <div className="space-y-1 flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-100 truncate">{appointment.patient}</p>
-                  <p className="text-xs text-slate-400 truncate">{t(appointment.treatment)}</p>
+            {priorityTasks.length > 0 ? (
+              priorityTasks.map((task: any) => (
+                <div
+                  key={task.id}
+                  className="flex items-start justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-primary-400/30 hover:bg-white/[0.06]"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${getTaskBadgeClasses(
+                          String(task.badge ?? '')
+                        )}`}
+                      >
+                        {t(String(task.badge ?? ''))}
+                      </span>
+                      <p className="text-sm font-semibold text-slate-100 truncate">{task.title}</p>
+                    </div>
+                    <p className="text-xs text-slate-400 truncate">{task.description}</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right text-xs text-slate-400">
+                    <p className="font-semibold text-slate-100 whitespace-nowrap">{task.kind === 'lab' ? t('Lab') : t('Ticket')}</p>
+                    <p className="whitespace-nowrap">{task.timestamp}</p>
+                  </div>
                 </div>
-                <div className="text-right text-xs text-slate-400 flex-shrink-0">
-                  <p className="font-semibold text-slate-100 whitespace-nowrap">{appointment.time}</p>
-                  <p className="truncate max-w-[120px]">{appointment.practitioner}</p>
-                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-10 text-center">
+                <p className="text-sm font-semibold text-slate-200">{t('No priority tasks')}</p>
+                <p className="mt-2 text-xs text-slate-500">{t('You are all caught up for now.')}</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -136,13 +203,11 @@ export default function AdminDashboard() {
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {announcements.map((item: any, index: number) => (
             <div key={`${item.title}-${index}`} className="space-y-2 rounded-2xl border border-primary-500/15 bg-white/[0.02] p-4 overflow-hidden">
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${
-                item.badge === 'URGENT' || item.badge === 'Critical'
-                  ? 'bg-rose-500/20 text-rose-300'
-                  : item.badge === 'Priority'
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'bg-emerald-500/20 text-emerald-300'
-              }`}>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${getAnnouncementBadgeClasses(
+                  item.badge
+                )}`}
+              >
                 {t(item.badge)}
               </span>
               <p className="text-sm font-semibold text-slate-100 break-words">{t(item.title)}</p>

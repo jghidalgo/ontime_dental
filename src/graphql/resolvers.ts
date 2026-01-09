@@ -80,6 +80,326 @@ async function getAuthedUser(ctx: { req?: { headers?: { get?: (key: string) => s
   return { user, payload };
 }
 
+type DashboardPriorityTask = {
+  id: string;
+  kind: 'ticket' | 'lab';
+  title: string;
+  description: string;
+  badge: 'URGENT' | 'DELAYED' | 'YESTERDAY';
+  timestamp: string;
+};
+
+function stringifyMongoId(value: unknown): string {
+  if (typeof value === 'string') return value;
+  const anyValue = value as any;
+  if (anyValue && typeof anyValue.toHexString === 'function') return anyValue.toHexString();
+  if (anyValue && typeof anyValue.toString === 'function') return anyValue.toString();
+  return '';
+}
+
+function getUtcDayBoundaries(now: Date) {
+  const startTodayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const startYesterdayUtc = new Date(startTodayUtc);
+  startYesterdayUtc.setUTCDate(startYesterdayUtc.getUTCDate() - 1);
+
+  return {
+    startYesterdayIso: startYesterdayUtc.toISOString(),
+    startTodayIso: startTodayUtc.toISOString(),
+  };
+}
+
+async function buildDashboardPriorityTasks(options: {
+  ticketScopeFilter: any;
+  labCaseScopeFilter: any;
+  limit?: number;
+}): Promise<DashboardPriorityTask[]> {
+  const limit = typeof options.limit === 'number' && options.limit > 0 ? options.limit : 5;
+  const now = new Date();
+  const { startYesterdayIso, startTodayIso } = getUtcDayBoundaries(now);
+
+  const tasks: DashboardPriorityTask[] = [];
+  const seen = new Set<string>();
+
+  const pushTask = (task: DashboardPriorityTask) => {
+    if (tasks.length >= limit) return;
+    if (seen.has(task.id)) return;
+    seen.add(task.id);
+    tasks.push(task);
+  };
+
+  const appendUrgentTickets = async () => {
+    const urgentOpenTickets = await Ticket.find({
+      ...options.ticketScopeFilter,
+      status: { $ne: 'Resolved' },
+      priority: 'High',
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    for (const ticket of urgentOpenTickets) {
+      pushTask({
+        id: stringifyMongoId(ticket._id),
+        kind: 'ticket',
+        title: ticket.subject,
+        description: `${ticket.location} · ${ticket.requester}`,
+        badge: 'URGENT',
+        timestamp: ticket.createdAt,
+      });
+    }
+  };
+
+  const appendYesterdayTickets = async () => {
+    const yesterdayTickets = await Ticket.find({
+      ...options.ticketScopeFilter,
+      createdAt: { $gte: startYesterdayIso, $lt: startTodayIso },
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    for (const ticket of yesterdayTickets) {
+      pushTask({
+        id: stringifyMongoId(ticket._id),
+        kind: 'ticket',
+        title: ticket.subject,
+        description: `${ticket.priority} · ${ticket.status}`,
+        badge: 'YESTERDAY',
+        timestamp: ticket.createdAt,
+      });
+    }
+  };
+
+  const appendUrgentLabCases = async () => {
+    const urgentLabCases = await LabCase.find({
+      ...options.labCaseScopeFilter,
+      priority: 'urgent',
+    })
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .lean();
+
+    for (const labCase of urgentLabCases) {
+      pushTask({
+        id: stringifyMongoId(labCase._id),
+        kind: 'lab',
+        title: `${labCase.caseId} · ${labCase.procedure}`,
+        description: `${labCase.patientFirstName} ${labCase.patientLastName} · ${labCase.status}`,
+        badge: 'URGENT',
+        timestamp: labCase.updatedAt?.toISOString?.() ?? new Date(labCase.updatedAt).toISOString(),
+      });
+    }
+  };
+
+  const appendDelayedLabCases = async () => {
+    const candidates = await LabCase.find({
+      ...options.labCaseScopeFilter,
+      estimatedCompletion: { $exists: true, $ne: '' },
+    })
+      .sort({ estimatedCompletion: 1 })
+      .limit(10)
+      .lean();
+
+    for (const labCase of candidates) {
+      if (tasks.length >= limit) break;
+      const estimated = typeof labCase.estimatedCompletion === 'string' ? Date.parse(labCase.estimatedCompletion) : Number.NaN;
+      if (!Number.isFinite(estimated)) continue;
+      if (estimated >= now.getTime()) continue;
+
+      pushTask({
+        id: stringifyMongoId(labCase._id),
+        kind: 'lab',
+        title: `${labCase.caseId} · ${labCase.procedure}`,
+        description: `${labCase.patientFirstName} ${labCase.patientLastName} · ETA ${labCase.estimatedCompletion}`,
+        badge: 'DELAYED',
+        timestamp: labCase.estimatedCompletion,
+      });
+    }
+  };
+
+  await appendUrgentTickets();
+  if (tasks.length < limit) await appendYesterdayTickets();
+  if (tasks.length < limit) await appendUrgentLabCases();
+  if (tasks.length < limit) await appendDelayedLabCases();
+
+  return tasks;
+}
+
+async function getDashboardTicketSummary(ticketScopeFilter: any) {
+  const weekAgoIso = (() => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return weekAgo.toISOString();
+  })();
+
+  const [openTickets, urgentTickets, resolvedThisWeek, recentTickets] = await Promise.all([
+    Ticket.countDocuments({ ...ticketScopeFilter, status: { $ne: 'Resolved' } }),
+    Ticket.countDocuments({ ...ticketScopeFilter, priority: 'High' }),
+    Ticket.countDocuments({ ...ticketScopeFilter, status: 'Resolved', createdAt: { $gte: weekAgoIso } }),
+    Ticket.find(ticketScopeFilter).sort({ createdAt: -1 }).limit(3).lean(),
+  ]);
+
+  return { openTickets, urgentTickets, resolvedThisWeek, recentTickets };
+}
+
+async function getDashboardScheduleCoverage() {
+  const frontDeskSchedules = await FrontDeskSchedule.find().lean();
+  const staffCoverage = frontDeskSchedules.filter((s: any) => s.employee).length;
+  const totalFrontDeskPositions = frontDeskSchedules.length;
+  const coveragePercent = totalFrontDeskPositions > 0 ? Math.round((staffCoverage / totalFrontDeskPositions) * 100) : 0;
+  return { coveragePercent, staffCoverage, totalFrontDeskPositions };
+}
+
+async function getDashboardDocumentSummary(filter: { companyId?: string; userCompanyId?: string }) {
+  const documentEntityFilter: any = {};
+  if (filter.companyId) {
+    documentEntityFilter.companyId = filter.companyId;
+  } else if (filter.userCompanyId) {
+    documentEntityFilter.companyId = filter.userCompanyId;
+  }
+
+  const documentEntities = await DocumentEntity.find(documentEntityFilter).lean();
+  const totalDocuments = documentEntities.reduce((sum: number, entity: any) => {
+    return sum + entity.groups.reduce((groupSum: number, group: any) => {
+      return groupSum + group.documents.length;
+    }, 0);
+  }, 0);
+
+  return { documentEntities, totalDocuments };
+}
+
+async function getDashboardContactsSummary() {
+  const totalContacts = await DirectoryEntry.countDocuments({});
+  return { totalContacts };
+}
+
+async function buildDashboardRevenueTrend(filter: { companyId?: string; userCompanyId?: string }) {
+  const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short' });
+  const now = new Date();
+  const trendMonths: Array<{ year: number; monthIndex: number; label: string }> = [];
+  for (let offset = 5; offset >= 0; offset -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    trendMonths.push({
+      year: d.getFullYear(),
+      monthIndex: d.getMonth(),
+      label: monthFormatter.format(d),
+    });
+  }
+
+  const trendStart = new Date(trendMonths[0].year, trendMonths[0].monthIndex, 1);
+
+  const labCaseScopeFilter: any = { status: 'completed' };
+  if (filter.companyId) {
+    labCaseScopeFilter.companyId = filter.companyId;
+  } else if (filter.userCompanyId) {
+    labCaseScopeFilter.companyId = filter.userCompanyId;
+  }
+
+  const completionCounts = await LabCase.aggregate([
+    { $match: labCaseScopeFilter },
+    {
+      $addFields: {
+        completionDate: {
+          $ifNull: [
+            {
+              $dateFromString: {
+                dateString: '$actualCompletion',
+                onError: null,
+                onNull: null,
+              },
+            },
+            '$updatedAt',
+          ],
+        },
+      },
+    },
+    { $match: { completionDate: { $gte: trendStart } } },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$completionDate' },
+          month: { $month: '$completionDate' },
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const completionCountMap = new Map<string, number>();
+  for (const row of completionCounts) {
+    const year = Number(row?._id?.year);
+    const month = Number(row?._id?.month);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) continue;
+    completionCountMap.set(`${year}-${String(month).padStart(2, '0')}`, Number(row.count ?? 0));
+  }
+
+  return trendMonths.map(({ year, monthIndex, label }) => {
+    const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+    return { month: label, value: completionCountMap.get(key) ?? 0 };
+  });
+}
+
+function buildDashboardTeamActivity(recentTickets: any[]) {
+  return recentTickets.map((ticket: any, index: number) => {
+    const minutesAgo = [12, 43, 67][index] || (index + 1) * 20;
+    const timeAgo = minutesAgo < 60 ? `${minutesAgo} minutes ago` : `${Math.floor(minutesAgo / 60)} hour ago`;
+
+    return {
+      id: stringifyMongoId(ticket._id),
+      title: `${ticket.status === 'Resolved' ? 'Resolved' : 'Working on'}: ${ticket.subject}`,
+      timestamp: timeAgo,
+      owner: ticket.requester,
+    };
+  });
+}
+
+function buildDashboardAnnouncements(options: {
+  urgentTickets: number;
+  coveragePercent: number;
+  staffCoverage: number;
+  totalFrontDeskPositions: number;
+  totalDocuments: number;
+  documentEntities: any[];
+}) {
+  const announcements: any[] = [];
+
+  if (options.urgentTickets > 0) {
+    announcements.push({
+      title: `${options.urgentTickets} Urgent ${options.urgentTickets === 1 ? 'Ticket' : 'Tickets'} Require Attention`,
+      description: 'Please review and prioritize high-priority tickets in the support queue.',
+      badge: 'Priority',
+    });
+  }
+
+  if (options.coveragePercent < 100) {
+    const unfilled = options.totalFrontDeskPositions - options.staffCoverage;
+    announcements.push({
+      title: `${unfilled} ${unfilled === 1 ? 'Position' : 'Positions'} Need Assignment`,
+      description: 'Front desk schedule has open positions. Please review staff assignments.',
+      badge: 'Staffing',
+    });
+  }
+
+  if (announcements.length === 0) {
+    announcements.push({
+      title: 'System Operating Normally',
+      description: 'All modules are functioning properly. No urgent actions required.',
+      badge: 'Status',
+    });
+  }
+
+  announcements.push({
+    title: `${options.totalDocuments} Documents Available`,
+    description: `Access ${options.documentEntities.length} document entities across ${options.documentEntities.reduce(
+      (sum: number, e: any) => sum + e.groups.length,
+      0
+    )} categories.`,
+    badge: 'Documentation',
+  });
+
+  return announcements.slice(0, 2);
+}
+
 function assertCanModifyTicket(permissions: any) {
   if (!permissions?.canModifyTickets) {
     throw new Error('Unauthorized');
@@ -105,7 +425,10 @@ function isAdminUser(user: any): boolean {
 }
 
 function assertCanAccessLaboratory(permissions: any) {
-  if (!permissions?.canAccessLaboratory) {
+  const modules = Array.isArray(permissions?.modules) ? permissions.modules : [];
+  const hasLaboratoryModule = modules.includes('laboratory');
+
+  if (!permissions?.canAccessLaboratory && !hasLaboratoryModule) {
     throw new Error('Unauthorized');
   }
 }
@@ -127,6 +450,43 @@ function getScopedCompanyIdForLaboratory(user: any, companyIdArg?: string): stri
 
 function formatISODateOnly(date: Date): string {
   return date.toISOString().split('T')[0];
+}
+
+function normalizeEmail(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.toLowerCase() : undefined;
+}
+
+async function linkEmployeeInputToUser(input: any): Promise<void> {
+  const email = normalizeEmail(input?.email);
+  if (!email) return;
+
+  input.email = email;
+
+  const matchedUser: any = await User.findOne({ email }).select('_id companyId').lean();
+  if (!matchedUser) return;
+
+  const matchedUserId = matchedUser._id.toString();
+  const matchedCompanyId = matchedUser.companyId ? String(matchedUser.companyId) : undefined;
+
+  if (input.companyId && matchedCompanyId && String(input.companyId) !== matchedCompanyId) {
+    throw new Error('Employee companyId does not match the linked user companyId');
+  }
+
+  input.userId = matchedUserId;
+  if (!input.companyId && matchedCompanyId) {
+    input.companyId = matchedCompanyId;
+  }
+}
+
+async function assertNoEmployeeForUserId(userId: unknown): Promise<void> {
+  const id = typeof userId === 'string' ? userId : '';
+  if (!id) return;
+  const existingForUser = await Employee.findOne({ userId: id }).select('_id').lean();
+  if (existingForUser) {
+    throw new Error('An employee record already exists for this user');
+  }
 }
 
 async function getNextAvailableReservationDate(args: {
@@ -234,6 +594,54 @@ async function notifyAdminsNewTicket(createdTicket: any, actorUserId: string) {
     `Clinic: ${createdTicket.location}`,
     `Priority: ${createdTicket.priority}`
   ];
+
+  await Notification.insertMany(
+    recipientIds.map((userId) => ({
+      userId,
+      companyId: companyId || undefined,
+      title,
+      message: messageParts.join(' · '),
+      readAt: null
+    }))
+  );
+}
+
+async function notifyAdminsNewLabCase(createdLabCase: any, actorUserId: string) {
+  const companyId = typeof createdLabCase?.companyId === 'string' ? createdLabCase.companyId : '';
+
+  // Treat users as active unless isActive is explicitly false (legacy records may not have the field).
+  const activeFilter: any = { $or: [{ isActive: true }, { isActive: { $exists: false } }, { isActive: null }] };
+
+  const adminRoles = ['admin'];
+  const recipientOr: any[] = companyId
+    ? [
+        { role: { $in: adminRoles }, companyId },
+        { role: { $in: adminRoles }, companyId: { $exists: false } },
+        { role: { $in: adminRoles }, companyId: null },
+        { role: { $in: adminRoles }, companyId: '' }
+      ]
+    : [{ role: { $in: adminRoles } }];
+
+  const recipientsRaw: any[] = await User.find({ ...activeFilter, $or: recipientOr }).select('_id').lean();
+
+  const recipientIds = Array.from(
+    new Set(
+      recipientsRaw
+        .map((r) => r?._id?.toString?.())
+        .filter((id) => typeof id === 'string' && id.length > 0 && id !== actorUserId)
+    )
+  );
+
+  if (recipientIds.length === 0) return;
+
+  const title = 'New lab case created';
+  const messageParts = [
+    createdLabCase?.caseId ? `Case: ${createdLabCase.caseId}` : undefined,
+    createdLabCase?.clinic ? `Clinic: ${createdLabCase.clinic}` : undefined,
+    createdLabCase?.procedure ? `Procedure: ${createdLabCase.procedure}` : undefined,
+    createdLabCase?.doctor ? `Doctor: ${createdLabCase.doctor}` : undefined,
+    createdLabCase?.reservationDate ? `Reserved: ${createdLabCase.reservationDate}` : undefined
+  ].filter((p): p is string => typeof p === 'string' && p.length > 0);
 
   await Notification.insertMany(
     recipientIds.map((userId) => ({
@@ -1253,157 +1661,93 @@ export const resolvers = {
     },
 
     // Dashboard Query
-    dashboardData: async () => {
+    dashboardData: async (
+      _: unknown,
+      { companyId }: { companyId?: string },
+      ctx: { req?: { headers?: { get?: (key: string) => string | null } } }
+    ) => {
       await connectToDatabase();
 
-      // Aggregate ticket metrics
-      const tickets = await Ticket.find().lean();
-      const openTickets = tickets.filter((t: any) => t.status !== 'Resolved').length;
-      const urgentTickets = tickets.filter((t: any) => t.priority === 'High').length;
-      const resolvedThisWeek = tickets.filter((t: any) => {
-        const createdDate = new Date(t.createdAt);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return t.status === 'Resolved' && createdDate >= weekAgo;
-      }).length;
+      const { user } = await getAuthedUser(ctx);
+      const permissions = getEffectivePermissions(user);
 
-      // Aggregate schedule coverage
-      const frontDeskSchedules = await FrontDeskSchedule.find().lean();
-      const doctorSchedules = await DoctorSchedule.find().lean();
-      const staffCoverage = frontDeskSchedules.filter((s: any) => s.employee).length;
-      const totalFrontDeskPositions = frontDeskSchedules.length;
-      const coveragePercent = totalFrontDeskPositions > 0 
-        ? Math.round((staffCoverage / totalFrontDeskPositions) * 100) 
-        : 0;
+      const ticketScopeFilter: any = {};
+      if (companyId) {
+        ticketScopeFilter.companyId = companyId;
+      } else if (!permissions.canViewAllTickets) {
+        if (!user.companyId) throw new Error('Unauthorized');
+        ticketScopeFilter.companyId = user.companyId;
+      }
 
-      // Aggregate documents
-      const documentEntities = await DocumentEntity.find().lean();
-      const totalDocuments = documentEntities.reduce((sum: number, entity: any) => {
-        return sum + entity.groups.reduce((groupSum: number, group: any) => {
-          return groupSum + group.documents.length;
-        }, 0);
-      }, 0);
+      if (!permissions.canViewAllTickets) {
+        ticketScopeFilter.requester = user.email;
+      }
 
-      // Aggregate contact entries
-      const directoryEntries = await DirectoryEntry.find().lean();
-      const totalContacts = directoryEntries.length;
+      const [{ openTickets, urgentTickets, resolvedThisWeek, recentTickets }, coverage, documents, contacts] = await Promise.all([
+        getDashboardTicketSummary(ticketScopeFilter),
+        getDashboardScheduleCoverage(),
+        getDashboardDocumentSummary({ companyId, userCompanyId: user.companyId }),
+        getDashboardContactsSummary(),
+      ]);
 
-      // Calculate metrics
       const metrics = [
         {
           label: 'Open Tickets',
           value: openTickets.toString(),
           delta: `${urgentTickets} urgent`,
-          trend: urgentTickets > 0 ? 'negative' : 'positive'
-        },
-        {
-          label: 'Staff Coverage',
-          value: `${coveragePercent}%`,
-          delta: `${staffCoverage} of ${totalFrontDeskPositions} positions`,
-          trend: coveragePercent >= 80 ? 'positive' : 'neutral'
+          trend: urgentTickets > 0 ? 'negative' : 'positive',
         },
         {
           label: 'Active Documents',
-          value: totalDocuments.toString(),
-          delta: `${documentEntities.length} entities`,
-          trend: 'neutral'
+          value: documents.totalDocuments.toString(),
+          delta: `${documents.documentEntities.length} entities`,
+          trend: 'neutral',
         },
         {
           label: 'Contact Directory',
-          value: totalContacts.toString(),
+          value: contacts.totalContacts.toString(),
           delta: `${resolvedThisWeek} tickets resolved this week`,
-          trend: 'positive'
-        }
+          trend: 'positive',
+        },
       ];
 
-      // Generate upcoming appointments from doctor schedules
-      const upcomingAppointments = [];
-      const appointmentTimes = ['09:30 AM', '10:15 AM', '01:00 PM', '03:45 PM'];
-      const treatments = ['Routine Checkup', 'Implant Consultation', 'Hygiene Maintenance', 'Crown Fitting', 'Orthodontic Adjustment'];
-      const patients = ['Sarah Johnson', 'Michael Chen', 'Emma Rodriguez', 'James Wilson'];
-      
-      for (let i = 0; i < Math.min(4, doctorSchedules.length); i++) {
-        const schedule: any = doctorSchedules[i];
-        if (schedule.doctor) {
-          upcomingAppointments.push({
-            time: appointmentTimes[i % appointmentTimes.length],
-            patient: patients[i % patients.length],
-            treatment: treatments[i % treatments.length],
-            practitioner: schedule.doctor.name
-          });
-        }
+      const labCaseScopeForTasks: any = { status: { $ne: 'completed' } };
+      if (companyId) {
+        labCaseScopeForTasks.companyId = companyId;
+      } else if (user.companyId) {
+        labCaseScopeForTasks.companyId = user.companyId;
       }
 
-      // Generate revenue trend (mock data based on ticket resolution rates)
-      const revenueTrend = [
-        { month: 'Apr', value: 42 + Math.floor(Math.random() * 10) },
-        { month: 'May', value: 48 + Math.floor(Math.random() * 10) },
-        { month: 'Jun', value: 51 + Math.floor(Math.random() * 10) },
-        { month: 'Jul', value: 57 + Math.floor(Math.random() * 10) },
-        { month: 'Aug', value: 62 + Math.floor(Math.random() * 10) },
-        { month: 'Sep', value: 66 + Math.floor(Math.random() * 10) }
-      ];
-
-      // Generate team activity from recent tickets
-      const sortedTickets = [...tickets].sort((a: any, b: any) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      const recentTickets = sortedTickets.slice(0, 3);
-      
-      const teamActivity = recentTickets.map((ticket: any, index: number) => {
-        const minutesAgo = [12, 43, 67][index] || (index + 1) * 20;
-        const timeAgo = minutesAgo < 60 ? `${minutesAgo} minutes ago` : `${Math.floor(minutesAgo / 60)} hour ago`;
-        
-        return {
-          id: ticket._id.toString(),
-          title: `${ticket.status === 'Resolved' ? 'Resolved' : 'Working on'}: ${ticket.subject}`,
-          timestamp: timeAgo,
-          owner: ticket.requester
-        };
+      const priorityTasks = await buildDashboardPriorityTasks({
+        ticketScopeFilter,
+        labCaseScopeFilter: labCaseScopeForTasks,
+        limit: 5,
       });
 
-      // Generate announcements based on system data
-      const announcements = [];
-      
-      if (urgentTickets > 0) {
-        announcements.push({
-          title: `${urgentTickets} Urgent ${urgentTickets === 1 ? 'Ticket' : 'Tickets'} Require Attention`,
-          description: 'Please review and prioritize high-priority tickets in the support queue.',
-          badge: 'Priority'
-        });
-      }
+      // Keep legacy field for compatibility; the UI now uses priorityTasks.
+      const upcomingAppointments: any[] = [];
 
-      if (coveragePercent < 100) {
-        const unfilled = totalFrontDeskPositions - staffCoverage;
-        announcements.push({
-          title: `${unfilled} ${unfilled === 1 ? 'Position' : 'Positions'} Need Assignment`,
-          description: 'Front desk schedule has open positions. Please review staff assignments.',
-          badge: 'Staffing'
-        });
-      }
+      const [revenueTrend, teamActivity] = await Promise.all([
+        buildDashboardRevenueTrend({ companyId, userCompanyId: user.companyId }),
+        Promise.resolve(buildDashboardTeamActivity(recentTickets)),
+      ]);
 
-      // Add a default announcement if none generated
-      if (announcements.length === 0) {
-        announcements.push({
-          title: 'System Operating Normally',
-          description: 'All modules are functioning properly. No urgent actions required.',
-          badge: 'Status'
-        });
-      }
-
-      // Add a second announcement about documents
-      announcements.push({
-        title: `${totalDocuments} Documents Available`,
-        description: `Access ${documentEntities.length} document entities across ${documentEntities.reduce((sum: number, e: any) => sum + e.groups.length, 0)} categories.`,
-        badge: 'Documentation'
+      const announcements = buildDashboardAnnouncements({
+        urgentTickets,
+        coveragePercent: coverage.coveragePercent,
+        staffCoverage: coverage.staffCoverage,
+        totalFrontDeskPositions: coverage.totalFrontDeskPositions,
+        totalDocuments: documents.totalDocuments,
+        documentEntities: documents.documentEntities,
       });
 
       return {
         metrics,
         upcomingAppointments,
+        priorityTasks,
         revenueTrend,
         teamActivity,
-        announcements: announcements.slice(0, 2) // Limit to 2 announcements
+        announcements
       };
     }
   },
@@ -2517,6 +2861,13 @@ export const resolvers = {
       });
       
       await labCase.save();
+
+      // Notify admins that a new lab case was created.
+      try {
+        await notifyAdminsNewLabCase(labCase, user._id.toString());
+      } catch (error) {
+        console.error('notifyAdminsNewLabCase failed', error);
+      }
       
       return {
         ...labCase.toObject(),
@@ -2704,6 +3055,9 @@ export const resolvers = {
     // Employee Mutations
     createEmployee: async (_: unknown, { input }: { input: any }) => {
       await connectToDatabase();
+
+      await linkEmployeeInputToUser(input);
+      await assertNoEmployeeForUserId(input?.userId);
       
       // Check if employeeId already exists
       const existing = await Employee.findOne({ employeeId: input.employeeId });

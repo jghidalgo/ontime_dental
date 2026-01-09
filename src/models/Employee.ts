@@ -38,7 +38,7 @@ const EmployeeSchema = new Schema<IEmployee>(
     userId: {
       type: String,
       required: false,
-      index: true
+      index: false
     },
     companyId: {
       type: String,
@@ -121,5 +121,6 @@ EmployeeSchema.index({ companyId: 1, name: 'text', position: 'text', location: '
 EmployeeSchema.index({ companyId: 1, status: 1 });
 EmployeeSchema.index({ companyId: 1, location: 1 });
 EmployeeSchema.index({ companyId: 1, position: 1 });
+EmployeeSchema.index({ userId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.models.Employee || mongoose.model<IEmployee>('Employee', EmployeeSchema);
