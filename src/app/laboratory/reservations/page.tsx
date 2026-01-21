@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, type MouseEvent as ReactMous
 import { useRouter } from 'next/navigation';
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { GET_LAB_CASES } from '@/graphql/lab-queries';
-import { DELETE_LAB_CASE } from '@/graphql/lab-mutations';
+import { DELETE_LAB_CASE, UPDATE_LAB_CASE } from '@/graphql/lab-mutations';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import TopNavigation from '@/components/TopNavigation';
@@ -32,6 +32,13 @@ type ReservationStatus =
   | 'completed'
   | 'in-planning';
 
+type StatusHistoryEntry = {
+  timestamp?: string;
+  status?: string;
+  userId?: string;
+  userName?: string;
+};
+
 type ReservationCase = {
   id: string;
   caseId: string;
@@ -53,6 +60,7 @@ type ReservationCase = {
   notes?: string;
   qrCode?: string;
   qrCodeData?: string;
+  statusHistory?: StatusHistoryEntry[];
 };
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -551,14 +559,20 @@ const isSameDay = (a: Date, b: Date) =>
 const isSameMonth = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 
 // Helper function to convert lab cases to reservation format
-const labCaseToReservation = (labCase: any): ReservationCase => {
-  const date = labCase.reservationDate ? new Date(labCase.reservationDate) : new Date();
-  const formattedDate = date.toISOString().split('T')[0];
-  
-  // Extract time from createdAt or use default
-  const hour = 8 + Math.floor(Math.random() * 8);
-  const minute = Math.random() > 0.5 ? '00' : '30';
-  const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+const labCaseToReservation = (labCase: any): ReservationCase | null => {
+  const rawDate = labCase.reservationDate ?? labCase.createdAt ?? labCase.updatedAt;
+  if (!rawDate) return null;
+
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const formattedDate = formatISODate(date);
+  const useCreatedAtTime = !labCase.reservationDate;
+  const time = useCreatedAtTime
+    ? `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    : typeof labCase.reservationDate === 'string' && labCase.reservationDate.includes('T')
+      ? `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+      : '09:00';
 
   return {
     id: labCase.id,
@@ -580,7 +594,15 @@ const labCaseToReservation = (labCase: any): ReservationCase => {
     materialType: labCase.materialType,
     notes: labCase.notes,
     qrCode: labCase.qrCode,
-    qrCodeData: labCase.qrCodeData
+    qrCodeData: labCase.qrCodeData,
+    statusHistory: Array.isArray(labCase.statusHistory)
+      ? labCase.statusHistory.map((entry: any) => ({
+          timestamp: typeof entry?.timestamp === 'string' ? entry.timestamp : undefined,
+          status: typeof entry?.status === 'string' ? entry.status : undefined,
+          userId: typeof entry?.userId === 'string' ? entry.userId : undefined,
+          userName: typeof entry?.userName === 'string' ? entry.userName : undefined,
+        }))
+      : undefined,
   };
 };
 
@@ -593,6 +615,7 @@ export default function LaboratoryReservationsPage() {
   const [monthSelector, setMonthSelector] = useState<string>(monthSelectorValue);
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canManageReservations, setCanManageReservations] = useState(false);
   const { t, language } = useTranslations();
 
   const userSession = getUserSession();
@@ -629,6 +652,12 @@ export default function LaboratoryReservationsPage() {
       refetchLabCases();
     }
   });
+
+  const [updateLabCase, { loading: updatingLabCase }] = useMutation(UPDATE_LAB_CASE, {
+    onCompleted: () => {
+      refetchLabCases();
+    }
+  });
   
   // Create lab case mutation (currently unused - to be integrated with CreateCaseModal)
   // const [createLabCase, { loading: creatingCase }] = useMutation(CREATE_LAB_CASE, {
@@ -649,7 +678,9 @@ export default function LaboratoryReservationsPage() {
   // Transform lab cases to reservation format
   const cases = useMemo(() => {
     if (!labCasesData?.labCases) return [];
-    return labCasesData.labCases.map(labCaseToReservation);
+    return labCasesData.labCases
+      .map(labCaseToReservation)
+      .filter((item): item is ReservationCase => Boolean(item));
   }, [labCasesData]);
   
   const [activeProcedure, setActiveProcedure] = useState<{ date: Date; procedure: string } | null>(null);
@@ -684,7 +715,9 @@ export default function LaboratoryReservationsPage() {
 
     const role = typeof user.role === 'string' ? user.role.trim().toLowerCase() : '';
     const admin = role === 'admin';
+    const labTech = role === 'lab_tech';
     setIsAdmin(admin);
+    setCanManageReservations(admin || labTech);
     if (!admin) {
       setSelectedEntityId(user.companyId || '');
     }
@@ -706,6 +739,10 @@ export default function LaboratoryReservationsPage() {
   );
   const dayFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+    [locale]
+  );
+  const dateTimeFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
     [locale]
   );
   const shortWeekdayFormatter = useMemo(
@@ -930,16 +967,18 @@ export default function LaboratoryReservationsPage() {
       summary.total += 1;
 
       switch (reservation.status) {
-        case 'En fabricación':
+        case 'in-production':
           summary.fabrication += 1;
           break;
-        case 'Programado':
+        case 'in-planning':
           summary.scheduled += 1;
           break;
-        case 'Entregado':
+        case 'completed':
           summary.delivered += 1;
           break;
-        case 'Pendiente confirmación':
+        case 'office-reservation':
+        case 'received-cdl':
+        case 'in-transit':
           summary.pending += 1;
           break;
         default:
@@ -1052,7 +1091,7 @@ export default function LaboratoryReservationsPage() {
         <main className="overflow-y-auto px-6 py-12 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-6xl">
 
-            {!isAdmin && (
+            {!canManageReservations && (
               <section className="mt-8 space-y-4">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl">
                   <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">{t('Reservations')}</p>
@@ -1089,7 +1128,7 @@ export default function LaboratoryReservationsPage() {
               </section>
             )}
 
-            {isAdmin && (
+            {canManageReservations && (
             <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-5">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{t('Cases this month')}</p>
@@ -1114,7 +1153,7 @@ export default function LaboratoryReservationsPage() {
             </section>
             )}
 
-            {isAdmin && (
+            {canManageReservations && (
             <section className="mt-10 flex flex-col gap-8 xl:flex-row">
               <div className="flex-1 space-y-6">
                 <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-xl">
@@ -1479,7 +1518,7 @@ export default function LaboratoryReservationsPage() {
         </main>
       </div>
 
-      {isAdmin && activeProcedure && (
+      {canManageReservations && activeProcedure && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-10 backdrop-blur-sm">
           <div className="relative w-full max-w-6xl max-h-[80vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/95 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.8)]">
             <button
@@ -1533,18 +1572,47 @@ export default function LaboratoryReservationsPage() {
                           <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide', statusStyles[reservation.status])}>
                             {statusLabelMap[reservation.status]}
                           </span>
+
+                          {canManageReservations && reservation.status === 'office-reservation' && (
+                            <button
+                              type="button"
+                              disabled={updatingLabCase || deletingLabCase}
+                              onClick={async () => {
+                                try {
+                                  await updateLabCase({
+                                    variables: {
+                                      id: reservation.id,
+                                      input: { status: 'received-cdl' }
+                                    }
+                                  });
+                                } catch (error) {
+                                  const message = error instanceof Error ? error.message : t('Unable to receive case');
+                                  setCancelError(message);
+                                }
+                              }}
+                              className={clsx(
+                                'inline-flex items-center justify-center rounded-lg px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition',
+                                updatingLabCase || deletingLabCase
+                                  ? 'cursor-not-allowed bg-white/5 text-slate-500'
+                                  : 'bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/30 hover:bg-emerald-500/20'
+                              )}
+                            >
+                              {updatingLabCase ? t('Receiving...') : t('Receive')}
+                            </button>
+                          )}
+
                           {(isAdmin || (sessionUserId && reservation.createdByUserId === sessionUserId)) &&
                             reservation.status === 'office-reservation' && (
                               <button
                                 type="button"
-                                disabled={deletingLabCase}
+                                disabled={deletingLabCase || updatingLabCase}
                                 onClick={async () => {
                                   setCancelError(null);
                                   setCancelTarget(reservation);
                                 }}
                                 className={clsx(
                                   'inline-flex items-center justify-center rounded-lg px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition',
-                                  deletingLabCase
+                                  deletingLabCase || updatingLabCase
                                     ? 'cursor-not-allowed bg-white/5 text-slate-500'
                                     : 'bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20'
                                 )}
@@ -1582,6 +1650,44 @@ export default function LaboratoryReservationsPage() {
                           <p className="mt-1 text-slate-200">{reservation.chair}</p>
                         </div>
                       </div>
+
+                      {reservation.statusHistory && reservation.statusHistory.length > 0 && (
+                        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                          <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{t('Status history')}</p>
+                          <div className="mt-4 space-y-3">
+                            {reservation.statusHistory
+                              .slice()
+                              .sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''))
+                              .map((entry, index) => {
+                                const statusKey = typeof entry.status === 'string' ? entry.status : '';
+                                const label =
+                                  (statusKey &&
+                                    (statusLabelMap as Record<string, string>)[statusKey]) ||
+                                  statusKey ||
+                                  t('Unknown');
+
+                                const timestampLabel = entry.timestamp
+                                  ? dateTimeFormatter.format(new Date(entry.timestamp))
+                                  : t('Unknown');
+
+                                return (
+                                  <div
+                                    key={`${entry.timestamp ?? 'unknown'}-${index}`}
+                                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-slate-100">{label}</p>
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        {t('User')}: {entry.userName ?? entry.userId ?? t('Unknown')}
+                                      </p>
+                                    </div>
+                                    <p className="shrink-0 text-xs font-medium text-slate-400 tabular-nums">{timestampLabel}</p>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
                       
                       {/* QR Code Display */}
                       {reservation.qrCode && (

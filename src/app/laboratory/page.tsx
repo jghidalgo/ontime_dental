@@ -43,30 +43,6 @@ type HighlightMetric = {
   trend: 'positive' | 'negative' | 'neutral';
 };
 
-type CaseCategory = {
-  id: string;
-  label: string;
-  cases: number;
-  trend: 'up' | 'down' | 'steady';
-};
-
-type PipelineStage = {
-  id: string;
-  label: string;
-  completion: number;
-  status: 'on-track' | 'attention' | 'warning';
-  detail: string;
-};
-
-type TransitRoute = {
-  id: string;
-  region: string;
-  cases: number;
-  clinics: number;
-  departure: string;
-  status: 'On time' | 'Delayed' | 'Departed';
-};
-
 type CaseStatus =
   | 'office-reservation'
   | 'received-cdl'
@@ -74,6 +50,13 @@ type CaseStatus =
   | 'in-transit'
   | 'completed'
   | 'in-planning';
+
+type StatusHistoryEntry = {
+  timestamp?: string;
+  status?: string;
+  userId?: string;
+  userName?: string;
+};
 
 type CaseSearchRecord = {
   id: string;
@@ -90,6 +73,7 @@ type CaseSearchRecord = {
   createdByUserId?: string | null;
   qrCode?: string;
   qrCodeData?: string;
+  statusHistory?: StatusHistoryEntry[];
 };
 
 type LocalizedField = Record<Language, string>;
@@ -179,52 +163,6 @@ const highlightMetrics: HighlightMetric[] = [
     change: '-0.6 pts vs target',
     trend: 'positive'
   }
-];
-
-const caseCategories: CaseCategory[] = [
-  { id: 'crowns', label: 'Crowns & Bridges', cases: 168, trend: 'up' },
-  { id: 'implants', label: 'Implant Restorations', cases: 92, trend: 'up' },
-  { id: 'tryins', label: 'Try-in / Wax Setups', cases: 74, trend: 'down' },
-  { id: 'aligners', label: 'Aligners & Ortho', cases: 54, trend: 'steady' },
-  { id: 'repairs', label: 'Repairs & Adjustments', cases: 40, trend: 'steady' }
-];
-
-const pipelineStages: PipelineStage[] = [
-  {
-    id: 'design',
-    label: 'CAD Design',
-    completion: 86,
-    status: 'on-track',
-    detail: 'Digital team processed 57 scans overnight.'
-  },
-  {
-    id: 'milling',
-    label: 'Milling / Printing',
-    completion: 72,
-    status: 'attention',
-    detail: 'Zirconia mill 2 scheduled downtime at 4:30 PM.'
-  },
-  {
-    id: 'finishing',
-    label: 'Finishing & QC',
-    completion: 64,
-    status: 'warning',
-    detail: '3 remakes waiting for shade confirmation.'
-  },
-  {
-    id: 'packing',
-    label: 'Packing & Dispatch',
-    completion: 58,
-    status: 'on-track',
-    detail: 'Route D consolidated · Courier pickup at 5:15 PM.'
-  }
-];
-
-const transitRoutes: TransitRoute[] = [
-  { id: 'route-a', region: 'Miami Metro', cases: 14, clinics: 6, departure: '2:30 PM', status: 'On time' },
-  { id: 'route-b', region: 'Broward Coastal', cases: 9, clinics: 4, departure: '3:15 PM', status: 'Departed' },
-  { id: 'route-c', region: 'Orlando Corridor', cases: 8, clinics: 3, departure: '4:05 PM', status: 'On time' },
-  { id: 'route-d', region: 'Tampa Bay', cases: 7, clinics: 3, departure: '5:20 PM', status: 'Delayed' }
 ];
 
 const same = (value: string): LocalizedField => ({ en: value, es: value });
@@ -371,7 +309,8 @@ const localizeCaseSearchRecords = (language: Language): CaseSearchRecord[] =>
     doctor: record.doctor[language],
     procedure: record.procedure[language],
     status: record.status,
-    createdByUserId: null
+    createdByUserId: null,
+    statusHistory: []
   }));
 
 const caseSearchRecordsByLanguage: Record<Language, CaseSearchRecord[]> = {
@@ -417,6 +356,11 @@ export default function LaboratoryPage() {
   const [lastEmptyMessageKey, setLastEmptyMessageKey] = useState<string | undefined>(undefined);
   const [selectedCase, setSelectedCase] = useState<CaseSearchRecord | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const dateTimeFormatter = useMemo(
+    () => new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+    []
+  );
 
   const userSession = getUserSession();
   const sessionUserId = userSession?.userId;
@@ -470,7 +414,15 @@ export default function LaboratoryPage() {
       status: labCase.status as CaseStatus,
       createdByUserId: labCase.createdByUserId ?? null,
       qrCode: labCase.qrCode,
-      qrCodeData: labCase.qrCodeData
+      qrCodeData: labCase.qrCodeData,
+      statusHistory: Array.isArray(labCase.statusHistory)
+        ? labCase.statusHistory.map((entry: any) => ({
+            timestamp: typeof entry?.timestamp === 'string' ? entry.timestamp : undefined,
+            status: typeof entry?.status === 'string' ? entry.status : undefined,
+            userId: typeof entry?.userId === 'string' ? entry.userId : undefined,
+            userName: typeof entry?.userName === 'string' ? entry.userName : undefined,
+          }))
+        : undefined
     }));
   }, [labCasesData]);
 
@@ -506,16 +458,6 @@ export default function LaboratoryPage() {
       setSelectedEntityId(user.companyId || 'complete-dental-solutions');
     }
   }, [router]);
-
-  const totalCases = useMemo(
-    () => caseCategories.reduce((sum, category) => sum + category.cases, 0),
-    []
-  );
-
-  const transitCases = useMemo(
-    () => transitRoutes.reduce((sum, route) => sum + route.cases, 0),
-    []
-  );
 
   // Get laboratories from database
   const availableLabs = useMemo<string[]>(() => {
@@ -722,18 +664,6 @@ export default function LaboratoryPage() {
     );
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    if (status === 'Delayed') return 'bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30';
-    if (status === 'Departed') return 'bg-sky-500/10 text-sky-300 ring-1 ring-sky-400/30';
-    return 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30';
-  };
-
-  const getCategoryTrendText = (trend: string) => {
-    if (trend === 'up') return 'Rising demand';
-    if (trend === 'down') return 'Slight dip · review scheduling';
-    return 'Holding steady';
-  };
-
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const results = activeCaseRecords.filter(matchesSearchCriteria);
@@ -888,115 +818,6 @@ export default function LaboratoryPage() {
                     ))}
                   </div>
 
-                  <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-                    <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h2 className="text-lg font-semibold text-white">Case mix by category</h2>
-                          <p className="text-sm text-slate-400">{totalCases} active cases · includes remakes</p>
-                        </div>
-                        <span className="rounded-full border border-primary-500/40 bg-primary-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-100">
-                          Updated 15 min ago
-                        </span>
-                      </div>
-
-                      <div className="mt-6 space-y-4">
-                        {caseCategories.map((category) => {
-                          const percentage = Math.round((category.cases / totalCases) * 100);
-                          return (
-                            <div key={category.id} className="space-y-2">
-                              <div className="flex items-center justify-between text-sm text-slate-300">
-                                <p className="font-medium text-white">{category.label}</p>
-                                <span className="text-xs text-slate-400">{category.cases} cases · {percentage}%</span>
-                              </div>
-                              <div className="relative h-3 overflow-hidden rounded-full border border-white/10 bg-slate-900/60">
-                                <div
-                                  className={clsx(
-                                    'h-full rounded-full bg-gradient-to-r from-primary-500 via-primary-400 to-primary-300 transition-all',
-                                    category.trend === 'up' && 'shadow-[0_0_20px_rgba(56,189,248,0.35)]',
-                                    category.trend === 'down' && 'from-rose-500 via-rose-400 to-amber-300'
-                                  )}
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                              <p className="text-xs text-slate-500">
-                                Trend: {getCategoryTrendText(category.trend)}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-white">Transit overview</h2>
-                        <span className="text-xs text-slate-400">{transitCases} cases in motion</span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">Courier board synced at 1:10 PM · Next scan in 20 minutes.</p>
-
-                      <div className="mt-5 space-y-4">
-                        {transitRoutes.map((route) => (
-                          <div
-                            key={route.id}
-                            className="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 text-sm text-slate-200"
-                          >
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-white">{route.region}</p>
-                              <span
-                                className={clsx(
-                                  'rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
-                                  getStatusBadgeClass(route.status)
-                                )}
-                              >
-                                {route.status}
-                              </span>
-                            </div>
-                            <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                              <p>
-                                {route.cases} cases · {route.clinics} clinics
-                              </p>
-                              <p>Departure {route.departure}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-                    <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-white">Production pipeline</h2>
-                        <span className="text-xs text-slate-400">Live work-in-progress load</span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">Technician schedule locked · auto-refresh every 5 minutes.</p>
-
-                      <div className="mt-6 space-y-4">
-                        {pipelineStages.map((stage) => (
-                          <div key={stage.id} className="rounded-2xl border border-white/5 bg-slate-900/60 p-4">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold text-white">{stage.label}</p>
-                              <span className="text-sm font-semibold text-primary-100">{stage.completion}%</span>
-                            </div>
-                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
-                              <div
-                                className={clsx(
-                                  'h-full rounded-full bg-gradient-to-r from-primary-500 via-primary-400 to-primary-200',
-                                  stage.status === 'attention' && 'from-amber-400 via-amber-300 to-amber-200',
-                                  stage.status === 'warning' && 'from-rose-500 via-rose-400 to-amber-300'
-                                )}
-                                style={{ width: `${stage.completion}%` }}
-                              />
-                            </div>
-                            <p className="mt-3 text-xs text-slate-400">{stage.detail}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div />
-                  </div>
                 </div>
               )}
 
@@ -1524,6 +1345,43 @@ export default function LaboratoryPage() {
                   {t(caseStatusLabels[selectedCase.status])}
                 </span>
               </div>
+
+              {selectedCase.statusHistory && selectedCase.statusHistory.length > 0 && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-primary-200">{t('Status history')}</h3>
+                  <div className="space-y-3">
+                    {selectedCase.statusHistory
+                      .slice()
+                      .sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''))
+                      .map((entry, index) => {
+                        const statusKey = typeof entry.status === 'string' ? entry.status : '';
+                        const label =
+                          statusKey && (caseStatusLabels as Record<string, string>)[statusKey]
+                            ? t((caseStatusLabels as Record<string, string>)[statusKey])
+                            : statusKey || t('Unknown');
+
+                        const timestampLabel = entry.timestamp
+                          ? dateTimeFormatter.format(new Date(entry.timestamp))
+                          : t('Unknown');
+
+                        return (
+                          <div
+                            key={`${entry.timestamp ?? 'unknown'}-${index}`}
+                            className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-100">{label}</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {t('User')}: {entry.userName ?? entry.userId ?? t('Unknown')}
+                              </p>
+                            </div>
+                            <p className="shrink-0 text-xs font-medium text-slate-400 tabular-nums">{timestampLabel}</p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
 
               {/* Patient Information */}
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">

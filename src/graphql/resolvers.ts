@@ -1752,6 +1752,43 @@ export const resolvers = {
     }
   },
 
+  LabCase: {
+    statusHistory: async (labCase: any) => {
+      const history = Array.isArray(labCase?.statusHistory) ? labCase.statusHistory : [];
+      const userIds = Array.from(
+        new Set(
+          history
+            .map((entry: any) => stringifyMongoId(entry?.userId))
+            .filter((id: string) => typeof id === 'string' && id.length > 0)
+        )
+      );
+
+      if (userIds.length === 0) {
+        return history;
+      }
+
+      await connectToDatabase();
+      const users = await User.find({ _id: { $in: userIds } })
+        .select({ name: 1 })
+        .lean();
+
+      const usersById = new Map<string, string>();
+      for (const user of users as any[]) {
+        usersById.set(stringifyMongoId(user?._id), typeof user?.name === 'string' ? user.name : '');
+      }
+
+      return history.map((entry: any) => {
+        const id = stringifyMongoId(entry?.userId);
+        const name = usersById.get(id);
+        return {
+          ...entry,
+          userId: id || entry?.userId,
+          userName: typeof name === 'string' && name.length > 0 ? name : undefined
+        };
+      });
+    }
+  },
+
   Mutation: {
     async login(_: unknown, args: { email: string; password: string }) {
       const { email, password } = args;
@@ -2858,7 +2895,14 @@ export const resolvers = {
         createdByUserId: user?._id?.toString?.() ?? undefined,
         qrCode: qrCodeImage,
         qrCodeData,
-        status: 'office-reservation'
+        status: 'office-reservation',
+        statusHistory: [
+          {
+            timestamp: new Date().toISOString(),
+            status: 'office-reservation',
+            userId: user?._id?.toString?.() ?? undefined,
+          },
+        ],
       });
       
       await labCase.save();
@@ -2892,6 +2936,19 @@ export const resolvers = {
         throw new Error('Lab case not found');
       }
 
+      // Receiving flow: only allowed for admin / lab staff, and only from the initial status.
+      if (input?.status === 'received-cdl') {
+        const role = typeof user?.role === 'string' ? user.role.trim().toLowerCase() : '';
+        const canReceive = isAdminUser(user) || permissions?.canManageTransit === true || role === 'lab_tech';
+        if (!canReceive) {
+          throw new Error('Unauthorized');
+        }
+
+        if (existing.status !== 'office-reservation') {
+          throw new Error('Unauthorized');
+        }
+      }
+
       if (!isAdminUser(user)) {
         const scopedCompanyId = getScopedCompanyIdForLaboratory(user);
         if (scopedCompanyId && existing.companyId !== scopedCompanyId) {
@@ -2903,12 +2960,23 @@ export const resolvers = {
       if (!isAdminUser(user)) {
         delete safeInput.companyId;
       }
+
+      const nextStatus = typeof safeInput?.status === 'string' ? safeInput.status : undefined;
+      const shouldLogStatusChange = typeof nextStatus === 'string' && nextStatus !== existing.status;
+      const statusHistoryEntry = shouldLogStatusChange
+        ? {
+            timestamp: new Date().toISOString(),
+            status: nextStatus,
+            userId: user?._id?.toString?.() ?? undefined,
+          }
+        : null;
       
-      const labCase: any = await LabCase.findByIdAndUpdate(
-        id,
-        { $set: safeInput },
-        { new: true, runValidators: true }
-      );
+      const update: any = { $set: safeInput };
+      if (statusHistoryEntry) {
+        update.$push = { statusHistory: statusHistoryEntry };
+      }
+
+      const labCase: any = await LabCase.findByIdAndUpdate(id, update, { new: true, runValidators: true });
       
       if (!labCase) {
         throw new Error('Lab case not found');
@@ -2972,11 +3040,18 @@ export const resolvers = {
         updateData.status = 'completed';
       }
 
-      const updatedCase: any = await LabCase.findByIdAndUpdate(
-        id,
-        { $set: updateData },
-        { new: true, runValidators: true }
-      );
+      const update: any = { $set: updateData };
+      if (typeof updateData.status === 'string' && updateData.status !== labCase.status) {
+        update.$push = {
+          statusHistory: {
+            timestamp: new Date().toISOString(),
+            status: updateData.status,
+            userId: user?._id?.toString?.() ?? undefined,
+          },
+        };
+      }
+
+      const updatedCase: any = await LabCase.findByIdAndUpdate(id, update, { new: true, runValidators: true });
 
       return {
         ...updatedCase.toObject(),

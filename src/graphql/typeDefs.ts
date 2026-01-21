@@ -608,8 +608,16 @@ const typeDefs = gql`
     signedBy: String
     deliveryProofImage: String
     transitHistory: [TransitHistoryEntry!]
+    statusHistory: [StatusHistoryEntry!]
     createdAt: String!
     updatedAt: String!
+  }
+
+  type StatusHistoryEntry {
+    timestamp: String
+    status: String
+    userId: String
+    userName: String
   }
 
   type TransitHistoryEntry {

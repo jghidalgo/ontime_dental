@@ -41,6 +41,12 @@ export const GET_LAB_CASES = gql`
       technician
       qrCode
       qrCodeData
+      statusHistory {
+        timestamp
+        status
+        userId
+        userName
+      }
       createdAt
       updatedAt
     }

@@ -55,6 +55,11 @@ export interface ILabCase extends Document {
     status: string;
     notes?: string;
   }>;
+  statusHistory?: Array<{
+    timestamp: string;
+    status: string;
+    userId?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -237,6 +242,11 @@ const LabCaseSchema: Schema = new Schema(
       location: String,
       status: String,
       notes: String,
+    }],
+    statusHistory: [{
+      timestamp: String,
+      status: String,
+      userId: String,
     }],
   },
   {
