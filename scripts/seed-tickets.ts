@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import Ticket from '../src/models/Ticket';
 
-const MONGODB_URI = 'mongodb://localhost:27017/ontime_dental';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ontime_dental';
+const MONGODB_DB = process.env.MONGODB_DB || 'ontime_dental';
+const DEFAULT_COMPANY_ID = 'bluno-james';
 
 const ticketsData = [
   {
@@ -219,7 +221,7 @@ const ticketsData = [
 
 async function seedTickets() {
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, { dbName: MONGODB_DB });
     console.log('Connected to MongoDB');
 
     // Drop the entire collection to remove old indexes
@@ -233,6 +235,7 @@ async function seedTickets() {
     // Insert new tickets with createdAt based on their updates
     const ticketsWithDates = ticketsData.map(ticket => ({
       ...ticket,
+      companyId: DEFAULT_COMPANY_ID,
       createdAt: ticket.updates[0].timestamp // Use first update timestamp as creation time
     }));
 

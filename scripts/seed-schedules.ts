@@ -3,6 +3,7 @@ import FrontDeskSchedule from '../src/models/FrontDeskSchedule';
 import DoctorSchedule from '../src/models/DoctorSchedule';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ontime_dental';
+const DEFAULT_COMPANY_ID = 'bluno-james';
 
 const frontDeskData = [
   {
@@ -103,7 +104,7 @@ const doctorScheduleData = [
 async function seedSchedules() {
   try {
     console.log('🔗 Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, { dbName: process.env.MONGODB_DB || 'ontime_dental' });
     console.log('✅ Connected to MongoDB');
 
     // Clear existing data
@@ -115,14 +116,20 @@ async function seedSchedules() {
     // Seed Front Desk Schedules
     console.log('📋 Seeding front desk schedules...');
     for (const schedule of frontDeskData) {
-      await FrontDeskSchedule.create(schedule);
+      await FrontDeskSchedule.create({
+        ...schedule,
+        companyId: DEFAULT_COMPANY_ID
+      });
     }
     console.log(`   ✓ Created ${frontDeskData.length} front desk assignments`);
 
     // Seed Doctor Schedules
     console.log('👨‍⚕️ Seeding doctor schedules...');
     for (const schedule of doctorScheduleData) {
-      await DoctorSchedule.create(schedule);
+      await DoctorSchedule.create({
+        ...schedule,
+        companyId: DEFAULT_COMPANY_ID
+      });
     }
     console.log(`   ✓ Created ${doctorScheduleData.length} doctor assignments`);
 

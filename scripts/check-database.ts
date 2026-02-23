@@ -6,6 +6,7 @@ import path from 'node:path';
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
 const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_DB = process.env.MONGODB_DB || 'ontime_dental';
 
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
@@ -14,8 +15,9 @@ if (!MONGODB_URI) {
 async function checkDatabase() {
   try {
     console.log('Connecting to MongoDB...');
-    console.log('URI:', MONGODB_URI?.substring(0, 30) + '...');
-    await mongoose.connect(MONGODB_URI as string);
+    console.log('URI: [REDACTED]');
+    console.log('Database:', MONGODB_DB);
+    await mongoose.connect(MONGODB_URI as string, { dbName: MONGODB_DB });
     console.log('✓ Connected to MongoDB\n');
 
     // List all collections

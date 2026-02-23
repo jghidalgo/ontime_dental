@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 import DocumentEntity from '../src/models/Document';
 
-const MONGODB_URI = 'mongodb://localhost:27017/ontime_dental';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ontime_dental';
+const MONGODB_DB = process.env.MONGODB_DB || 'ontime_dental';
 
 const documentEntitiesData = [
   {
@@ -240,7 +241,7 @@ const documentEntitiesData = [
 
 async function seedDocuments() {
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, { dbName: MONGODB_DB });
     console.log('Connected to MongoDB');
 
     // Drop the entire collection to ensure clean state
@@ -252,7 +253,12 @@ async function seedDocuments() {
     console.log('Cleared existing document entities collection');
 
     // Insert document entities
-    const result = await DocumentEntity.insertMany(documentEntitiesData);
+    const result = await DocumentEntity.insertMany(
+      documentEntitiesData.map((entity) => ({
+        ...entity,
+        companyId: entity.entityId
+      }))
+    );
     console.log(`Successfully seeded ${result.length} document entities`);
 
     // Display summary

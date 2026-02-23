@@ -217,7 +217,8 @@ async function seedDatabase() {
       // Create entity
       await DirectoryEntity.create({
         entityId: data.entityId,
-        name: data.name
+        name: data.name,
+        companyId: data.entityId
       });
       console.log(`   ✓ Created entity: ${data.name}`);
 
@@ -227,6 +228,7 @@ async function seedDatabase() {
         for (let i = 0; i < entries.length; i++) {
           await DirectoryEntry.create({
             entityId: data.entityId,
+            companyId: data.entityId,
             group,
             order: i,
             ...entries[i]

@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import LabCase from '../src/models/LabCase';
 
-const MONGODB_URI = 'mongodb://localhost:27017/ontime_dental';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ontime_dental';
+const MONGODB_DB = process.env.MONGODB_DB || 'ontime_dental';
+const DEFAULT_COMPANY_ID = 'bluno-james';
 
 const labCases = [
   {
@@ -200,7 +202,7 @@ const labCases = [
 
 async function seedLabCases() {
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, { dbName: MONGODB_DB });
     console.log('Connected to MongoDB');
 
     // Clear existing lab cases
@@ -208,7 +210,13 @@ async function seedLabCases() {
     console.log('Cleared existing lab cases');
 
     // Insert new lab cases
-    const result = await LabCase.insertMany(labCases);
+    const result = await LabCase.insertMany(
+      labCases.map((labCase, index) => ({
+        ...labCase,
+        companyId: DEFAULT_COMPANY_ID,
+        patientId: `PAT-${String(index + 1).padStart(6, '0')}`
+      }))
+    );
     console.log(`Successfully seeded ${result.length} lab cases`);
 
     await mongoose.connection.close();

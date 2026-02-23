@@ -680,7 +680,7 @@ export default function LaboratoryReservationsPage() {
     if (!labCasesData?.labCases) return [];
     return labCasesData.labCases
       .map(labCaseToReservation)
-      .filter((item): item is ReservationCase => Boolean(item));
+      .filter((item: ReservationCase | null): item is ReservationCase => Boolean(item));
   }, [labCasesData]);
   
   const [activeProcedure, setActiveProcedure] = useState<{ date: Date; procedure: string } | null>(null);

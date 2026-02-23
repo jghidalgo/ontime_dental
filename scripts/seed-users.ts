@@ -1,10 +1,12 @@
 import { connectToDatabase } from '../src/lib/db';
 import User from '../src/models/User';
 import Company from '../src/models/Company';
+import bcrypt from 'bcryptjs';
 
-try {
-  await connectToDatabase();
-  console.log('Connected to database');
+async function main() {
+  try {
+    await connectToDatabase();
+    console.log('Connected to database');
 
   // Get companies to assign users to them
   const companies = await Company.find();
@@ -163,7 +165,14 @@ try {
     ];
 
     // Insert users
-    const createdUsers = await User.insertMany(usersToCreate);
+    const usersWithHashedPasswords = await Promise.all(
+      usersToCreate.map(async (user) => ({
+        ...user,
+        password: await bcrypt.hash(user.password, 10)
+      }))
+    );
+
+    const createdUsers = await User.insertMany(usersWithHashedPasswords);
     console.log(`✅ Created ${createdUsers.length} users`);
 
     // Display summary
@@ -177,8 +186,11 @@ try {
   console.log('\nNote: All users have password "password123" for testing purposes.');
   console.log('In production, ensure passwords are properly hashed!');
 
-  process.exit(0);
-} catch (error) {
-  console.error('Error seeding users:', error);
-  process.exit(1);
+    process.exit(0);
+  } catch (error) {
+    console.error('Error seeding users:', error);
+    process.exit(1);
+  }
 }
+
+main();
