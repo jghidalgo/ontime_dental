@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, gql } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
@@ -87,7 +86,6 @@ type CompanyFormData = {
 };
 
 export default function SettingsPage() {
-  const router = useRouter();
   const { t } = useTranslations();
   const [activeTab, setActiveTab] = useState<'companies' | 'users' | 'clinics' | 'laboratories' | 'integrations' | 'document-groups'>('companies');
   const [showCreateModal, setShowCreateModal] = useState(false);

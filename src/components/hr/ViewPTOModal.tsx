@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslations } from '@/lib/i18n';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PTOS } from '@/graphql/pto-queries';
@@ -67,9 +67,6 @@ export default function ViewPTOModal({ isOpen, onClose, employee }: ViewPTOModal
   const ptoAllowance = employee?.ptoAllowance || 15;
   const ptoUsed = employee?.ptoUsed || 0;
   const ptoAvailable = employee?.ptoAvailable || ptoAllowance;
-  const ptoConsumed = ptoRecords
-    .filter(p => p.status === 'approved' && p.leaveType === 'Paid Time Off')
-    .reduce((sum, p) => sum + p.requestedDays, 0);
 
   if (!isOpen || !employee) return null;
 

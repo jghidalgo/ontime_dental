@@ -50,36 +50,36 @@ const client = new ApolloClient({
         fields: {
           // Cache tickets for 5 minutes
           tickets: {
-            merge(existing = [], incoming) {
+            merge(_existing = [], incoming) {
               return incoming;
             },
           },
           // Cache dashboard data for 30 seconds
           dashboardData: {
-            merge(existing, incoming) {
+            merge(_existing, incoming) {
               return incoming;
             },
           },
           // Cache schedules
           frontDeskSchedules: {
-            merge(existing = [], incoming) {
+            merge(_existing = [], incoming) {
               return incoming;
             },
           },
           doctorSchedules: {
-            merge(existing = [], incoming) {
+            merge(_existing = [], incoming) {
               return incoming;
             },
           },
           // Cache directory entries
           directoryEntries: {
-            merge(existing = [], incoming) {
+            merge(_existing = [], incoming) {
               return incoming;
             },
           },
           // Cache document entities
           documentEntities: {
-            merge(existing = [], incoming) {
+            merge(_existing = [], incoming) {
               return incoming;
             },
           },

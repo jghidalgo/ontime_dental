@@ -83,24 +83,6 @@ const SYNC_PATIENTS_FROM_DMS = gql`
   }
 `;
 
-const GET_DMS_SYNC_STATUS = gql`
-  query GetDMSSyncStatus($integrationId: ID!) {
-    dmsSyncStatus(integrationId: $integrationId) {
-      integrationId
-      isRunning
-      lastSyncAt
-      lastSyncResult {
-        success
-        message
-        patientsAdded
-        patientsUpdated
-        patientsSkipped
-        errors
-      }
-    }
-  }
-`;
-
 type DMSProvider = 'open-dental' | 'dentrix' | 'eaglesoft' | 'practice-works';
 
 type DMSIntegration = {

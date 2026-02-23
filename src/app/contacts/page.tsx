@@ -50,8 +50,8 @@ const groupLabels: Record<GroupKey, string> = {
 export default function ContactsPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [userName, setUserName] = useState<string>('');
-  const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify contacts
+  const [, setUserName] = useState<string>('');
+  const [, setCanModify] = useState<boolean>(true); // Permission to modify contacts
   const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
   const [activeSection, setActiveSection] = useState<ContactSectionId>('extensions');
   const [formEntityId, setFormEntityId] = useState<string>('');

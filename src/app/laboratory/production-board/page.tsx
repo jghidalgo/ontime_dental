@@ -502,7 +502,7 @@ export default function ProductionBoardPage() {
                           {/* Tooth Numbers */}
                           {labCase.toothNumbers && labCase.toothNumbers.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {labCase.toothNumbers.slice(0, 3).map((tooth: string, idx: number) => (
+                              {labCase.toothNumbers.slice(0, 3).map((tooth: string) => (
                                 <span
                                   key={tooth}
                                   className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400"

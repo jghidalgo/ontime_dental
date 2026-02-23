@@ -1886,7 +1886,7 @@ export const resolvers = {
       return !!result;
     },
 
-    reorderDirectoryEntries: async (_: unknown, { entityId, group, entryIds, companyId }: { entityId: string; group: string; entryIds: string[]; companyId?: string }) => {
+    reorderDirectoryEntries: async (_: unknown, { entryIds }: { entityId: string; group: string; entryIds: string[]; companyId?: string }) => {
       await connectToDatabase();
       
       // Update the order field for each entry based on its position in the array

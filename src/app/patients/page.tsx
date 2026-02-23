@@ -30,7 +30,7 @@ type PatientRecord = {
 export default function PatientsPage() {
   const router = useRouter();
   const { t } = useTranslations();
-  const [userName, setUserName] = useState<string>('');
+  const [, setUserName] = useState<string>('');
   const [selectedEntityId, setSelectedEntityId] = useState('complete-dental-solutions');
   const [isAdmin, setIsAdmin] = useState(false);
   const [userCompanyId, setUserCompanyId] = useState<string | undefined>(undefined);

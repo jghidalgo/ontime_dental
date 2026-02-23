@@ -147,7 +147,7 @@ const chairOptions = ['CAD-01', 'CAD-02', 'CAD-03', 'ALN-01', 'ALN-02', 'MILL-02
 
 const statusOptions: ReservationStatus[] = ['office-reservation', 'received-cdl', 'in-production', 'in-transit', 'completed', 'in-planning'];
 
-const createInitialFormState = (procedure: string, date: string): CreateCaseFormState => ({
+const createInitialFormState = (procedure: string, _date: string): CreateCaseFormState => ({
   patientType: 'existing',
   patientFirstName: '',
   patientLastName: '',
@@ -506,6 +506,14 @@ const initialReservationCases: ReservationCase[] = [
     status: 'in-planning'
   }
 ];
+
+void priorityOptions;
+void shadeOptions;
+void materialTypeOptions;
+void chairOptions;
+void statusOptions;
+void createInitialFormState;
+void initialReservationCases;
 
 const statusStyles: Record<ReservationStatus, string> = {
   'office-reservation': 'bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/40',

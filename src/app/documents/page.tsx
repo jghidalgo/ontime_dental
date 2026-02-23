@@ -136,7 +136,7 @@ export default function DocumentsPage() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false); // Check if user is admin/manager
 
   // GraphQL hooks
-  const { data, loading, error, refetch } = useQuery(GET_DOCUMENT_ENTITIES);
+  const { data } = useQuery(GET_DOCUMENT_ENTITIES);
   const { data: companiesData } = useQuery(GET_COMPANIES);
   const { data: laboratoriesData } = useQuery(GET_LABORATORIES);
   const { data: documentGroupsData } = useQuery(GET_ACTIVE_DOCUMENT_GROUPS);

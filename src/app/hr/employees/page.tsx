@@ -36,7 +36,7 @@ export default function HREmployeesPage() {
   const router = useRouter();
   const { t } = useTranslations();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
-  const [userName, setUserName] = useState('');
+  const [, setUserName] = useState('');
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(pageSizeOptions[0]);

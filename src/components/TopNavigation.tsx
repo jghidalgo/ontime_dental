@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useTranslations } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
-import { getUserSession, hasModuleAccess } from '@/lib/permissions';
+import { getUserSession } from '@/lib/permissions';
 
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard', moduleId: 'dashboard' },

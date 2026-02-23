@@ -13,13 +13,6 @@ import HrSubNavigation from '@/components/hr/HrSubNavigation';
 import { useTranslations } from '@/lib/i18n';
 import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
-type DepartmentShare = {
-  id: string;
-  label: string;
-  value: number;
-  color: string;
-};
-
 type PTOStat = {
   label: string;
   value: string;
@@ -200,7 +193,7 @@ export default function HRDashboardPage() {
   }, [locationData]);
 
   // Calculate PTO stats from real data
-  const ptoStats = useMemo(() => {
+  const ptoStats = useMemo<PTOStat[]>(() => {
     const ptos = ptosData?.ptos || [];
 
     const pending = ptos.filter((pto: any) => pto.status === 'pending').length;

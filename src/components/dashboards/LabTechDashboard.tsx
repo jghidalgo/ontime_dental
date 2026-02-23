@@ -7,7 +7,7 @@ import { GET_LAB_CASES } from '@/graphql/lab-queries';
 export default function LabTechDashboard() {
   const { t } = useTranslations();
   
-  const { data, loading } = useQuery(GET_LAB_CASES);
+  const { data } = useQuery(GET_LAB_CASES);
 
   const cases = data?.labCases || [];
   

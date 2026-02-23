@@ -10,7 +10,7 @@ export default function DoctorDashboard() {
   const { data } = useQuery(GET_DOCTOR_SCHEDULES);
 
   const schedules = data?.doctorSchedules || [];
-  const todaySchedules = schedules.slice(0, 5);
+  void schedules;
 
   const todaysAppointments = [
     { time: '09:00 AM', patient: 'Maria Rodriguez', procedure: 'Crown Preparation', location: 'CE Clinic' },

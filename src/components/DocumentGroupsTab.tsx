@@ -6,10 +6,8 @@ import { GET_DOCUMENT_GROUPS } from '@/graphql/document-group-queries';
 import {
   CREATE_DOCUMENT_GROUP,
   UPDATE_DOCUMENT_GROUP,
-  DELETE_DOCUMENT_GROUP,
-  REORDER_DOCUMENT_GROUPS
+  DELETE_DOCUMENT_GROUP
 } from '@/graphql/document-group-mutations';
-import { useTranslations } from '@/lib/i18n';
 
 interface DocumentGroup {
   id: string;
@@ -28,7 +26,6 @@ interface SnackbarState {
 }
 
 export default function DocumentGroupsTab() {
-  const t = useTranslations();
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<DocumentGroup | null>(null);
   const [formData, setFormData] = useState({
@@ -47,7 +44,6 @@ export default function DocumentGroupsTab() {
   const [createGroup] = useMutation(CREATE_DOCUMENT_GROUP);
   const [updateGroup] = useMutation(UPDATE_DOCUMENT_GROUP);
   const [deleteGroup] = useMutation(DELETE_DOCUMENT_GROUP);
-  const [reorderGroups] = useMutation(REORDER_DOCUMENT_GROUPS);
 
   const groups: DocumentGroup[] = data?.documentGroups || [];
 

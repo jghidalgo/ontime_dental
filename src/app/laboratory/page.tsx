@@ -13,11 +13,6 @@ import TopNavigation from '@/components/TopNavigation';
 import PageHeader from '@/components/PageHeader';
 import { getUserSession, hasModuleAccess } from '@/lib/permissions';
 
-type NavigationItem = {
-  label: string;
-  href: string;
-};
-
 type SubSectionId =
   | 'dashboard'
   | 'case-search'
@@ -317,6 +312,8 @@ const caseSearchRecordsByLanguage: Record<Language, CaseSearchRecord[]> = {
   en: localizeCaseSearchRecords('en'),
   es: localizeCaseSearchRecords('es')
 };
+
+void caseSearchRecordsByLanguage;
 
 const statusOrder: CaseStatus[] = ['office-reservation', 'received-cdl', 'in-production', 'in-transit', 'completed', 'in-planning'];
 

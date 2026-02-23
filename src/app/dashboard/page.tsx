@@ -13,7 +13,7 @@ import ReceptionistDashboard from '@/components/dashboards/ReceptionistDashboard
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [userName, setUserName] = useState<string>('');
+  const [, setUserName] = useState<string>('');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('');
   const { t } = useTranslations();

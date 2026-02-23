@@ -92,16 +92,13 @@ export default function SchedulesPage() {
   const router = useRouter();
   const { t } = useTranslations();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
-  const [userName, setUserName] = useState<string>('');
+  const [, setUserName] = useState<string>('');
   const [canModify, setCanModify] = useState<boolean>(true); // Permission to modify schedules
   const [activeTab, setActiveTab] = useState<'frontDesk' | 'doctors' | 'hygienists'>('frontDesk');
   const [editingFrontDeskCell, setEditingFrontDeskCell] = useState<
     { positionId: string; clinicId: string; name: string } | null
   >(null);
   const [editingDoctorCell, setEditingDoctorCell] = useState<
-    { dayId: string; clinicId: string; name: string } | null
-  >(null);
-  const [editingHygienistCell, setEditingHygienistCell] = useState<
     { dayId: string; clinicId: string; name: string } | null
   >(null);
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null);
@@ -201,12 +198,6 @@ export default function SchedulesPage() {
 
     setUserName('Dr. Carter');
   }, [router]);
-
-  const handleLogout = () => {
-    window.localStorage.removeItem('ontime.authToken');
-    window.localStorage.removeItem('ontime.userPermissions');
-    router.push('/login');
-  };
 
   const handleDragStart = (event: DragEvent<HTMLElement>, payload: DragPayload) => {
     event.dataTransfer.setData('application/json', JSON.stringify(payload));
