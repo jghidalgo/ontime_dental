@@ -1,123 +1,160 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
+const integrationPills = ['Open Dental', 'Dentrix', 'Eaglesoft', 'Curve Dental', 'Custom API'];
+
+const featureCards = [
+  {
+    title: 'Unify Clinical + Lab Operations',
+    description:
+      'Coordinate front desk, providers, labs, and support teams in one shared workflow for cases, schedules, documents, and requests.',
+  },
+  {
+    title: 'AI Productivity Insights',
+    description:
+      'Analyze chair time, provider output, and lab turnaround with AI-powered signals that uncover bottlenecks before they impact care.',
+  },
+  {
+    title: 'Integration-First Architecture',
+    description:
+      'Connect to Open Dental and other dental practice management systems without replacing your existing operational stack.',
+  },
+];
+
+const audienceCards = [
+  'Dental clinics and multi-location groups',
+  'Dental laboratories and production teams',
+  'Support organizations and central operations',
+  'Growth-minded practices adopting AI workflows',
+];
+
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/15 via-slate-950 to-slate-950" />
-      <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/10 blur-3xl" />
+    <main className="relative min-h-screen overflow-hidden bg-[#070b1d] text-slate-100">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_0%,rgba(56,189,248,0.25),transparent_35%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_20%,rgba(45,212,191,0.18),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_100%,rgba(99,102,241,0.26),transparent_45%)]" />
 
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-8">
         <div className="flex items-center gap-3">
           <Image
             src="/logoOntime.png"
             alt="Complete Dental Solutions"
-            width={132}
-            height={40}
+            width={136}
+            height={42}
             className="h-9 w-auto"
             priority
           />
-          <span className="hidden text-sm text-slate-400 sm:inline">Complete Dental Solutions</span>
+          <span className="hidden text-sm text-slate-300/80 md:inline">Complete Dental Solutions</span>
         </div>
 
         <Link
           href="/login"
-          className="inline-flex items-center justify-center rounded-full bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+          className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
         >
-          Login to App
+          Login
         </Link>
       </header>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-12 px-6 pb-14 pt-10 lg:grid-cols-[1.25fr_1fr] lg:items-center lg:pt-16">
-        <div className="space-y-7">
-          <span className="inline-flex items-center rounded-full border border-primary-400/40 bg-primary-500/15 px-4 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary-200">
-            Dental Operations Platform
-          </span>
+      <section className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 pb-16 pt-6 text-center sm:pb-24 sm:pt-10">
+        <span className="inline-flex items-center rounded-full border border-cyan-200/30 bg-cyan-200/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">
+          Calm Operations For Modern Dentistry
+        </span>
 
-          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-            Modern operations for clinics, labs, and multi-location dental groups
-          </h1>
+        <h1 className="mt-6 max-w-4xl text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
+          Bring clarity to your clinics, labs, and teams—every single day.
+        </h1>
 
-          <p className="max-w-2xl text-lg text-slate-300">
-            Complete Dental Solutions helps teams centralize scheduling, laboratory workflows, documents, and service tickets while connecting with provider management systems like Open Dental.
-          </p>
+        <p className="mt-6 max-w-3xl text-lg text-slate-200/90">
+          Complete Dental Solutions is a serene command center for dental operations. Integrate with your current provider
+          systems, including Open Dental, and let AI reveal how to improve productivity, reduce delays, and scale confidently.
+        </p>
 
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-400"
-            >
-              Access Portal
-            </Link>
-            <a
-              href="#capabilities"
-              className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-900/70 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-primary-400/40 hover:text-primary-100"
-            >
-              Explore Capabilities
-            </a>
-          </div>
-
-          <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-              <p className="text-2xl font-semibold text-white">360°</p>
-              <p>Unified operational visibility</p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-              <p className="text-2xl font-semibold text-white">AI</p>
-              <p>Productivity insights and trend analysis</p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-              <p className="text-2xl font-semibold text-white">API</p>
-              <p>Integration-ready architecture</p>
-            </div>
-          </div>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center rounded-full bg-cyan-300 px-7 py-3 text-sm font-semibold text-cyan-950 transition hover:bg-cyan-200"
+          >
+            Login to the App
+          </Link>
+          <a
+            href="#features"
+            className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+          >
+            Explore Platform
+          </a>
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl shadow-primary-900/20 backdrop-blur">
-          <p className="mb-4 text-sm font-medium text-primary-200">What your team gets</p>
-          <ul className="space-y-3 text-sm text-slate-300">
-            <li className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">Clinic and laboratory coordination in one workspace</li>
-            <li className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">Real-time task tracking for scheduling, cases, and tickets</li>
-            <li className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">Operational dashboards with AI-assisted productivity signals</li>
-            <li className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">Secure role-based access for administrative and clinical teams</li>
-          </ul>
+        <div className="mt-12 grid w-full gap-4 text-left sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+            <p className="text-2xl font-semibold text-white">360°</p>
+            <p className="mt-1 text-sm text-slate-200/90">Operational visibility across teams</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+            <p className="text-2xl font-semibold text-white">AI</p>
+            <p className="mt-1 text-sm text-slate-200/90">Predictive productivity intelligence</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+            <p className="text-2xl font-semibold text-white">Secure</p>
+            <p className="mt-1 text-sm text-slate-200/90">Role-based access and governance</p>
+          </div>
         </div>
       </section>
 
-      <section id="capabilities" className="mx-auto w-full max-w-7xl px-6 pb-20">
+      <section id="features" className="mx-auto w-full max-w-6xl px-6 pb-8">
         <div className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-            <h2 className="text-lg font-semibold text-white">Provider Integrations</h2>
-            <p className="mt-3 text-sm text-slate-300">
-              Connect with dental management systems including Open Dental and other provider ecosystems through flexible integration pathways.
-            </p>
-          </article>
-
-          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-            <h2 className="text-lg font-semibold text-white">Multi-Entity Operations</h2>
-            <p className="mt-3 text-sm text-slate-300">
-              Coordinate clinics, labs, and support teams with standardized workflows for schedules, documents, and case lifecycle tracking.
-            </p>
-          </article>
-
-          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-            <h2 className="text-lg font-semibold text-white">AI Productivity Layer</h2>
-            <p className="mt-3 text-sm text-slate-300">
-              Surface operational bottlenecks, identify throughput opportunities, and support better staffing and planning decisions.
-            </p>
-          </article>
+          {featureCards.map((feature) => (
+            <article key={feature.title} className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 backdrop-blur">
+              <h2 className="text-lg font-semibold text-white">{feature.title}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-200/90">{feature.description}</p>
+            </article>
+          ))}
         </div>
+      </section>
 
-        <div className="mt-10 rounded-3xl border border-primary-400/30 bg-primary-500/10 p-8 text-center">
-          <h3 className="text-2xl font-semibold text-white">Ready to access your operations command center?</h3>
-          <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-300">
-            Sign in to manage your dental ecosystem from one secure platform built for modern clinic and laboratory teams.
+      <section className="mx-auto w-full max-w-6xl px-6 pb-8 pt-10">
+        <div className="rounded-3xl border border-cyan-200/25 bg-gradient-to-br from-cyan-300/15 via-blue-300/10 to-indigo-300/10 p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Built for your dental ecosystem</p>
+          <h3 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
+            Designed for clinics, labs, DSOs, and operational excellence teams.
+          </h3>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {audienceCards.map((audience) => (
+              <div key={audience} className="rounded-xl border border-white/10 bg-[#0b1736]/60 px-4 py-3 text-sm text-slate-100">
+                {audience}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-6 pb-24 pt-10" id="integrations">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center backdrop-blur">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Integrations</p>
+          <h3 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
+            Keep your systems. Add one intelligent operations layer.
+          </h3>
+          <p className="mx-auto mt-4 max-w-3xl text-sm text-slate-200/90">
+            Plug into Open Dental and other provider management systems, then orchestrate schedules, lab logistics, and AI-driven
+            analytics from a single platform.
           </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            {integrationPills.map((integration) => (
+              <span
+                key={integration}
+                className="inline-flex items-center rounded-full border border-cyan-100/30 bg-cyan-100/10 px-4 py-2 text-xs font-medium text-cyan-50"
+              >
+                {integration}
+              </span>
+            ))}
+          </div>
+
           <Link
             href="/login"
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-primary-500 px-7 py-3 text-sm font-semibold text-white transition hover:bg-primary-400"
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
           >
-            Login to OnTime Dental
+            Login to Complete Dental Solutions
           </Link>
         </div>
       </section>
