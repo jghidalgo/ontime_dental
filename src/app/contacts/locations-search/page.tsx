@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import TopNavigation from '@/components/TopNavigation';
+import PageHeader from '@/components/PageHeader';
 import { GET_CLINIC_LOCATIONS } from '@/graphql/queries';
 
 type Coordinates = {
@@ -68,23 +69,8 @@ function decodeToken(token: string): TokenPayload | null {
   }
 }
 
-function formatDisplayName(email: string) {
-  const [localPart] = email.split('@');
-  if (!localPart) {
-    return 'Team Member';
-  }
-
-  return localPart
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
-
 export default function LocationSearchPage() {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [companyId, setCompanyId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [zipQuery, setZipQuery] = useState('');
@@ -117,14 +103,10 @@ export default function LocationSearchPage() {
     const payload = decodeToken(token);
 
     if (payload?.email) {
-      setUserEmail(payload.email);
-      setDisplayName(formatDisplayName(payload.email));
       const domain = payload.email.split('@')[1]?.toLowerCase();
       if (domain && domainToCompany[domain]) {
         setCompanyId(domainToCompany[domain]);
       }
-    } else {
-      setDisplayName('Team Member');
     }
   }, [router]);
 
@@ -190,12 +172,6 @@ export default function LocationSearchPage() {
       ? `https://maps.google.com/maps?q=${currentCompany.mapCenter.lat},${currentCompany.mapCenter.lng}&t=${mapTypeParam}&z=10&output=embed`
       : '';
 
-  const handleLogout = () => {
-    window.localStorage.removeItem('ontime.authToken');
-    window.localStorage.removeItem('ontime.userPermissions');
-    router.push('/login');
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -223,54 +199,32 @@ export default function LocationSearchPage() {
       <div className="absolute -top-40 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[120rem]">
-        <header className="flex flex-col gap-8 border-b border-white/5 bg-white/[0.02] px-6 pb-10 pt-10 backdrop-blur-2xl lg:px-12">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-primary-200/70">Locations search</p>
-              <h1 className="text-3xl font-semibold text-slate-50">Locate clinics across {currentCompany.companyName}</h1>
-              <p className="max-w-2xl text-sm text-slate-400">
-                  {currentCompany.description}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 self-end lg:self-auto">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-                  Signed in as{' '}
-                  <span className="font-semibold text-slate-100">{displayName || 'Team Member'}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="rounded-2xl bg-primary-500/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40 transition hover:bg-primary-400"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-
-            <nav className="flex flex-wrap items-center gap-3 border-t border-white/5 pt-6 text-sm text-slate-300">
-              <Link
-                href="/contacts"
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 font-semibold transition hover:border-primary-400/40 hover:text-white"
-              >
-                ← Back to contacts
-              </Link>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary-400/40 bg-primary-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-primary-100">
-                {currentCompany.companyName}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                HQ · {currentCompany.headquarters}
-              </span>
-              {userEmail && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                  {userEmail}
-                </span>
-            )}
-          </nav>
-        </header>
-
-        <TopNavigation />
+        <div className="border-b border-slate-800 bg-slate-900/60">
+          <PageHeader
+            category="Contacts hub"
+            title="Reach every team instantly"
+            showEntitySelector={true}
+            entityLabel="Entity"
+            selectedEntityId={companyId}
+            onEntityChange={setCompanyId}
+          />
+          <TopNavigation />
+        </div>
 
         <main className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:px-10">
+            <div className="lg:col-span-2">
+              <nav className="flex flex-wrap gap-3">
+                <Link
+                  href="/contacts"
+                  className="rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-400/40 hover:text-white"
+                >
+                  Extensions
+                </Link>
+                <span className="rounded-full bg-primary-500/90 px-5 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40">
+                  Location Search
+                </span>
+              </nav>
+            </div>
             <section className="space-y-6">
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
                 <form className="flex flex-col gap-4 lg:flex-row lg:items-end">

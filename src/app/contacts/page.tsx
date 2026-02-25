@@ -53,7 +53,7 @@ export default function ContactsPage() {
   const [, setUserName] = useState<string>('');
   const [, setCanModify] = useState<boolean>(true); // Permission to modify contacts
   const [selectedEntityId, setSelectedEntityId] = useState<string>('complete-dental-solutions');
-  const [activeSection, setActiveSection] = useState<ContactSectionId>('extensions');
+  const activeSection: ContactSectionId = 'extensions';
   const [formEntityId, setFormEntityId] = useState<string>('');
   const [formGroupId, setFormGroupId] = useState<GroupKey>('corporate');
   const [activeSelection, setActiveSelection] = useState<{ entityId: string; group: GroupKey }>(() => ({
@@ -205,27 +205,6 @@ export default function ContactsPage() {
 
   const isExtensionsSection = activeSection === 'extensions';
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="text-center">
-          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
-          <p className="text-slate-400">Loading contacts...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-8 text-center">
-          <p className="text-red-400">Error loading contacts: {error.message}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary-500/10 via-slate-950 to-slate-950" />
@@ -247,39 +226,32 @@ export default function ContactsPage() {
         </div>
 
         <main className="mx-auto max-w-7xl px-6 py-10">
-          <nav className="mb-8 flex flex-wrap gap-3">
-            {contactSections.map((section) => {
-              const isLocationsLink = section.id === 'locations-search';
-              const isActive = !isLocationsLink && activeSection === section.id;
-
-              if (isLocationsLink) {
-                return (
-                  <Link
-                    key={section.id}
-                    href="/contacts/locations-search"
-                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-400/40 hover:text-white"
-                  >
-                    {section.label}
-                  </Link>
-                );
-              }
-
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setActiveSection(section.id)}
-                  className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                    isActive
-                      ? 'bg-primary-500/90 text-slate-900 shadow-lg shadow-primary-900/40'
-                      : 'border border-white/10 bg-white/5 text-slate-300 hover:border-primary-400/40 hover:text-white'
-                  }`}
+          {loading ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="text-center">
+                <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+                <p className="text-slate-400">Loading contacts...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-8 text-center">
+                <p className="text-red-400">Error loading contacts: {error.message}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <nav className="mb-8 flex flex-wrap gap-3">
+                <span className="rounded-full bg-primary-500/90 px-5 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-primary-900/40">
+                  Extensions
+                </span>
+                <Link
+                  href="/contacts/locations-search"
+                  className="rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-primary-400/40 hover:text-white"
                 >
-                  {section.label}
-                </button>
-              );
-            })}
-          </nav>
+                  Location Search
+                </Link>
+              </nav>
             {isExtensionsSection ? (
               <div className="space-y-10">
                 <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
@@ -422,9 +394,9 @@ export default function ContactsPage() {
                 </div>
               </section>
             )}
+            </>
+          )}
           </main>
-
-          <TopNavigation />
         </div>
 
       {/* Edit Modal */}
